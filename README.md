@@ -37,9 +37,10 @@ docs/             # database.md, readiness.md, alerts.md
    (или выполните файлы `supabase/migrations/*.sql` по порядку в SQL Editor).
 4. Опционально: `supabase/seed.sql` для демо-группы.
 5. Скопируйте `.env.example` → `.env.local` и заполните:
-   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-     (Project Settings → API)
-   - `SUPABASE_SERVICE_ROLE_KEY` — только сервер, никогда не в клиенте
+   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+     (Project Settings → API; также принимается legacy `..._ANON_KEY`)
+   - `SUPABASE_SECRET_KEY` — только сервер, никогда не в клиенте
+     (legacy `SUPABASE_SERVICE_ROLE_KEY` тоже поддерживается)
    - `CRON_SECRET` — для `/api/cron/reminders`
 6. Создайте первого администратора: в Supabase Dashboard → Authentication →
    Users → Add user, затем в SQL Editor:
@@ -108,8 +109,8 @@ HTML-отчёт для печати в PDF.
   предупреждений, дедупликация, валидация, диапазоны дат.
 - RLS-интеграция (требует живой проект):
   ```bash
-  RUN_RLS_TESTS=1 SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
-    SUPABASE_ANON_KEY=... npx vitest run tests/rls.integration.test.ts
+  RUN_RLS_TESTS=1 SUPABASE_URL=... SUPABASE_SECRET_KEY=... \
+    SUPABASE_PUBLISHABLE_KEY=... npx vitest run tests/rls.integration.test.ts
   ```
 
 ## Известные ограничения

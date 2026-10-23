@@ -1,19 +1,25 @@
 /**
  * RLS integration tests. Run against a real Supabase project:
  *   RUN_RLS_TESTS=1 \
- *   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... SUPABASE_ANON_KEY=... \
+ *   SUPABASE_URL=... SUPABASE_SECRET_KEY=... SUPABASE_ANON_KEY=... \
  *   npx vitest run tests/rls.integration.test.ts
  *
  * The test creates two athletes + two coaches, proves isolation, then cleans up.
- * Requires SUPABASE_SERVICE_ROLE_KEY (used ONLY to provision test fixtures).
+ * Requires SUPABASE_SECRET_KEY (used ONLY to provision test fixtures).
  */
 import { describe, expect, it, beforeAll, afterAll } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const RUN = process.env.RUN_RLS_TESTS === "1";
 const URL = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
-const ANON = process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+const SERVICE =
+  process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+const ANON =
+  process.env.SUPABASE_ANON_KEY ??
+  process.env.SUPABASE_PUBLISHABLE_KEY ??
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+  "";
 
 const run = RUN && URL && SERVICE && ANON ? describe : describe.skip;
 

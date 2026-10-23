@@ -12,8 +12,8 @@ npm run build       # needs NEXT_PUBLIC_SUPABASE_* env (placeholders OK)
 RLS integration tests need a real project:
 
 ```bash
-RUN_RLS_TESTS=1 SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
-  SUPABASE_ANON_KEY=... npx vitest run tests/rls.integration.test.ts
+RUN_RLS_TESTS=1 SUPABASE_URL=... SUPABASE_SECRET_KEY=... \
+  SUPABASE_PUBLISHABLE_KEY=... npx vitest run tests/rls.integration.test.ts
 ```
 
 ## Conventions
