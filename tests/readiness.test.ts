@@ -6,10 +6,15 @@ import {
   confidenceFor,
   buildSnapshot,
   dailyReadiness,
+  dailyConditionSeries,
+  postsByLocalDate,
+  postWellnessScore,
+  conditionScore,
+  MORNING_WEIGHT,
   bandForScore,
   MIN_BASELINE_OBSERVATIONS,
 } from "@/lib/readiness";
-import type { MorningCheckin } from "@/lib/types";
+import type { MorningCheckin, PostTrainingCheckin } from "@/lib/types";
 
 const mkCheckin = (over: Partial<MorningCheckin> = {}): MorningCheckin => ({
   id: "c1",
@@ -117,5 +122,69 @@ describe("dailyReadiness / bandForScore", () => {
     expect(bandForScore(75)).toBe("good");
     expect(bandForScore(50)).toBe("moderate");
     expect(bandForScore(20)).toBe("low");
+  });
+});
+
+const mkPost = (
+  over: Partial<Pick<PostTrainingCheckin, "overall_feeling" | "leg_fatigue" | "arm_shoulder_fatigue" | "submitted_at">> = {},
+): Pick<PostTrainingCheckin, "overall_feeling" | "leg_fatigue" | "arm_shoulder_fatigue" | "submitted_at"> => ({
+  submitted_at: "2026-10-20T19:00:00Z",
+  overall_feeling: 4,
+  leg_fatigue: 2,
+  arm_shoulder_fatigue: 2,
+  ...over,
+});
+
+describe("postWellnessScore", () => {
+  it("returns 100 for a perfect evening check-in and 0 for the worst", () => {
+    expect(postWellnessScore(mkPost({ overall_feeling: 5, leg_fatigue: 1, arm_shoulder_fatigue: 1 }))).toBe(100);
+    expect(postWellnessScore(mkPost({ overall_feeling: 1, leg_fatigue: 5, arm_shoulder_fatigue: 5 }))).toBe(0);
+  });
+
+  it("maps neutral answers to 50", () => {
+    expect(postWellnessScore(mkPost({ overall_feeling: 3, leg_fatigue: 3, arm_shoulder_fatigue: 3 }))).toBe(50);
+  });
+});
+
+describe("conditionScore", () => {
+  it("equals the morning score when no post check-in exists", () => {
+    const c = mkCheckin();
+    expect(conditionScore(c, null)).toBe(conditionScore(c));
+  });
+
+  it("blends 70/30 morning/evening", () => {
+    const morning = mkCheckin({
+      sleep_score: 5, recovery_score: 5, fatigue_score: 1,
+      muscle_soreness_score: 1, stress_score: 1, mood_score: 5,
+    }); // morning = 100
+    const post = mkPost({ overall_feeling: 1, leg_fatigue: 5, arm_shoulder_fatigue: 5 }); // evening = 0
+    expect(conditionScore(morning, post)).toBe(100 * MORNING_WEIGHT);
+  });
+});
+
+describe("dailyConditionSeries", () => {
+  it("blends only the days that have a post check-in", () => {
+    const series = dailyConditionSeries(
+      [mkCheckin({ checkin_date: "2026-10-20" }), mkCheckin({ checkin_date: "2026-10-21" })],
+      [{ date: "2026-10-20", post: mkPost() }],
+    );
+    expect(series).toHaveLength(2);
+    expect(series[0].score).not.toBe(series[1].score);
+    expect(series[1].score).toBe(conditionScore(mkCheckin({ checkin_date: "2026-10-21" })));
+  });
+});
+
+describe("postsByLocalDate", () => {
+  it("buckets by local date and keeps the latest submission per day", () => {
+    const entries = postsByLocalDate(
+      [
+        mkPost({ submitted_at: "2026-10-20T08:00:00Z", overall_feeling: 1 }),
+        mkPost({ submitted_at: "2026-10-20T10:00:00Z", overall_feeling: 5 }),
+        mkPost({ submitted_at: "2026-10-21T08:00:00Z" }),
+      ],
+      "Europe/Chisinau",
+    );
+    expect(entries).toHaveLength(2);
+    expect(entries.find((e) => e.date === "2026-10-20")!.post.overall_feeling).toBe(5);
   });
 });

@@ -28,6 +28,22 @@ sleep 0.20 · recovery 0.25 · fatigue 0.20 · soreness 0.15 · stress 0.10 · m
 в `morning_checkins`; производные — в `readiness_snapshots` (по одному снимку
 на день, upsert по `(athlete_id, snapshot_date)`).
 
+## Вечерняя анкета (состояние дня)
+
+Если за тот же локальный день спортсмена есть post-training анкета, дневной
+балл смешивается с вечерним самочувствием:
+
+```
+condition = 0.7 × morning_readiness + 0.3 × post_wellness
+post_wellness = mean( overall_feeling , inv(leg_fatigue) , inv(arm_shoulder_fatigue) ) × 100
+```
+
+Без вечерней анкеты балл дня = только утренней анкете. Если вечерних анкет за
+день несколько, берётся последняя по `submitted_at`. Композит применяется
+везде: дашборд тренера, аналитика, графики у спортсмена, снапшоты и оценка
+алертов — функции `conditionScore` / `dailyConditionSeries` /
+`postsByLocalDate` в `src/lib/readiness.ts`.
+
 ## Базовая норма (baseline)
 
 - Берутся дневные баллы первых ≤14 дней, в которых есть данные.

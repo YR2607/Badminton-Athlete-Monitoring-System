@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { addDays, dateRange, localDate, resolveRange, todayInTz, type RangeKey } from "@/lib/dates";
-import { dailyReadiness } from "@/lib/readiness";
+import { dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
 import { coachAthleteIds } from "@/lib/coach-data";
 import { AthleteSwitcher, type NavAthlete } from "./athlete-switcher";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -87,7 +87,7 @@ export default async function AthleteDetailPage({
     await Promise.all([
       supabase.from("morning_checkins").select("*").eq("athlete_id", a.id).gte("checkin_date", addDays(range.from, -30)).order("checkin_date"),
       supabase.from("training_sessions").select("*").eq("athlete_id", a.id).gte("started_at", `${addDays(range.from, -14)}T00:00:00Z`).order("started_at"),
-      supabase.from("post_training_checkins").select("*").eq("athlete_id", a.id).gte("submitted_at", `${addDays(range.from, -14)}T00:00:00Z`),
+      supabase.from("post_training_checkins").select("*").eq("athlete_id", a.id).gte("submitted_at", `${addDays(range.from, -30)}T00:00:00Z`),
       supabase.from("readiness_snapshots").select("*").eq("athlete_id", a.id).order("snapshot_date", { ascending: false }).limit(1),
       supabase.from("alerts").select("*").eq("athlete_id", a.id).order("triggered_at", { ascending: false }).limit(50),
       supabase.from("coach_notes").select("*").eq("athlete_id", a.id).order("created_at", { ascending: false }).limit(50),
@@ -104,7 +104,15 @@ export default async function AthleteDetailPage({
   const ssInRange = ss.filter((s) => localDate(new Date(s.started_at), tz) >= range.from);
 
   const latestSnap = (snapshots as ReadinessSnapshot[] | null)?.[0] ?? null;
-  const series = dailyReadiness(ck.filter((c) => c.checkin_date <= range.to));
+  const series = dailyConditionSeries(
+    ck.filter((c) => c.checkin_date <= range.to),
+    postsByLocalDate(
+      ((postCheckins as PostTrainingCheckin[]) ?? []).filter(
+        (p) => localDate(new Date(p.submitted_at), tz) <= range.to,
+      ),
+      tz,
+    ),
+  );
   const inRangeSeries = series.filter((p) => p.date >= range.from);
 
   const wellbeing = inRange.map((c) => ({

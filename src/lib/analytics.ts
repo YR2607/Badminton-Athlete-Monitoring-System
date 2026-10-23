@@ -1,5 +1,5 @@
-import type { Alert, MorningCheckin, TrainingSession } from "@/lib/types";
-import { dailyReadiness } from "@/lib/readiness";
+import type { Alert, MorningCheckin, PostTrainingCheckin, TrainingSession } from "@/lib/types";
+import { dailyConditionSeries } from "@/lib/readiness";
 
 /**
  * Period analytics: check-in completion and aggregated wellbeing/load stats.
@@ -53,6 +53,7 @@ export function athleteStats(
   checkins: MorningCheckin[],
   sessions: TrainingSession[],
   alerts: Alert[],
+  posts: { date: string; post: Pick<PostTrainingCheckin, "overall_feeling" | "leg_fatigue" | "arm_shoulder_fatigue"> }[] = [],
 ): AthletePeriodStats {
   const byDate = new Map(checkins.map((c) => [c.checkin_date, c]));
   const cells: DayCell[] = days.map((date) => {
@@ -60,7 +61,7 @@ export function athleteStats(
     return { date, filled: !!c, hasPain: c ? c.pain_status !== "none" : false };
   });
 
-  const scores = dailyReadiness(checkins);
+  const scores = dailyConditionSeries(checkins, posts);
 
   return {
     athleteId,

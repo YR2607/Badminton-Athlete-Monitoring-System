@@ -2,11 +2,11 @@ import { getCurrentAthlete, getCurrentProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getDictionary } from "@/i18n";
 import { addDays, localDate, todayInTz } from "@/lib/dates";
-import { dailyReadiness } from "@/lib/readiness";
+import { dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart, LoadBarChart } from "@/components/charts/series-chart";
-import type { MorningCheckin, TrainingSession } from "@/lib/types";
+import type { MorningCheckin, PostTrainingCheckin, TrainingSession } from "@/lib/types";
 
 function avg(nums: number[]): number | null {
   if (nums.length === 0) return null;
@@ -39,7 +39,7 @@ export default async function HistoryPage({
   const days = [7, 14, 30, 90].includes(Number(sp.days)) ? Number(sp.days) : 30;
   const from = addDays(today, -(days - 1));
 
-  const [{ data: checkins }, { data: sessions }] = await Promise.all([
+  const [{ data: checkins }, { data: sessions }, { data: postCheckins }] = await Promise.all([
     supabase
       .from("morning_checkins")
       .select("*")
@@ -52,6 +52,11 @@ export default async function HistoryPage({
       .eq("athlete_id", athlete.id)
       .gte("started_at", `${from}T00:00:00Z`)
       .order("started_at", { ascending: true }),
+    supabase
+      .from("post_training_checkins")
+      .select("*")
+      .eq("athlete_id", athlete.id)
+      .gte("submitted_at", `${from}T00:00:00Z`),
   ]);
 
   const ck = (checkins as MorningCheckin[]) ?? [];
@@ -70,7 +75,10 @@ export default async function HistoryPage({
     </tr>
   );
 
-  const readinessSeries = dailyReadiness(ck);
+  const readinessSeries = dailyConditionSeries(
+    ck,
+    postsByLocalDate((postCheckins as PostTrainingCheckin[]) ?? [], tz),
+  );
   const wellbeingSeries = ck.map((c) => ({
     date: c.checkin_date,
     sleep: c.sleep_score,

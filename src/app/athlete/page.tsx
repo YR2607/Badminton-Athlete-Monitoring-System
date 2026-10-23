@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentAthlete, getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { addDays, localDate, todayInTz } from "@/lib/dates";
-import { dailyReadiness, bandForScore } from "@/lib/readiness";
+import { dailyConditionSeries, postsByLocalDate, bandForScore } from "@/lib/readiness";
 import { bandAdviceKey } from "@/lib/alerts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,7 @@ export default async function AthleteHome() {
     await Promise.all([
       supabase.from("morning_checkins").select("*").eq("athlete_id", athlete.id).eq("checkin_date", today).maybeSingle(),
       supabase.from("training_sessions").select("*").eq("athlete_id", athlete.id).gte("started_at", `${addDays(today, -2)}T00:00:00Z`),
-      supabase.from("post_training_checkins").select("*").eq("athlete_id", athlete.id).gte("submitted_at", `${addDays(today, -2)}T00:00:00Z`),
+      supabase.from("post_training_checkins").select("*").eq("athlete_id", athlete.id).gte("submitted_at", `${since30}T00:00:00Z`),
       supabase.from("readiness_snapshots").select("*").eq("athlete_id", athlete.id).eq("snapshot_date", today).maybeSingle(),
       supabase.from("morning_checkins").select("*").eq("athlete_id", athlete.id).gte("checkin_date", since30).order("checkin_date", { ascending: false }),
     ]);
@@ -52,7 +52,10 @@ export default async function AthleteHome() {
           ? d.readinessModerate
           : d.readinessLow;
 
-  const series = dailyReadiness((recent as MorningCheckin[]) ?? []);
+  const series = dailyConditionSeries(
+    (recent as MorningCheckin[]) ?? [],
+    postsByLocalDate((postToday as PostTrainingCheckin[]) ?? [], tz),
+  );
   const chart7 = series.filter((p) => p.date >= addDays(today, -6));
   const chart30 = series;
 

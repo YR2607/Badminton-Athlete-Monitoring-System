@@ -4,7 +4,8 @@ import { requireRole } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { addDays, dateRange, resolveRange, type RangeKey } from "@/lib/dates";
 import { athleteStats, periodSummary, delta, type AthletePeriodStats } from "@/lib/analytics";
-import type { Athlete, Alert, Group, MorningCheckin, Profile, TrainingSession } from "@/lib/types";
+import { postsByLocalDate } from "@/lib/readiness";
+import type { Athlete, Alert, Group, MorningCheckin, PostTrainingCheckin, Profile, TrainingSession } from "@/lib/types";
 import { AnalyticsFilters, type AthleteOption } from "./filters";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -63,7 +64,7 @@ export default async function AnalyticsPage({
   }
   const ids = scoped.map((a) => a.id);
 
-  const [{ data: checkins }, { data: sessions }, { data: alerts }] = ids.length
+  const [{ data: checkins }, { data: sessions }, { data: posts }, { data: alerts }] = ids.length
     ? await Promise.all([
         supabase
           .from("morning_checkins")
@@ -78,13 +79,19 @@ export default async function AnalyticsPage({
           .gte("started_at", `${prevFrom}T00:00:00Z`)
           .lte("started_at", `${range.to}T23:59:59Z`),
         supabase
+          .from("post_training_checkins")
+          .select("*")
+          .in("athlete_id", ids)
+          .gte("submitted_at", `${prevFrom}T00:00:00Z`)
+          .lte("submitted_at", `${range.to}T23:59:59Z`),
+        supabase
           .from("alerts")
           .select("*")
           .in("athlete_id", ids)
           .gte("triggered_at", `${prevFrom}T00:00:00Z`)
           .lte("triggered_at", `${range.to}T23:59:59Z`),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
 
   const inRange = (date: string) => date >= range.from && date <= range.to;
   const inPrev = (date: string) => date >= prevFrom && date <= addDays(range.from, -1);
@@ -93,6 +100,15 @@ export default async function AnalyticsPage({
   const sessionsAll = (sessions as TrainingSession[]) ?? [];
   const alertsAll = (alerts as Alert[]) ?? [];
 
+  // Post-training check-ins bucketed to local days; the stats join only uses
+  // days that have a morning check-in, so no extra window filter is needed.
+  const postsAll = (posts as PostTrainingCheckin[]) ?? [];
+  const postsOf = (athleteId: string) =>
+    postsByLocalDate(
+      postsAll.filter((p) => p.athlete_id === athleteId),
+      tz,
+    );
+
   const stats: AthletePeriodStats[] = scoped.map((a) =>
     athleteStats(
       a.id,
@@ -100,6 +116,7 @@ export default async function AnalyticsPage({
       checkinsAll.filter((c) => c.athlete_id === a.id && inRange(c.checkin_date)),
       sessionsAll.filter((s) => s.athlete_id === a.id && inRange(s.started_at.slice(0, 10))),
       alertsAll.filter((al) => al.athlete_id === a.id && inRange(al.triggered_at.slice(0, 10))),
+      postsOf(a.id),
     ),
   );
   const prevStats = scoped.map((a) =>
@@ -109,6 +126,7 @@ export default async function AnalyticsPage({
       checkinsAll.filter((c) => c.athlete_id === a.id && inPrev(c.checkin_date)),
       sessionsAll.filter((s) => s.athlete_id === a.id && inPrev(s.started_at.slice(0, 10))),
       [],
+      postsOf(a.id),
     ),
   );
 

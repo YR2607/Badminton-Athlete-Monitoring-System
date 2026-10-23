@@ -1,11 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { todayInTz, addDays } from "@/lib/dates";
-import { dailyReadiness, normalizeCheckin, readinessScore } from "@/lib/readiness";
+import { conditionScore, dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
 import type {
   Alert,
   Athlete,
   Group,
   MorningCheckin,
+  PostTrainingCheckin,
   Profile,
   TrainingSession,
 } from "@/lib/types";
@@ -82,6 +83,7 @@ export async function coachDashboard(
     { data: groups },
     { data: checkins },
     { data: sessions },
+    { data: posts },
     { data: alerts },
   ] = await Promise.all([
     supabase.from("athletes").select("*").in("id", ids),
@@ -89,6 +91,7 @@ export async function coachDashboard(
     supabase.from("groups").select("*"),
     supabase.from("morning_checkins").select("*").in("athlete_id", ids).gte("checkin_date", since14),
     supabase.from("training_sessions").select("*").in("athlete_id", ids).gte("started_at", `${since14}T00:00:00Z`),
+    supabase.from("post_training_checkins").select("*").in("athlete_id", ids).gte("submitted_at", `${since14}T00:00:00Z`),
     supabase.from("alerts").select("*").in("athlete_id", ids).eq("status", "open"),
   ]);
 
@@ -111,6 +114,14 @@ export async function coachDashboard(
     list.push(c);
     checkinsByAthlete.set(c.athlete_id, list);
   }
+  const postsByAthlete = new Map<string, PostTrainingCheckin[]>();
+  for (const p of ((posts as PostTrainingCheckin[] | null) ?? [])
+    .slice()
+    .sort((a, b) => a.submitted_at.localeCompare(b.submitted_at))) {
+    const list = postsByAthlete.get(p.athlete_id) ?? [];
+    list.push(p);
+    postsByAthlete.set(p.athlete_id, list);
+  }
   const lastSession = new Map<string, TrainingSession>();
   for (const s of (sessions as TrainingSession[] | null) ?? []) {
     const cur = lastSession.get(s.athlete_id);
@@ -130,7 +141,11 @@ export async function coachDashboard(
     );
     const todayC = list.find((c) => c.checkin_date === today) ?? null;
     const lastC = list[list.length - 1] ?? null;
-    const series = dailyReadiness(list);
+    // Post-training answers dated in the athlete's own timezone; latest wins.
+    const athleteTz = profById.get(a.profile_id)?.timezone ?? tz;
+    const postEntries = postsByLocalDate(postsByAthlete.get(a.id) ?? [], athleteTz);
+    const postByDate = new Map(postEntries.map((e) => [e.date, e.post]));
+    const series = dailyConditionSeries(list, postEntries);
     const todayScore = series.find((s) => s.date === today)?.score ?? null;
     const prevScores = series.filter((s) => s.date < today).map((s) => s.score);
     const baselineAvg =
@@ -146,7 +161,7 @@ export async function coachDashboard(
       age: a.birth_year ? year - a.birth_year : null,
       todayCheckin: todayC,
       lastCheckinDate: lastC?.checkin_date ?? null,
-      readiness: todayScore ?? (lastC ? readinessScore(normalizeCheckin(lastC)) : null),
+      readiness: todayScore ?? (lastC ? conditionScore(lastC, postByDate.get(lastC.checkin_date)) : null),
       readinessDelta:
         todayScore !== null && baselineAvg !== null
           ? Math.round((todayScore - baselineAvg) * 10) / 10

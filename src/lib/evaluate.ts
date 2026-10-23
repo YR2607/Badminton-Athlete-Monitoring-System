@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildSnapshot, dailyReadiness, computeBaseline } from "@/lib/readiness";
+import { buildSnapshot, dailyConditionSeries, computeBaseline, postsByLocalDate } from "@/lib/readiness";
 import { evaluateAlerts } from "@/lib/alerts";
 import { addDays, localDate, localDayUtcBounds } from "@/lib/dates";
 import type { AlertRule, MorningCheckin, PostTrainingCheckin, TrainingSession } from "@/lib/types";
@@ -47,15 +47,22 @@ export async function evaluateAthleteDay(
   const todayCheckin =
     (checkins as MorningCheckin[] | null)?.find((c) => c.checkin_date === date) ?? null;
 
+  // Post-training check-ins bucketed to athlete-local days; latest wins.
+  const postsAll = ((post as PostTrainingCheckin[]) ?? []).filter(
+    (p) => localDate(new Date(p.submitted_at), timezone) >= from,
+  );
+  const postEntries = postsByLocalDate(postsAll, timezone);
+  const postByDate = new Map(postEntries.map((e) => [e.date, e.post]));
+
   // Baseline: earliest window of daily scores (first 14 days with data).
-  const series = dailyReadiness((checkins as MorningCheckin[]) ?? []);
+  const series = dailyConditionSeries((checkins as MorningCheckin[]) ?? [], postEntries);
   const history = series.filter((d) => d.date < date).map((d) => d.score);
   const baseline = computeBaseline(
     series.slice(0, 14).map((d) => d.score),
   );
 
   if (todayCheckin) {
-    const snap = buildSnapshot(todayCheckin, history);
+    const snap = buildSnapshot(todayCheckin, history, 1, postByDate.get(date));
     await admin.from("readiness_snapshots").upsert(
       {
         athlete_id: athleteId,
@@ -80,9 +87,7 @@ export async function evaluateAthleteDay(
     sessions: ((sessions as TrainingSession[]) ?? []).filter(
       (s) => localDate(new Date(s.started_at), timezone) >= from,
     ),
-    postCheckins: ((post as PostTrainingCheckin[]) ?? []).filter(
-      (p) => localDate(new Date(p.submitted_at), timezone) >= from,
-    ),
+    postCheckins: postsAll,
     rules: (rules as AlertRule[]) ?? [],
   });
 

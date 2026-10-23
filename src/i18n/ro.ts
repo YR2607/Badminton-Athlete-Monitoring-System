@@ -38,7 +38,7 @@ const ro: Dictionary = {
     details: "Detalii",
     period: "Perioadă",
     loadHint: "Încărcătura = suma RPE × minute pe toate antrenamentele din perioadă",
-    readinessHint: "Pregătirea 0–100 din chestionarul de dimineață: somn, oboseală, stres, dispoziție, durere",
+    readinessHint: "Pregătirea 0–100: 70% chestionar de dimineață (somn, oboseală, stres, dispoziție) + 30% post-antrenament (stare, oboseală picioare/brațe)",
   },
   auth: {
     signIn: "Autentificare",

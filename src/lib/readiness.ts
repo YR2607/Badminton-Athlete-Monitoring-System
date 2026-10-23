@@ -1,7 +1,9 @@
+import { localDate } from "@/lib/dates";
 import type {
   ConfidenceLevel,
   MorningCheckin,
   NormalizedScores,
+  PostTrainingCheckin,
 } from "@/lib/types";
 
 /**
@@ -127,9 +129,10 @@ export function buildSnapshot(
   checkin: Parameters<typeof normalizeCheckin>[0],
   history: number[],
   baselineVersion = 1,
+  post?: Parameters<typeof postWellnessScore>[0] | null,
 ): SnapshotBuild {
   const normalized = normalizeCheckin(checkin);
-  const score = readinessScore(normalized);
+  const score = conditionScore(checkin, post);
   const baseline = computeBaseline(history, baselineVersion);
 
   const flags: string[] = [];
@@ -167,4 +170,61 @@ export function dailyReadiness(checkins: MorningCheckin[]): { date: string; scor
     .slice()
     .sort((a, b) => a.checkin_date.localeCompare(b.checkin_date))
     .map((c) => ({ date: c.checkin_date, score: readinessScore(normalizeCheckin(c)) }));
+}
+
+/**
+ * Post-training wellness (0..100): the evening check-in's three answers —
+ * overall feeling plus inverted leg and arm/shoulder fatigue, equal weight.
+ */
+export function postWellnessScore(
+  p: Pick<PostTrainingCheckin, "overall_feeling" | "leg_fatigue" | "arm_shoulder_fatigue">,
+): number {
+  const s = (norm(p.overall_feeling) + inv(p.leg_fatigue) + inv(p.arm_shoulder_fatigue)) / 3;
+  return Math.round(s * 10000) / 100;
+}
+
+/**
+ * Daily condition blends the morning check-in (richer signal) with the
+ * post-training check-in when one exists for the same athlete-local day:
+ * 70% morning + 30% evening. Without an evening check-in it is the morning
+ * score unchanged.
+ */
+export const MORNING_WEIGHT = 0.7;
+
+export function conditionScore(
+  checkin: Parameters<typeof normalizeCheckin>[0],
+  post?: Parameters<typeof postWellnessScore>[0] | null,
+): number {
+  const morning = readinessScore(normalizeCheckin(checkin));
+  if (!post) return morning;
+  const blended = morning * MORNING_WEIGHT + postWellnessScore(post) * (1 - MORNING_WEIGHT);
+  return Math.round(blended * 100) / 100;
+}
+
+/** Bucket post-training check-ins by local date; latest submission per day wins. */
+export function postsByLocalDate<T extends { submitted_at: string }>(
+  posts: T[],
+  tz: string,
+): { date: string; post: T }[] {
+  const byDate = new Map<string, T>();
+  for (const p of [...posts].sort((a, b) => a.submitted_at.localeCompare(b.submitted_at))) {
+    byDate.set(localDate(new Date(p.submitted_at), tz), p);
+  }
+  return [...byDate].map(([date, post]) => ({ date, post }));
+}
+
+/**
+ * Daily condition series: like dailyReadiness but each day also folds in the
+ * post-training check-in dated to the same local day. `posts` maps a local
+ * date to that day's check-in (latest wins if there are several).
+ */
+export function dailyConditionSeries(
+  checkins: MorningCheckin[],
+  posts: { date: string; post: Parameters<typeof postWellnessScore>[0] }[],
+): { date: string; score: number }[] {
+  const postByDate = new Map(posts.map((p) => [p.date, p.post]));
+  return checkins
+    .slice()
+    .sort((a, b) => a.checkin_date.localeCompare(b.checkin_date))
+    .map((c) => ({ date: c.checkin_date, score: conditionScore(c, postByDate.get(c.checkin_date)) }));
 }

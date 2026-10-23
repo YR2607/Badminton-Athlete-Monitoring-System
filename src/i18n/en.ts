@@ -38,7 +38,7 @@ const en: Dictionary = {
     details: "Details",
     period: "Period",
     loadHint: "Load = sum of RPE × minutes across all sessions in the period",
-    readinessHint: "Readiness 0–100 from the morning check-in: sleep, fatigue, stress, mood, pain",
+    readinessHint: "Readiness 0–100: 70% morning check-in (sleep, fatigue, stress, mood) + 30% post-training (feeling, leg/arm fatigue)",
   },
   auth: {
     signIn: "Sign in",
