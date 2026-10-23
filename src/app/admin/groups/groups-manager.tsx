@@ -7,15 +7,13 @@ import type { Dictionary } from "@/i18n";
 import {
   createGroup,
   addAthleteToGroup,
-  assignCoach,
-  removeCoachAssignment,
   upsertSchedule,
   deleteSchedule,
 } from "@/app/actions/admin";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
-import type { CoachAssignment, Group, GroupMembership, TrainingSchedule } from "@/lib/types";
+import type { Group, GroupMembership, TrainingSchedule } from "@/lib/types";
 
 interface Opt {
   id: string;
@@ -27,16 +25,12 @@ export function GroupsManager({
   groups,
   memberships,
   athletes,
-  coaches,
-  assignments,
   schedules,
 }: {
   dict: Dictionary;
   groups: Group[];
   memberships: GroupMembership[];
   athletes: Opt[];
-  coaches: Opt[];
-  assignments: CoachAssignment[];
   schedules: TrainingSchedule[];
 }) {
   const d = dict.admin;
@@ -44,8 +38,6 @@ export function GroupsManager({
   const [name, setName] = useState("");
   const [athleteId, setAthleteId] = useState("");
   const [groupId, setGroupId] = useState("");
-  const [coachId, setCoachId] = useState("");
-  const [coachGroup, setCoachGroup] = useState("");
   const [schedGroup, setSchedGroup] = useState("");
   const [weekday, setWeekday] = useState("1");
   const [startTime, setStartTime] = useState("16:00");
@@ -64,7 +56,6 @@ export function GroupsManager({
   };
 
   const athleteLabel = (id: string) => athletes.find((a) => a.id === id)?.label ?? id;
-  const coachLabel = (id: string) => coaches.find((c) => c.id === id)?.label ?? id;
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
@@ -118,49 +109,6 @@ export function GroupsManager({
           <Button disabled={busy || !athleteId || !groupId} onClick={() => run(() => addAthleteToGroup(athleteId, groupId))}>
             {dict.common.save}
           </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{d.assignCoach}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Select value={coachId} onChange={(e) => setCoachId(e.target.value)}>
-            <option value="">{dict.common.coach}…</option>
-            {coaches.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </Select>
-          <Select value={coachGroup} onChange={(e) => setCoachGroup(e.target.value)}>
-            <option value="">{dict.common.group}…</option>
-            {groups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </Select>
-          <Button
-            disabled={busy || !coachId || !coachGroup}
-            onClick={() => run(() => assignCoach(coachId, { group_id: coachGroup }))}
-          >
-            {dict.common.save}
-          </Button>
-          <ul className="divide-y divide-border text-sm">
-            {assignments.map((a) => (
-              <li key={a.id} className="flex items-center justify-between py-2">
-                <span>
-                  {coachLabel(a.coach_profile_id)} →{" "}
-                  {a.group_id ? groups.find((g) => g.id === a.group_id)?.name : athleteLabel(a.athlete_id!)}
-                </span>
-                <Button size="sm" variant="ghost" onClick={() => run(() => removeCoachAssignment(a.id))}>
-                  {dict.common.delete}
-                </Button>
-              </li>
-            ))}
-          </ul>
         </CardContent>
       </Card>
 

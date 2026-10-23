@@ -18,7 +18,7 @@ export default async function CoachDashboard({
   const d = dict.coach;
   const supabase = await createClient();
   void (await searchParams);
-  const { rows, groups } = await coachDashboard(supabase, profile.id, profile.timezone, profile.role);
+  const { rows, groups } = await coachDashboard(supabase, profile.timezone);
 
   const filled = rows.filter((r) => r.todayCheckin).length;
   const openAlerts = rows.flatMap((r) => r.openAlerts);

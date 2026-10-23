@@ -47,14 +47,6 @@ export interface GroupMembership {
   left_at: string | null;
 }
 
-export interface CoachAssignment {
-  id: string;
-  coach_profile_id: string;
-  group_id: string | null;
-  athlete_id: string | null;
-  created_at: string;
-}
-
 export interface TrainingSchedule {
   id: string;
   group_id: string;

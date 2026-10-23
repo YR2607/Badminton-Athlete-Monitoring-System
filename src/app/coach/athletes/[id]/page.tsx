@@ -6,7 +6,7 @@ import { getDictionary } from "@/i18n";
 import { addDays, dateRange, localDate, resolveRange, todayInTz, type RangeKey } from "@/lib/dates";
 import { conditionScore, dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
 import { pendingPostCheckins } from "@/lib/athlete-status";
-import { coachAthleteIds } from "@/lib/coach-data";
+import { allAthleteIds } from "@/lib/coach-data";
 import { AthleteSwitcher, type NavAthlete } from "./athlete-switcher";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +67,7 @@ export default async function AthleteDetailPage({
   const range = resolveRange((sp.range as RangeKey) || "30d", tz, { from: sp.from, to: sp.to });
 
   // Athletes the viewer can jump between in the profile switcher.
-  const navIds = me.role === "coach" ? await coachAthleteIds(supabase, me.id) : null;
+  const navIds = me.role === "coach" ? await allAthleteIds(supabase) : null;
   let navQuery = supabase.from("athletes").select("id, athlete_code, profile_id");
   if (navIds) navQuery = navQuery.in("id", navIds.length ? navIds : ["00000000-0000-0000-0000-000000000000"]);
   const { data: navRows } = await navQuery;

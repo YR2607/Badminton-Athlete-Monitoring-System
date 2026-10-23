@@ -9,7 +9,7 @@ export default async function ExportPage() {
   const profile = (await getCurrentProfile())!;
   const dict = getDictionary(profile.preferred_language);
   const supabase = await createClient();
-  const ids = await scopedAthleteIds(supabase, profile);
+  const ids = await scopedAthleteIds(supabase);
 
   const [{ data: athletes }, { data: memberships }, { data: groups }] = ids.length
     ? await Promise.all([

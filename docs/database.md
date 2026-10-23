@@ -12,10 +12,8 @@ PostgreSQL (Supabase). Миграции: `supabase/migrations/0001..0003`.
   (минимизация данных — только год), status (active|inactive|archived).
 - **groups / group_memberships** — составы; left_at NULL = активный член
   (partial unique index на активную запись).
-- **coach_assignments** — coach→group ИЛИ coach→athlete
-  (`num_nonnulls = 1`), unique-пары.
-- **training_schedules** — недельное расписание группы (weekday, start_time,
-  type) для напоминаний и «пропущенных анкет».
+- **training_schedules** — недельное расписание группы (weekday, start_time)
+  для напоминаний и «пропущенных анкет».
 - **morning_checkins** — одна анкета на (athlete_id, checkin_date); шесть
   шкал 1–5, блок боли (status/location/side/severity/onset/triggers/
   swelling/limitation), symptoms, client_uuid — идемпотентность.
@@ -41,8 +39,8 @@ PostgreSQL (Supabase). Миграции: `supabase/migrations/0001..0003`.
 
 - Спортсмен: SELECT/INSERT своих анкет и сессий; UPDATE — только «сегодня»
   в его таймзоне (задним числом нельзя). Не видит alerts и coach_notes.
-- Тренер: SELECT данных своих спортсменов (через `can_access_athlete`:
-  прямое назначение ИЛИ членство в назначенной группе); update анкет;
+- Тренер: видит всех спортсменов (с миграции 0008 `can_access_athlete` =
+  `is_coach()`; таблица coach_assignments удалена); update анкет;
   review alerts; CRUD своих заметок.
 - Админ: полный доступ.
 - Записи в readiness_snapshots/alerts — через security-definer RPC
@@ -51,4 +49,4 @@ PostgreSQL (Supabase). Миграции: `supabase/migrations/0001..0003`.
 ## Индексы
 
 athlete_id+date на check-ins/sessions/snapshots; status-частичный на alerts;
-unread-частичный на notifications; memberships/assignments по FK.
+unread-частичный на notifications; memberships по FK.

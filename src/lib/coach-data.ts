@@ -61,51 +61,22 @@ export interface CoachAthleteRow {
   series: { date: string; score: number }[];
 }
 
-/** All athletes the coach can see: via group assignments + direct assignments. */
-export async function coachAthleteIds(
-  supabase: SupabaseClient,
-  coachProfileId: string,
-): Promise<string[]> {
-  const { data: assignments } = await supabase
-    .from("coach_assignments")
-    .select("group_id, athlete_id")
-    .eq("coach_profile_id", coachProfileId);
-  const ids = new Set<string>();
-  const groupIds: string[] = [];
-  for (const a of assignments ?? []) {
-    if (a.athlete_id) ids.add(a.athlete_id);
-    if (a.group_id) groupIds.push(a.group_id);
-  }
-  if (groupIds.length > 0) {
-    const { data: members } = await supabase
-      .from("group_memberships")
-      .select("athlete_id")
-      .in("group_id", groupIds)
-      .is("left_at", null);
-    for (const m of members ?? []) ids.add(m.athlete_id);
-  }
-  return [...ids];
+/** All non-archived athletes — coaches and admins see everyone. */
+export async function allAthleteIds(supabase: SupabaseClient): Promise<string[]> {
+  const { data } = await supabase.from("athletes").select("id").neq("status", "archived");
+  return ((data as { id: string }[] | null) ?? []).map((a) => a.id);
 }
 
-/** Athlete ids visible to a staff profile: all athletes for admin, assigned ones for coach. */
-export async function scopedAthleteIds(
-  supabase: SupabaseClient,
-  profile: { id: string; role: string },
-): Promise<string[]> {
-  if (profile.role === "admin") {
-    const { data } = await supabase.from("athletes").select("id").neq("status", "archived");
-    return ((data as { id: string }[] | null) ?? []).map((a) => a.id);
-  }
-  return coachAthleteIds(supabase, profile.id);
+/** Athlete ids visible to a staff profile — every staff member sees all athletes. */
+export async function scopedAthleteIds(supabase: SupabaseClient): Promise<string[]> {
+  return allAthleteIds(supabase);
 }
 
 export async function coachDashboard(
   supabase: SupabaseClient,
-  coachProfileId: string,
   tz: string,
-  role = "coach",
 ): Promise<{ rows: CoachAthleteRow[]; groups: Group[] }> {
-  const ids = await scopedAthleteIds(supabase, { id: coachProfileId, role });
+  const ids = await scopedAthleteIds(supabase);
   if (ids.length === 0) return { rows: [], groups: [] };
   const coachToday = todayInTz(tz);
   // Check-ins span the full 40-day window used by evaluateAthleteDay so the

@@ -2,25 +2,23 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { GroupsManager } from "./groups-manager";
-import type { Athlete, CoachAssignment, Group, GroupMembership, Profile, TrainingSchedule } from "@/lib/types";
+import type { Athlete, Group, GroupMembership, Profile, TrainingSchedule } from "@/lib/types";
 
 export default async function AdminGroupsPage() {
   const me = (await getCurrentProfile())!;
   const dict = getDictionary(me.preferred_language);
   const admin = createAdminClient();
 
-  const [{ data: groups }, { data: memberships }, { data: athletes }, { data: profiles }, { data: assignments }, { data: schedules }] =
+  const [{ data: groups }, { data: memberships }, { data: athletes }, { data: profiles }, { data: schedules }] =
     await Promise.all([
       admin.from("groups").select("*").order("name"),
       admin.from("group_memberships").select("*").is("left_at", null),
       admin.from("athletes").select("*"),
       admin.from("profiles").select("*"),
-      admin.from("coach_assignments").select("*"),
       admin.from("training_schedules").select("*").eq("active", true).order("weekday").order("start_time"),
     ]);
 
   const profById = new Map(((profiles as Profile[]) ?? []).map((p) => [p.id, p]));
-  const coaches = ((profiles as Profile[]) ?? []).filter((p) => p.role === "coach");
   const athleteOptions = ((athletes as Athlete[]) ?? [])
     .filter((a) => a.status !== "archived")
     .map((a) => ({
@@ -36,8 +34,6 @@ export default async function AdminGroupsPage() {
         groups={(groups as Group[]) ?? []}
         memberships={(memberships as GroupMembership[]) ?? []}
         athletes={athleteOptions}
-        coaches={coaches.map((c) => ({ id: c.id, label: c.display_name }))}
-        assignments={(assignments as CoachAssignment[]) ?? []}
         schedules={(schedules as TrainingSchedule[]) ?? []}
       />
     </div>

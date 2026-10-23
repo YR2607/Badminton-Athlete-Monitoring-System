@@ -95,34 +95,29 @@ export async function evaluateAthleteDay(
     });
   }
 
-  // Notify assigned coaches about priority alerts.
+  // Notify all coaches about priority alerts.
   const priorities = candidates.filter((c) => c.severity === "priority");
   if (priorities.length > 0) {
     const { data: coaches } = await admin
-      .from("coach_assignments")
-      .select("coach_profile_id, group_id, athlete_id")
-      .or(`athlete_id.eq.${athleteId},group_id.in.(${await groupIdsOf(admin, athleteId)})`);
-    const coachIds = [...new Set((coaches ?? []).map((c) => c.coach_profile_id as string))];
-    const { data: profs } = coachIds.length
-      ? await admin.from("profiles").select("id, preferred_language").in("id", coachIds)
-      : { data: [] };
-    const langOf = new Map((profs ?? []).map((p) => [p.id as string, p.preferred_language as string]));
+      .from("profiles")
+      .select("id, preferred_language")
+      .eq("role", "coach");
     const TITLES: Record<string, string> = {
       ru: "Приоритетный сигнал",
       en: "Priority alert",
       ro: "Semnal prioritar",
     };
     for (const c of coaches ?? []) {
-      const title = TITLES[langOf.get(c.coach_profile_id) ?? "ru"] ?? TITLES.ru;
+      const title = TITLES[c.preferred_language ?? "ru"] ?? TITLES.ru;
       for (const p of priorities) {
         await admin.from("notifications").upsert(
           {
-            profile_id: c.coach_profile_id,
+            profile_id: c.id,
             kind: "priority_alert",
             title,
             body: `${p.rule_code}: ${p.recommendation}`,
             data: { athlete_id: athleteId, rule: p.rule_code },
-            dedup_key: `notif:${c.coach_profile_id}:${p.dedup_key}`,
+            dedup_key: `notif:${c.id}:${p.dedup_key}`,
           },
           { onConflict: "dedup_key" },
         );
@@ -131,14 +126,4 @@ export async function evaluateAthleteDay(
   }
 
   return { snapshotWritten: !!todayCheckin, alerts: candidates.length };
-}
-
-async function groupIdsOf(admin: SupabaseClient, athleteId: string): Promise<string> {
-  const { data } = await admin
-    .from("group_memberships")
-    .select("group_id")
-    .eq("athlete_id", athleteId)
-    .is("left_at", null);
-  const ids = (data ?? []).map((g) => g.group_id);
-  return ids.length > 0 ? ids.join(",") : "00000000-0000-0000-0000-000000000000";
 }

@@ -61,15 +61,13 @@ run("RLS isolation", () => {
     const idOf = async (pid: string) =>
       (await admin.from("athletes").select("id").eq("profile_id", pid).single()).data!.id;
 
-    const [uidA, uidB, uidX] = userIds;
+    const [uidA, uidB] = userIds;
     athleteAId = await idOf(await profOf(uidA));
     await idOf(await profOf(uidB)); // athlete B row exists; we only need A's id
-    const coachXProfile = await profOf(uidX);
 
     const { data: g } = await admin.from("groups").insert({ name: `RLS-${stamp}` }).select().single();
     groupId = g!.id;
     await admin.from("group_memberships").insert({ group_id: groupId, athlete_id: athleteAId });
-    await admin.from("coach_assignments").insert({ coach_profile_id: coachXProfile, group_id: groupId });
 
     const signIn = async (uidIdx: number) => {
       const c = createClient(URL, ANON, { auth: { persistSession: false } });
@@ -112,7 +110,7 @@ run("RLS isolation", () => {
     expect(error).not.toBeNull();
   });
 
-  it("assigned coach can read athlete A; unassigned coach cannot", async () => {
+  it("any coach can read athlete check-ins", async () => {
     const { data: ok } = await coachX
       .from("morning_checkins")
       .select("*")
@@ -121,11 +119,11 @@ run("RLS isolation", () => {
 
     const coachY = createClient(URL, ANON, { auth: { persistSession: false } });
     await coachY.auth.signInWithPassword({ email: mail("coach-y"), password: pass });
-    const { data: blocked } = await coachY
+    const { data: also } = await coachY
       .from("morning_checkins")
       .select("*")
       .eq("athlete_id", athleteAId);
-    expect(blocked).toEqual([]);
+    expect(also!.length).toBeGreaterThan(0);
   });
 
   it("athlete cannot read coach_notes or alerts", async () => {

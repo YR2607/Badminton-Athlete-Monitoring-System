@@ -146,13 +146,6 @@ async function main() {
       .eq("group_id", group.id).eq("weekday", wd).eq("start_time", "17:00").maybeSingle();
     if (!exists) await sb.from("training_schedules").insert({ group_id: group.id, weekday: wd, start_time: "17:00", active: true });
   }
-  const { data: coach } = await sb.from("profiles").select("id").eq("role", "coach").limit(1).maybeSingle();
-  if (coach) {
-    const { data: ca } = await sb.from("coach_assignments").select("id")
-      .eq("coach_profile_id", coach.id).eq("group_id", group.id).maybeSingle();
-    if (!ca) await sb.from("coach_assignments").insert({ coach_profile_id: coach.id, group_id: group.id });
-  }
-
   // --- wipe previous demo data in the window (idempotent reruns) ---
   const ids = athletes.map(a => a.id);
   const from = addDays(today, -(DAYS - 1));

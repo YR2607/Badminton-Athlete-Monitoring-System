@@ -42,36 +42,6 @@ export async function addAthleteToGroup(athleteId: string, groupId: string): Pro
   return { ok: true };
 }
 
-export async function assignCoach(
-  coachProfileId: string,
-  target: { group_id?: string; athlete_id?: string },
-): Promise<ActionResult> {
-  const me = await requireAdmin();
-  if (!me) return { error: "forbidden" };
-  if (!target.group_id && !target.athlete_id) return { error: "validation" };
-  const admin = createAdminClient();
-  const { error } = await admin.from("coach_assignments").insert({
-    coach_profile_id: coachProfileId,
-    group_id: target.group_id ?? null,
-    athlete_id: target.athlete_id ?? null,
-  });
-  if (error) return { error: error.code === "23505" ? "duplicate" : error.message };
-  await audit("coach.assign", "coach_assignments", null, { coachProfileId, ...target });
-  revalidatePath("/admin/groups");
-  return { ok: true };
-}
-
-export async function removeCoachAssignment(assignmentId: string): Promise<ActionResult> {
-  const me = await requireAdmin();
-  if (!me) return { error: "forbidden" };
-  const admin = createAdminClient();
-  const { error } = await admin.from("coach_assignments").delete().eq("id", assignmentId);
-  if (error) return { error: error.message };
-  await audit("coach.unassign", "coach_assignments", assignmentId, {});
-  revalidatePath("/admin/groups");
-  return { ok: true };
-}
-
 export async function upsertSchedule(input: {
   id?: string;
   group_id: string;

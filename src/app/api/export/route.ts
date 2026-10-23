@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
   const includeNotes = url.get("notes") === "1";
 
   const supabase = await createClient();
-  let athleteIds = await scopedAthleteIds(supabase, profile);
+  let athleteIds = await scopedAthleteIds(supabase);
 
   if (scope === "athlete" && url.get("athlete_id")) {
     const target = url.get("athlete_id")!;
