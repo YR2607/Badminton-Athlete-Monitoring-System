@@ -9,8 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart } from "@/components/charts/series-chart";
-import { ClipboardList, Dumbbell, CheckCircle2 } from "lucide-react";
-import type { MorningCheckin, PostTrainingCheckin, ReadinessSnapshot, TrainingSession } from "@/lib/types";
+import { CheckCircle2, Circle, Sunrise, Sunset } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { MorningCheckin, PostTrainingCheckin, ReadinessSnapshot } from "@/lib/types";
 
 export default async function AthleteHome() {
   const profile = (await getCurrentProfile())!;
@@ -22,22 +23,33 @@ export default async function AthleteHome() {
   const today = todayInTz(tz);
   const since30 = addDays(today, -29);
 
-  const [{ data: todayCheckin }, { data: sessionsToday }, { data: postToday }, { data: snapshot }, { data: recent }] =
+  const [{ data: todayCheckin }, { data: postToday }, { data: snapshot }, { data: recent }, { data: memberships }] =
     await Promise.all([
       supabase.from("morning_checkins").select("*").eq("athlete_id", athlete.id).eq("checkin_date", today).maybeSingle(),
-      supabase.from("training_sessions").select("*").eq("athlete_id", athlete.id).gte("started_at", `${addDays(today, -2)}T00:00:00Z`),
       supabase.from("post_training_checkins").select("*").eq("athlete_id", athlete.id).gte("submitted_at", `${since30}T00:00:00Z`),
       supabase.from("readiness_snapshots").select("*").eq("athlete_id", athlete.id).eq("snapshot_date", today).maybeSingle(),
       supabase.from("morning_checkins").select("*").eq("athlete_id", athlete.id).gte("checkin_date", since30).order("checkin_date", { ascending: false }),
+      supabase.from("group_memberships").select("group_id").eq("athlete_id", athlete.id).is("left_at", null),
     ]);
 
-  const sessions = ((sessionsToday as TrainingSession[]) ?? []).filter(
-    (s) => localDate(new Date(s.started_at), tz) === today,
-  );
   const posts = ((postToday as PostTrainingCheckin[]) ?? []).filter(
     (p) => localDate(new Date(p.submitted_at), tz) === today,
   );
-  const pendingPosts = sessions.filter((s) => !posts.some((p) => p.training_session_id === s.id));
+
+  const groupIds = (memberships ?? []).map((m) => m.group_id);
+  const { data: schedules } = groupIds.length
+    ? await supabase
+        .from("training_schedules")
+        .select("weekday")
+        .in("group_id", groupIds)
+        .eq("active", true)
+    : { data: [] };
+  const todayWeekday = new Date(`${today}T12:00:00Z`).getUTCDay();
+  const scheduledToday = (schedules ?? []).some((s) => s.weekday === todayWeekday);
+
+  const morningDone = !!todayCheckin;
+  const postDone = posts.length > 0;
+  const doneCount = (morningDone ? 1 : 0) + (postDone ? 1 : 0);
 
   const snap = snapshot as ReadinessSnapshot | null;
   const score = snap?.readiness_score ?? null;
@@ -74,46 +86,73 @@ export default async function AthleteHome() {
         <div className="rounded-xl border border-warn/40 bg-warn/10 p-4 text-sm">{d.painNotice}</div>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Card>
-          <CardContent className="flex items-center justify-between gap-3 pt-4">
-            <div className="flex items-center gap-2">
-              {todayCheckin ? (
-                <CheckCircle2 className="text-ok" size={20} />
-              ) : (
-                <ClipboardList className="text-warn" size={20} />
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between text-base">
+            {d.todayStatus}
+            <span className="text-sm font-normal text-muted">
+              {d.progressOf.replace("{done}", String(doneCount)).replace("{total}", "2")}
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {[
+            {
+              key: "morning",
+              done: morningDone,
+              icon: <Sunrise size={20} />,
+              label: d.morningLabel,
+              href: "/athlete/morning",
+            },
+            {
+              key: "post",
+              done: postDone,
+              icon: <Sunset size={20} />,
+              label: d.postLabel,
+              href: "/athlete/training",
+            },
+          ].map((row) => (
+            <div
+              key={row.key}
+              className={cn(
+                "flex items-center justify-between gap-3 rounded-xl border p-3",
+                row.done ? "border-ok/30 bg-ok/5" : "border-warn/40 bg-warn/5",
               )}
-              <span className="text-sm font-medium">
-                {todayCheckin ? d.morningDone : d.morningPending}
-              </span>
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                {row.done ? (
+                  <CheckCircle2 className="shrink-0 text-ok" size={22} />
+                ) : (
+                  <Circle className="shrink-0 text-warn" size={22} />
+                )}
+                <div className="min-w-0">
+                  <p className="flex items-center gap-1.5 text-sm font-medium">
+                    <span className="text-muted">{row.icon}</span>
+                    {row.label}
+                  </p>
+                  <p className={cn("text-xs", row.done ? "text-ok" : "text-warn")}>
+                    {row.done
+                      ? d.filled
+                      : row.key === "post" && !scheduledToday
+                        ? d.noTrainingScheduled
+                        : d.notFilled}
+                  </p>
+                </div>
+              </div>
+              {!row.done && (
+                <Link href={row.href} className="shrink-0">
+                  <Button
+                    size="sm"
+                    variant={row.key === "post" && !scheduledToday ? "secondary" : "default"}
+                  >
+                    {d.fillBtn}
+                  </Button>
+                </Link>
+              )}
             </div>
-            {!todayCheckin && (
-              <Link href="/athlete/morning">
-                <Button size="sm">{d.fillMorning}</Button>
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="flex items-center justify-between gap-3 pt-4">
-            <div className="flex items-center gap-2">
-              <Dumbbell className="text-muted" size={20} />
-              <span className="text-sm font-medium">
-                {sessions.length === 0
-                  ? d.noTrainingToday
-                  : pendingPosts.length === 0
-                    ? d.postDone
-                    : d.postPending}
-              </span>
-            </div>
-            <Link href="/athlete/training">
-              <Button size="sm" variant="secondary">
-                {sessions.length === 0 ? d.addTraining : d.fillPost}
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      </div>
+          ))}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
