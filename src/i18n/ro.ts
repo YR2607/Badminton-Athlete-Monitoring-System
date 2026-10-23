@@ -367,6 +367,8 @@ const ro: Dictionary = {
     reviewedBy: "Văzut de",
     open: "Deschise",
     all: "Toate",
+    allSeverities: "Toate nivelurile",
+    allStatuses: "Toate stările",
   },
   rules: {
     subtitle: "Când aplicația trimite un semnal antrenorului. Doar comutați și mișcați cursoarele.",
@@ -470,6 +472,9 @@ const ro: Dictionary = {
     deleteUser: "Șterge",
     deleteUserConfirm: "Ștergi acest utilizator și TOATE datele lui (chestionare, antrenamente, alerte)? Acțiunea este ireversibilă.",
     userDeleted: "Utilizator șters",
+    allRoles: "Toate rolurile",
+    allStatuses: "Toate stările",
+    allActions: "Toate acțiunile",
   },
   export: {
     title: "Export de date",

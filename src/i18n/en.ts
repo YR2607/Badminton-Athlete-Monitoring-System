@@ -367,6 +367,8 @@ const en: Dictionary = {
     reviewedBy: "Reviewed by",
     open: "Open",
     all: "All",
+    allSeverities: "All severities",
+    allStatuses: "All statuses",
   },
   rules: {
     subtitle: "When the app sends a signal to the coach. Just toggle and move the sliders.",
@@ -470,6 +472,9 @@ const en: Dictionary = {
     deleteUser: "Delete",
     deleteUserConfirm: "Delete this user and ALL their data (check-ins, sessions, alerts)? This cannot be undone.",
     userDeleted: "User deleted",
+    allRoles: "All roles",
+    allStatuses: "All statuses",
+    allActions: "All actions",
   },
   export: {
     title: "Data export",

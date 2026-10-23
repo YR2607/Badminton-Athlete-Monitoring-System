@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Dictionary } from "@/i18n";
@@ -8,7 +8,7 @@ import { reviewAlert } from "@/app/actions/coach";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/input";
+import { Input, Select, Textarea } from "@/components/ui/input";
 import type { Alert, AlertStatus } from "@/lib/types";
 
 const sevTone: Record<string, "danger" | "warn" | "accent" | "neutral"> = {
@@ -18,14 +18,47 @@ const sevTone: Record<string, "danger" | "warn" | "accent" | "neutral"> = {
   normal: "neutral",
 };
 
-export function AlertList({ alerts, dict }: { alerts: Alert[]; dict: Dictionary }) {
+const SEVERITIES = ["priority", "review_load", "attention", "normal"] as const;
+const STATUSES = ["open", "acknowledged", "resolved", "dismissed"] as const;
+
+export function AlertList({
+  alerts,
+  dict,
+  athletes,
+}: {
+  alerts: Alert[];
+  dict: Dictionary;
+  athletes?: { id: string; name: string }[];
+}) {
   const d = dict.alerts;
   const router = useRouter();
   const [note, setNote] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
-  const [showAll, setShowAll] = useState(false);
+  const [status, setStatus] = useState<string>("open");
+  const [severity, setSeverity] = useState("");
+  const [athleteId, setAthleteId] = useState("");
+  const [q, setQ] = useState("");
 
-  const visible = showAll ? alerts : alerts.filter((a) => a.status === "open");
+  const nameOf = useMemo(
+    () => new Map((athletes ?? []).map((a) => [a.id, a.name])),
+    [athletes],
+  );
+
+  const visible = useMemo(() => {
+    let out = alerts;
+    if (status) out = out.filter((a) => a.status === status);
+    if (severity) out = out.filter((a) => a.severity === severity);
+    if (athleteId) out = out.filter((a) => a.athlete_id === athleteId);
+    if (q) {
+      const needle = q.toLowerCase();
+      out = out.filter(
+        (a) =>
+          a.rule_code.toLowerCase().includes(needle) ||
+          a.recommendation.toLowerCase().includes(needle),
+      );
+    }
+    return out;
+  }, [alerts, status, severity, athleteId, q]);
 
   async function act(id: string, status: AlertStatus) {
     setBusy(id);
@@ -43,14 +76,52 @@ export function AlertList({ alerts, dict }: { alerts: Alert[]; dict: Dictionary 
     }
   }
 
+  const statusLabel = (s: string) =>
+    s === "open"
+      ? d.statusOpen
+      : s === "acknowledged"
+        ? d.statusAcknowledged
+        : s === "resolved"
+          ? d.statusResolved
+          : d.statusDismissed;
+
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>{d.title}</CardTitle>
-          <button className="text-xs text-accent" onClick={() => setShowAll(!showAll)}>
-            {showAll ? d.open : d.all}
-          </button>
+        <CardTitle>{d.title}</CardTitle>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select className="w-32" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="">{d.allStatuses}</option>
+            {STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {statusLabel(s)}
+              </option>
+            ))}
+          </Select>
+          <Select className="w-36" value={severity} onChange={(e) => setSeverity(e.target.value)}>
+            <option value="">{d.allSeverities}</option>
+            {SEVERITIES.map((s) => (
+              <option key={s} value={s}>
+                {d.severity[s]}
+              </option>
+            ))}
+          </Select>
+          {athletes && (
+            <Select className="w-40" value={athleteId} onChange={(e) => setAthleteId(e.target.value)}>
+              <option value="">{dict.analytics.scopeAll}</option>
+              {athletes.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </Select>
+          )}
+          <Input
+            className="w-40 flex-1 sm:flex-none"
+            placeholder={dict.common.search}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
         </div>
       </CardHeader>
       <CardContent>
@@ -67,14 +138,11 @@ export function AlertList({ alerts, dict }: { alerts: Alert[]; dict: Dictionary 
                   <span className="text-xs text-muted">
                     {a.rule_code} · {a.triggered_at.slice(0, 16).replace("T", " ")}
                   </span>
+                  {nameOf.has(a.athlete_id) && (
+                    <span className="text-xs font-medium">{nameOf.get(a.athlete_id)}</span>
+                  )}
                   <Badge tone={a.status === "open" ? "warn" : "neutral"}>
-                    {a.status === "open"
-                      ? d.statusOpen
-                      : a.status === "acknowledged"
-                        ? d.statusAcknowledged
-                        : a.status === "resolved"
-                          ? d.statusResolved
-                          : d.statusDismissed}
+                    {statusLabel(a.status)}
                   </Badge>
                 </div>
                 <p className="mt-2 text-sm">{a.recommendation}</p>

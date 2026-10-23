@@ -10,15 +10,40 @@ import { adminDeleteUser, adminResetUserPassword } from "@/app/actions/auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input, Select } from "@/components/ui/input";
 import { CredentialsCard } from "./create-user-form";
-import type { Athlete, Profile } from "@/lib/types";
+import type { Athlete, Group, Profile } from "@/lib/types";
 
-type Row = Profile & { athlete: Athlete | null; email: string | null };
+type Row = Profile & { athlete: Athlete | null; email: string | null; groupId: string | null };
 
-export function UserTable({ dict, profiles }: { dict: Dictionary; profiles: Row[] }) {
+export function UserTable({
+  dict,
+  profiles,
+  groups,
+}: {
+  dict: Dictionary;
+  profiles: Row[];
+  groups: Pick<Group, "id" | "name">[];
+}) {
   const router = useRouter();
   const d = dict.admin;
   const [issued, setIssued] = useState<Record<string, string>>({});
+  const [q, setQ] = useState("");
+  const [role, setRole] = useState("");
+  const [status, setStatus] = useState("");
+  const [groupId, setGroupId] = useState("");
+
+  const visible = profiles.filter((p) => {
+    if (role && p.role !== role) return false;
+    if (status && (p.athlete?.status ?? "none") !== status) return false;
+    if (groupId && p.groupId !== groupId) return false;
+    if (q) {
+      const needle = q.toLowerCase();
+      const hay = `${p.display_name} ${p.email ?? ""} ${p.athlete?.athlete_code ?? ""}`.toLowerCase();
+      if (!hay.includes(needle)) return false;
+    }
+    return true;
+  });
 
   async function toggle(a: Athlete) {
     const next = a.status === "active" ? "inactive" : "active";
@@ -111,9 +136,38 @@ export function UserTable({ dict, profiles }: { dict: Dictionary; profiles: Row[
 
   return (
     <>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Input
+          className="w-40 flex-1 sm:flex-none"
+          placeholder={dict.common.search}
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <Select className="w-32" value={role} onChange={(e) => setRole(e.target.value)}>
+          <option value="">{d.allRoles}</option>
+          <option value="athlete">{dict.common.athlete}</option>
+          <option value="coach">{dict.common.coach}</option>
+          <option value="admin">{dict.common.admin}</option>
+        </Select>
+        <Select className="w-36" value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="">{d.allStatuses}</option>
+          <option value="active">active</option>
+          <option value="inactive">inactive</option>
+          <option value="archived">archived</option>
+        </Select>
+        <Select className="w-36" value={groupId} onChange={(e) => setGroupId(e.target.value)}>
+          <option value="">{dict.analytics.allGroups}</option>
+          {groups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
+        </Select>
+      </div>
+
       {/* Mobile: cards */}
       <div className="space-y-3 md:hidden">
-        {profiles.map((p) => (
+        {visible.map((p) => (
           <Card key={p.id}>
             <CardContent className="space-y-2 pt-4">
               <div className="flex items-center justify-between gap-2">
@@ -150,7 +204,7 @@ export function UserTable({ dict, profiles }: { dict: Dictionary; profiles: Row[
             </tr>
           </thead>
           <tbody>
-            {profiles.map((p) => (
+            {visible.map((p) => (
               <tr key={p.id} className="border-b border-border align-top last:border-0">
                 <td className="px-3 py-2">{nameCell(p)}</td>
                 <td className="px-3 py-2">{roleBadge(p)}</td>
