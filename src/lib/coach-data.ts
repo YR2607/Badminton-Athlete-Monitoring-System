@@ -23,6 +23,7 @@ export interface CoachAthleteRow {
   openAlerts: Alert[];
   hasPain: boolean;
   missedYesterday: boolean;
+  series: { date: string; score: number }[];
 }
 
 /** All athletes the coach can see: via group assignments + direct assignments. */
@@ -141,6 +142,7 @@ export async function coachDashboard(
       openAlerts,
       hasPain: recentPain || openAlerts.some((al) => al.severity === "priority"),
       missedYesterday: !list.some((c) => c.checkin_date === yesterday),
+      series,
     };
   });
 

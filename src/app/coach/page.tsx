@@ -6,7 +6,7 @@ import { coachDashboard } from "@/lib/coach-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CoachTable } from "./table";
-import { GroupTrendChart } from "./trend-chart";
+import { CompareChart, type CompareAthlete } from "./compare";
 
 export default async function CoachDashboard({
   searchParams,
@@ -23,6 +23,21 @@ export default async function CoachDashboard({
   const filled = rows.filter((r) => r.todayCheckin).length;
   const openAlerts = rows.flatMap((r) => r.openAlerts);
   const priority = openAlerts.filter((a) => a.severity === "priority").length;
+
+  const sorted = [...rows].sort((a, b) =>
+    (a.profile?.display_name ?? a.athlete.athlete_code).localeCompare(
+      b.profile?.display_name ?? b.athlete.athlete_code,
+    ),
+  );
+  const compareAthletes: CompareAthlete[] = sorted.map((r, i) => ({
+    id: r.athlete.id,
+    name: r.profile?.display_name ?? r.athlete.athlete_code,
+    flagged:
+      r.hasPain ||
+      r.openAlerts.length > 0 ||
+      (!rows.some((x) => x.hasPain || x.openAlerts.length > 0) && i < 3),
+    series: r.series,
+  }));
 
   return (
     <div className="space-y-4">
@@ -59,10 +74,10 @@ export default async function CoachDashboard({
 
       <Card>
         <CardHeader>
-          <CardTitle>{d.groupWeek}</CardTitle>
+          <CardTitle>{d.compare}</CardTitle>
         </CardHeader>
         <CardContent>
-          <GroupTrendChart coachProfileId={profile.id} tz={profile.timezone} />
+          <CompareChart athletes={compareAthletes} dict={dict} />
         </CardContent>
       </Card>
 

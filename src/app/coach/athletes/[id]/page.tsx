@@ -5,6 +5,8 @@ import { getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { addDays, dateRange, localDate, resolveRange, todayInTz, type RangeKey } from "@/lib/dates";
 import { dailyReadiness } from "@/lib/readiness";
+import { coachAthleteIds } from "@/lib/coach-data";
+import { AthleteSwitcher, type NavAthlete } from "./athlete-switcher";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart, LoadBarChart } from "@/components/charts/series-chart";
@@ -62,6 +64,24 @@ export default async function AthleteDetailPage({
   const groupName = (membership as { group?: { name: string } } | null)?.group?.name ?? "—";
 
   const range = resolveRange((sp.range as RangeKey) || "30d", tz, { from: sp.from, to: sp.to });
+
+  // Athletes the viewer can jump between in the profile switcher.
+  const navIds = me.role === "coach" ? await coachAthleteIds(supabase, me.id) : null;
+  let navQuery = supabase.from("athletes").select("id, athlete_code, profile_id");
+  if (navIds) navQuery = navQuery.in("id", navIds.length ? navIds : ["00000000-0000-0000-0000-000000000000"]);
+  const { data: navRows } = await navQuery;
+  const navProfileIds = ((navRows as Pick<Athlete, "id" | "athlete_code" | "profile_id">[]) ?? []).map(
+    (x) => x.profile_id,
+  );
+  const { data: navProfiles } = navProfileIds.length
+    ? await supabase.from("profiles").select("id, display_name").in("id", navProfileIds)
+    : { data: [] as { id: string; display_name: string }[] };
+  const navNameById = new Map((navProfiles ?? []).map((p) => [p.id, p.display_name]));
+  const navAthletes: NavAthlete[] = (
+    (navRows as Pick<Athlete, "id" | "athlete_code" | "profile_id">[]) ?? []
+  )
+    .map((x) => ({ id: x.id, name: navNameById.get(x.profile_id) ?? x.athlete_code }))
+    .sort((x, y) => x.name.localeCompare(y.name));
 
   const [{ data: checkins }, { data: sessions }, { data: postCheckins }, { data: snapshots }, { data: alerts }, { data: notes }, { data: consents }] =
     await Promise.all([
@@ -146,7 +166,12 @@ export default async function AthleteDetailPage({
             {a.birth_year ? ` · ${new Date().getUTCFullYear() - a.birth_year}` : ""}
           </p>
         </div>
-        <div className="flex flex-wrap gap-1">
+        {navAthletes.length > 1 && (
+          <AthleteSwitcher athletes={navAthletes} currentId={a.id} label={dd.profile} />
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-1">
           {rangeKeys.map((k) => (
             <a
               key={k}
@@ -159,7 +184,6 @@ export default async function AthleteDetailPage({
               {dict.ranges[k]}
             </a>
           ))}
-        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">

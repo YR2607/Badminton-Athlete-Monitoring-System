@@ -23,6 +23,7 @@ export interface SeriesDef {
   key: string;
   label: string;
   color: string;
+  dash?: boolean;
 }
 
 export function SeriesLineChart({
@@ -57,7 +58,8 @@ export function SeriesLineChart({
             dataKey={s.key}
             name={s.label}
             stroke={s.color}
-            strokeWidth={2}
+            strokeWidth={s.dash ? 1.5 : 2}
+            strokeDasharray={s.dash ? "5 4" : undefined}
             dot={{ r: 2.5 }}
             connectNulls
             isAnimationActive={false}
