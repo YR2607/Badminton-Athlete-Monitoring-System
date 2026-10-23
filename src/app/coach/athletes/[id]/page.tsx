@@ -188,22 +188,31 @@ export default async function AthleteDetailPage({
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
         {[
-          [dict.stats.avg, stat.avg],
-          [dict.stats.median, stat.median],
-          [dict.stats.min, stat.min],
-          [dict.stats.max, stat.max],
-          [dict.stats.count, stat.count],
-          [dict.stats.sessions, stat.sessions],
-          [dict.stats.totalLoad, stat.totalLoad],
-        ].map(([label, v]) => (
-          <Card key={label as string}>
+          { label: dict.stats.avg, v: stat.avg, sub: dict.stats.of100, tone: true },
+          { label: dict.stats.median, v: stat.median, sub: dict.stats.medianHint, tone: true },
+          { label: dict.stats.min, v: stat.min, sub: dict.stats.of100, tone: true },
+          { label: dict.stats.max, v: stat.max, sub: dict.stats.of100, tone: true },
+          { label: dict.stats.count, v: stat.count },
+          { label: dict.stats.sessions, v: stat.sessions },
+          { label: dict.stats.totalLoad, v: stat.totalLoad, sub: dict.stats.loadUnits },
+        ].map(({ label, v, sub, tone }) => (
+          <Card key={label}>
             <CardContent className="pt-3 pb-3">
-              <p className="text-lg font-bold">{v ?? "—"}</p>
+              <p
+                className={cn(
+                  "text-lg font-bold",
+                  tone && v !== null && (v >= 70 ? "text-ok" : v >= 45 ? "text-warn" : "text-danger"),
+                )}
+              >
+                {v ?? "—"}
+              </p>
               <p className="text-xs text-muted">{label}</p>
+              {sub && <p className="text-[10px] text-muted/70">{sub}</p>}
             </CardContent>
           </Card>
         ))}
       </div>
+      <p className="text-xs text-muted">{dict.stats.explainer}</p>
 
       {latestSnap && (
         <Card>
