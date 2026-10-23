@@ -201,13 +201,16 @@ export async function adminResetUserPassword(
 }
 
 /**
- * Admin-only: sign in as another user. Generates a one-time magic link whose
- * action_link lands on /auth/callback and establishes the target's session —
- * the admin's own session is replaced, so getting back means signing in again.
+ * Admin-only: sign in as another user. Returns a one-time OTP token_hash —
+ * the browser exchanges it via verifyOtp, establishing the target's session
+ * directly. (The magic-link action_link can't be used: under PKCE the code
+ * exchange needs a verifier that only exists on a client that initiated the
+ * flow, so the callback would just bounce to /login.)
+ * The admin's own session is replaced — getting back means signing in again.
  */
 export async function adminImpersonate(
   profileId: string,
-): Promise<{ ok?: boolean; error?: string; url?: string }> {
+): Promise<{ ok?: boolean; error?: string; tokenHash?: string }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -234,14 +237,12 @@ export async function adminImpersonate(
   const email = targetUser?.user?.email;
   if (!email) return { error: "not_found" };
 
-  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const { data, error } = await admin.auth.admin.generateLink({
     type: "magiclink",
     email,
-    options: { redirectTo: `${origin}/auth/callback` },
   });
-  const url = data?.properties?.action_link;
-  if (error || !url) return { error: error?.message ?? "failed" };
+  const tokenHash = data?.properties?.hashed_token;
+  if (error || !tokenHash) return { error: error?.message ?? "failed" };
 
   await admin.from("audit_logs").insert({
     actor_profile_id: me.id,
@@ -250,7 +251,7 @@ export async function adminImpersonate(
     target_id: profileId,
     metadata: {},
   });
-  return { ok: true, url };
+  return { ok: true, tokenHash };
 }
 
 /**

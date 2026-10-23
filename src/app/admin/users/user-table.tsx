@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import type { Dictionary } from "@/i18n";
 import { setAthleteStatus, recordConsent } from "@/app/actions/admin";
 import { adminDeleteUser, adminImpersonate, adminResetUserPassword } from "@/app/actions/auth";
+import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -98,11 +99,21 @@ export function UserTable({
   async function impersonate(p: Row) {
     if (!window.confirm(d.loginAsConfirm.replace("{name}", p.display_name))) return;
     const res = await adminImpersonate(p.id);
-    if (res.ok && res.url) {
-      window.location.href = res.url;
-    } else {
+    if (!res.ok || !res.tokenHash) {
       toast.error(res.error ?? dict.common.error);
+      return;
     }
+    const supabase = createClient();
+    const { error } = await supabase.auth.verifyOtp({
+      type: "magiclink",
+      token_hash: res.tokenHash,
+    });
+    if (error) {
+      toast.error(dict.common.error);
+      return;
+    }
+    // "/" redirects to the impersonated user's role home.
+    router.push("/");
   }
 
   async function removeUser(p: Row) {
