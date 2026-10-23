@@ -438,6 +438,13 @@ const ro: Dictionary = {
     symptoms: "Simptome",
     notes: "Comentariu",
     backToAthlete: "Înapoi la sportiv",
+    edit: "Editează",
+    editCheckin: "Editează chestionarul",
+    fillCheckin: "Completează chestionarul pentru sportiv",
+    addSession: "Adaugă antrenament",
+    editSession: "Editează antrenamentul",
+    fillPost: "Completează chestionarul",
+    editPost: "Editează chestionarul",
   },
   analytics: {
     title: "Analiză",

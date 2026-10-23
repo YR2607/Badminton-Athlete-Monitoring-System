@@ -5,6 +5,7 @@ import { getCurrentProfile } from "@/lib/auth";
 import { getDictionary, type Dictionary } from "@/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { CheckinEditor, SessionEditor, PostCheckinEditor } from "./coach-edit";
 import type {
   Athlete,
   MorningCheckin,
@@ -204,6 +205,7 @@ export default async function AthleteDayPage({
               )}
             </>
           )}
+          <CheckinEditor dict={dict} athleteId={a.id} date={date} checkin={c} />
         </CardContent>
       </Card>
 
@@ -255,12 +257,15 @@ export default async function AthleteDayPage({
                           )}
                         </>
                       )}
+                      <PostCheckinEditor dict={dict} athleteId={a.id} sessionId={s.id} post={p ?? null} />
                     </div>
+                    <SessionEditor dict={dict} athleteId={a.id} date={date} session={s} />
                   </div>
                 );
               })}
             </div>
           )}
+          <SessionEditor dict={dict} athleteId={a.id} date={date} session={null} />
         </CardContent>
       </Card>
     </div>

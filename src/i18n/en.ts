@@ -438,6 +438,13 @@ const en: Dictionary = {
     symptoms: "Symptoms",
     notes: "Notes",
     backToAthlete: "Back to athlete",
+    edit: "Edit",
+    editCheckin: "Edit check-in",
+    fillCheckin: "Fill check-in for athlete",
+    addSession: "Add session",
+    editSession: "Edit session",
+    fillPost: "Fill check-in",
+    editPost: "Edit check-in",
   },
   analytics: {
     title: "Analytics",

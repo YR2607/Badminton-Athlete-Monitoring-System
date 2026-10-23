@@ -440,6 +440,13 @@ const ru = {
     symptoms: "Симптомы",
     notes: "Комментарий",
     backToAthlete: "К спортсмену",
+    edit: "Изменить",
+    editCheckin: "Изменить анкету",
+    fillCheckin: "Заполнить анкету за спортсмена",
+    addSession: "Добавить тренировку",
+    editSession: "Изменить тренировку",
+    fillPost: "Заполнить анкету",
+    editPost: "Изменить анкету",
   },
   analytics: {
     title: "Анализ",
