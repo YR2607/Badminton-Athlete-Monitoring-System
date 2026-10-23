@@ -1,7 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/api/health"];
+// /api/cron does its own Bearer-token auth — exempting it from the session
+// redirect so schedulers (Vercel Cron, GitHub Actions) can actually reach it.
+const PUBLIC_PATHS = ["/login", "/auth/callback", "/api/health", "/api/cron"];
 
 /**
  * Next.js "proxy" (formerly middleware): refreshes the Supabase session cookie

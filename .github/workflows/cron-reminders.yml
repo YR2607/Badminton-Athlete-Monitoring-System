@@ -1,0 +1,35 @@
+# External scheduler for /api/cron/reminders — the Hobby-plan alternative to
+# Vercel Cron (Hobby allows only one cron run per day; reminders need ~15 min).
+#
+# Required configuration (GitHub repo → Settings → Secrets and variables):
+#   secrets.CRON_SECRET — same value as CRON_SECRET in Vercel env vars
+#   vars.APP_URL        — e.g. https://rallymonitor.vercel.app (no trailing slash)
+#
+# Caveat: GitHub `schedule:` runs on UTC and can be delayed a few minutes under
+# load — acceptable for reminders, but do not rely on exact-minute delivery.
+name: cron-reminders
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: # manual "Run workflow" for smoke-testing after setup
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Call reminders endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          set -euo pipefail
+          : "${APP_URL:?set vars.APP_URL to the deployment origin}"
+          : "${CRON_SECRET:?set secrets.CRON_SECRET}"
+          code=$(curl -sS -o /tmp/cron-body -w "%{http_code}" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "${APP_URL}/api/cron/reminders")
+          echo "HTTP ${code}"
+          cat /tmp/cron-body
+          test "${code}" = "200"

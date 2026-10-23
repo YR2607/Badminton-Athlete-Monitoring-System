@@ -40,6 +40,12 @@ Scope: unify athlete-local date semantics across alerts, load windows, cron and 
 - **Contract (documented):** `from`/`to` are calendar dates **in the export's declared timezone** (the caller's profile TZ). Date columns (`checkin_date`, `snapshot_date`) compare as dates; timestamp columns (`started_at`, `submitted_at`, `triggered_at`, `created_at`) use `localRangeUtcBounds` → `[start, end)`, end exclusive — no more `23:59:59.999Z`.
 - **Note:** athletes in different timezones share the single export TZ (coach's) — consistent, documented limitation.
 
+### D-08 Proxy redirected cron requests to `/login` — FIXED (found during post-merge verification)
+- **File:** `src/proxy.ts`
+- **Root cause:** the session proxy matched `/api/cron/*` and redirected unauthenticated requests (307 → `/login`) **before** the route's Bearer check ran. Vercel Cron and any external scheduler — which only send `Authorization: Bearer` — could never reach the handler; reminders were effectively dead.
+- **Fix:** `/api/cron` added to `PUBLIC_PATHS`; the route keeps its own Bearer check (missing/wrong → `403`).
+- **Verified live (dev server):** no token → `403`, wrong token → `403`, app routes still 307 → `/login`.
+
 ## New helpers (`src/lib/dates.ts`)
 
 - `localDayUtcBounds(date, tz)` → `{start, end}` UTC instants of a local calendar day (two-pass offset resolution; DST-correct).
@@ -49,7 +55,7 @@ Scope: unify athlete-local date semantics across alerts, load windows, cron and 
 ## Vercel Cron — corrected facts
 
 - `CRON_SECRET` env var → Vercel **does** send `Authorization: Bearer <secret>` automatically. The earlier "will 403" claim was wrong and is corrected in `DEPLOYMENT_CHECKLIST.md`.
-- **Hobby plan = daily cron only.** `*/15 * * * *` is kept in `vercel.json` (correct on Pro+). On Hobby, use an external scheduler (cron-job.org / GitHub Actions `schedule:`) with the bearer header.
+- **Hobby plan = daily cron only.** `*/15 * * * *` is kept in `vercel.json` (correct on Pro+). On Hobby, use an external scheduler: `.github/workflows/cron-reminders.yml` ships ready (needs repo `secrets.CRON_SECRET` + `vars.APP_URL`) or cron-job.org. Smoke-verify any deployment with `scripts/smoke-staging.sh`; restore drill scripted in `scripts/restore-drill.sh`.
 
 ## Verification executed
 

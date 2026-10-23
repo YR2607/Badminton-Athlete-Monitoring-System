@@ -29,16 +29,16 @@
 - `vercel.json` ships `*/15 * * * *` → `/api/cron/reminders`.
 - **Auth:** Vercel Cron automatically sends `Authorization: Bearer $CRON_SECRET` when `CRON_SECRET` is set in project env vars — the existing header check works with no code change. (Earlier audit note claiming Vercel would get `403` was wrong.)
 - **Plan compatibility:** Vercel **Hobby** permits only **once-daily** cron execution — a 15-minute cadence is silently degraded there and cannot deliver reminders at ~10:00 / missing-checkin alerts at ~12:00 / post-training reminders across timezones.
-  - If deploying on **Hobby**: use an external scheduler hitting the endpoint every ~15 min with the bearer header — cron-job.org (free) or a GitHub Actions `schedule:` workflow. Both call `GET https://<origin>/api/cron/reminders` with `Authorization: Bearer $CRON_SECRET`.
+  - If deploying on **Hobby**: use an external scheduler hitting the endpoint every ~15 min with the bearer header — cron-job.org (free) or the ready-made `.github/workflows/cron-reminders.yml` (needs repo `secrets.CRON_SECRET` + `vars.APP_URL`; note GitHub scheduled runs may lag a few minutes).
   - If on **Pro or higher**: keep `*/15 * * * *` — no action needed.
 - [ ] Decide the hosting plan and scheduler accordingly.
-- [ ] Verify: wrong/missing secret → `403`; correct secret on staging → `200` and real `notifications`/`alerts` rows after threshold hours.
+- [ ] Verify with `APP_URL=<deploy> ./scripts/smoke-staging.sh` — 403 without/with wrong token, 200 with `CRON_SECRET`; real `notifications`/`alerts` rows after threshold hours.
 - [ ] Cron should only run on the production deployment (Vercel runs cron only in production by default).
 
 ## Backups & restore (Phase F)
 
 - [ ] Supabase free tier: daily backups via dashboard — confirm the project tier and enable PITR if paid.
-- [ ] **Run one restore drill** to a throwaway project before pilot: restore → spot-check `morning_checkins`, `athletes`, `profiles` counts.
+- [ ] **Run one restore drill** to a throwaway project before pilot — scripted: `scripts/restore-drill.sh` (dump prod → restore to test project → row-count verification). Needs `pg_dump`/`psql` (`brew install libpq`).
 - [ ] Document who owns the recovery process and where credentials live.
 
 ## Rollback
