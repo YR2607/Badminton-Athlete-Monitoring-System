@@ -148,7 +148,7 @@ const ro: Dictionary = {
   },
   postTraining: {
     title: "Chestionar după antrenament",
-    sessionTitle: "Antrenament",
+    sessionTitle: "Chestionar post-antrenament",
     startedAt: "Data și ora începerii",
     type: "Tip antrenament",
     types: {

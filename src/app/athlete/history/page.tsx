@@ -196,10 +196,7 @@ export default async function HistoryPage({
                 .reverse()
                 .map((s) => (
                   <li key={s.id} className="flex justify-between py-2">
-                    <span>
-                      {localDate(new Date(s.started_at), tz)} ·{" "}
-                      {dict.postTraining.types[s.training_type]}
-                    </span>
+                    <span>{localDate(new Date(s.started_at), tz)}</span>
                     <span className="text-muted">
                       {s.duration_minutes} {dict.common.minutes} · {h.rpe} {s.session_rpe} · {h.load}{" "}
                       {s.session_load}

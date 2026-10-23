@@ -150,7 +150,7 @@ const ru = {
   },
   postTraining: {
     title: "Анкета после тренировки",
-    sessionTitle: "Тренировка",
+    sessionTitle: "Анкета после тренировки",
     startedAt: "Дата и время начала",
     type: "Тип тренировки",
     types: {

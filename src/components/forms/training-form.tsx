@@ -10,9 +10,8 @@ import { submitTraining } from "@/app/actions/checkins";
 import { ScaleInput } from "@/components/forms/scale-input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input, Label, Select, Textarea } from "@/components/ui/input";
+import { Input, Label, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import type { TrainingType } from "@/lib/types";
 
 const schema = z.object({
   started_at: z.string().min(10),
@@ -30,7 +29,6 @@ const schema = z.object({
 });
 type FormValues = z.infer<typeof schema>;
 
-const types: TrainingType[] = ["court", "technique", "game", "physical", "strength", "recovery", "mixed"];
 const painKeys = ["painNone", "painMuscle", "painJoint", "painAcute", "painOther"] as const;
 const painValues = ["none", "muscle_soreness", "joint_tendon", "acute_instability", "other"] as const;
 const sideKeys = ["sideLeft", "sideRight", "sideBoth", "sideNa"] as const;
@@ -49,7 +47,6 @@ export function TrainingForm({ dict, defaultStartedAt }: { dict: Dictionary; def
   const { control, register, handleSubmit, watch, setValue } = useForm<FormValues>({
     defaultValues: {
       started_at: defaultStartedAt ?? toLocalInput(new Date()),
-      training_type: "court",
       pain_status: "none",
       pain_triggers: [],
     },
@@ -72,7 +69,9 @@ export function TrainingForm({ dict, defaultStartedAt }: { dict: Dictionary; def
         session: {
           started_at: new Date(values.started_at).toISOString(),
           duration_minutes: values.duration_minutes,
-          training_type: values.training_type,
+          // training type isn't collected — a single sport context makes the
+          // distinction noise; stored as "mixed" for schema compatibility.
+          training_type: "mixed",
           session_rpe: values.session_rpe,
           client_uuid: crypto.randomUUID(),
         },
@@ -120,16 +119,6 @@ export function TrainingForm({ dict, defaultStartedAt }: { dict: Dictionary; def
           <div>
             <Label htmlFor="started_at">{d.startedAt}</Label>
             <Input id="started_at" type="datetime-local" {...register("started_at")} />
-          </div>
-          <div>
-            <Label htmlFor="training_type">{d.type}</Label>
-            <Select id="training_type" {...register("training_type")}>
-              {types.map((t) => (
-                <option key={t} value={t}>
-                  {d.types[t]}
-                </option>
-              ))}
-            </Select>
           </div>
           <div>
             <Label htmlFor="duration">{d.duration}</Label>

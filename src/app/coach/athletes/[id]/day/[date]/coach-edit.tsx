@@ -308,7 +308,6 @@ export function SessionEditor({
   const [busy, setBusy] = useState(false);
   const [f, setF] = useState({
     time: session ? session.started_at.slice(11, 16) : "16:00",
-    type: session?.training_type ?? "court",
     duration: session?.duration_minutes?.toString() ?? "90",
     rpe: session?.session_rpe,
   });
@@ -324,7 +323,7 @@ export function SessionEditor({
       athlete_id: athleteId,
       started_at: new Date(`${date}T${f.time}:00`).toISOString(),
       duration_minutes: Number(f.duration),
-      training_type: f.type,
+      training_type: session?.training_type ?? "mixed",
       session_rpe: f.rpe,
     });
     setBusy(false);
@@ -356,16 +355,6 @@ export function SessionEditor({
         <div>
           <Label>{pt.duration}</Label>
           <Input type="number" min={1} inputMode="numeric" value={f.duration} onChange={(e) => setF((s) => ({ ...s, duration: e.target.value }))} />
-        </div>
-        <div>
-          <Label>{pt.type}</Label>
-          <Select value={f.type} onChange={(e) => setF((s) => ({ ...s, type: e.target.value as TrainingSession["training_type"] }))}>
-            {Object.keys(pt.types).map((t) => (
-              <option key={t} value={t}>
-                {pt.types[t as keyof typeof pt.types]}
-              </option>
-            ))}
-          </Select>
         </div>
       </div>
       <div>

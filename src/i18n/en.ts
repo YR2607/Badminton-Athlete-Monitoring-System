@@ -148,7 +148,7 @@ const en: Dictionary = {
   },
   postTraining: {
     title: "Post-training check-in",
-    sessionTitle: "Training",
+    sessionTitle: "Post-training check-in",
     startedAt: "Start date & time",
     type: "Training type",
     types: {

@@ -223,9 +223,6 @@ export default async function AthleteDayPage({
                 return (
                   <div key={s.id} className="rounded-xl border border-border p-3">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                      <Badge tone="accent">
-                        {dict.postTraining.types[s.training_type as keyof typeof dict.postTraining.types]}
-                      </Badge>
                       <span>{time(s.started_at, tz)}</span>
                       <span>
                         {s.duration_minutes} {dict.common.minutes}

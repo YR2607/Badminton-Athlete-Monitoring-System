@@ -249,14 +249,26 @@ export default async function AnalyticsPage({
                               {groupById.get(groupOfAthlete.get(a.id) ?? "")?.name ?? ""}
                             </span>
                           </div>
-                          <span className="shrink-0 font-semibold tabular-nums">
-                            {s.filled}/{s.expected} · {s.rate}%
+                          <span
+                            title={dict.common.readinessHint}
+                            className={cn(
+                              "shrink-0 text-lg font-bold tabular-nums",
+                              s.avgReadiness === null
+                                ? "text-muted"
+                                : s.avgReadiness >= 70
+                                  ? "text-ok"
+                                  : s.avgReadiness >= 45
+                                    ? "text-warn"
+                                    : "text-danger",
+                            )}
+                          >
+                            {s.avgReadiness ?? "—"}
+                            {prev && <Delta d={delta(s.avgReadiness, prev.avgReadiness)} />}
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                           <span>
-                            {d.avgReadiness}: <b className="text-foreground">{s.avgReadiness ?? "—"}</b>
-                            {prev && <Delta d={delta(s.avgReadiness, prev.avgReadiness)} />}
+                            {d.checkins}: {s.filled}/{s.expected} ({s.rate}%)
                           </span>
                           <span>
                             {d.totalLoad}: <b className="text-foreground">{s.totalLoad}</b>

@@ -75,8 +75,10 @@ function Switch({
     >
       <span
         className={cn(
-          "absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform",
-          on ? "translate-x-[22px]" : "translate-x-0.5",
+          // left-0.5 pins the thumb — without it the UA's button text-align:center
+          // shifts its static position and the thumb overflows the track.
+          "absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform",
+          on ? "translate-x-5" : "translate-x-0",
         )}
       />
     </button>

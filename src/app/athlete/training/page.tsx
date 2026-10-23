@@ -50,8 +50,8 @@ export default async function TrainingPage() {
               {todaySessions.map((s) => (
                 <li key={s.id} className="flex items-center justify-between py-2 text-sm">
                   <span>
-                    {s.started_at.slice(11, 16)} · {dict.postTraining.types[s.training_type]} ·{" "}
-                    {s.duration_minutes} {dict.common.minutes} · RPE {s.session_rpe}
+                    {s.started_at.slice(11, 16)} · {s.duration_minutes} {dict.common.minutes} · RPE{" "}
+                    {s.session_rpe}
                   </span>
                   <Badge tone={doneIds.has(s.id) ? "ok" : "warn"}>
                     {doneIds.has(s.id) ? "✓" : "…"}
