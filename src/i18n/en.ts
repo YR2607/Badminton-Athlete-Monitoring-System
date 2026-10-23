@@ -373,6 +373,9 @@ const en: Dictionary = {
     copied: "Copied",
     athleteLoginHint: "Athlete signs in with this code, no email needed",
     emailOptional: "Email (optional)",
+    deleteUser: "Delete",
+    deleteUserConfirm: "Delete this user and ALL their data (check-ins, sessions, alerts)? This cannot be undone.",
+    userDeleted: "User deleted",
   },
   export: {
     title: "Data export",

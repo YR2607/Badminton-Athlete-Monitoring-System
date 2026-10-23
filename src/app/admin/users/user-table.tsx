@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Dictionary } from "@/i18n";
 import { setAthleteStatus, recordConsent } from "@/app/actions/admin";
-import { adminResetUserPassword } from "@/app/actions/auth";
+import { adminDeleteUser, adminResetUserPassword } from "@/app/actions/auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -51,6 +51,17 @@ export function UserTable({ dict, profiles }: { dict: Dictionary; profiles: Row[
     }
   }
 
+  async function removeUser(p: Row) {
+    if (!window.confirm(d.deleteUserConfirm)) return;
+    const res = await adminDeleteUser(p.id);
+    if (res.ok) {
+      toast.success(d.userDeleted);
+      router.refresh();
+    } else {
+      toast.error(res.error ?? dict.common.error);
+    }
+  }
+
   const roleBadge = (p: Row) => (
     <Badge tone={p.role === "admin" ? "danger" : p.role === "coach" ? "accent" : "neutral"}>
       {dict.common[p.role as "athlete" | "coach" | "admin"]}
@@ -82,6 +93,11 @@ export function UserTable({ dict, profiles }: { dict: Dictionary; profiles: Row[
             {d.consentStatus}
           </Button>
         </>
+      )}
+      {p.role !== "admin" && (
+        <Button size="sm" variant="ghost" onClick={() => removeUser(p)}>
+          {d.deleteUser}
+        </Button>
       )}
     </span>
   );

@@ -375,6 +375,9 @@ const ru = {
     copied: "Скопировано",
     athleteLoginHint: "Спортсмен входит по этому коду, email не нужен",
     emailOptional: "Email (необязательно)",
+    deleteUser: "Удалить",
+    deleteUserConfirm: "Удалить пользователя и ВСЕ его данные (анкеты, тренировки, алерты)? Действие необратимо.",
+    userDeleted: "Пользователь удалён",
   },
   export: {
     title: "Экспорт данных",

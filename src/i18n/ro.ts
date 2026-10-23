@@ -373,6 +373,9 @@ const ro: Dictionary = {
     copied: "Copiat",
     athleteLoginHint: "Sportivul intră cu acest cod, fără email",
     emailOptional: "Email (opțional)",
+    deleteUser: "Șterge",
+    deleteUserConfirm: "Ștergi acest utilizator și TOATE datele lui (chestionare, antrenamente, alerte)? Acțiunea este ireversibilă.",
+    userDeleted: "Utilizator șters",
   },
   export: {
     title: "Export de date",

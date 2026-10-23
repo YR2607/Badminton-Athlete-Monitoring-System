@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -197,4 +198,49 @@ export async function adminResetUserPassword(
     metadata: {},
   });
   return { ok: true, password };
+}
+
+/**
+ * Admin-only: permanently delete a user. The auth.users row is removed,
+ * which cascades to profiles → athletes → check-ins/sessions/alerts.
+ * Guards: cannot delete yourself or any admin-role profile (prevents
+ * locking the club out of the admin account).
+ */
+export async function adminDeleteUser(
+  profileId: string,
+): Promise<{ ok?: boolean; error?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "unauthenticated" };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .eq("user_id", user.id)
+    .single();
+  if (me?.role !== "admin") return { error: "forbidden" };
+  if (me.id === profileId) return { error: "self_delete" };
+
+  const admin = createAdminClient();
+  const { data: target } = await admin
+    .from("profiles")
+    .select("user_id, role")
+    .eq("id", profileId)
+    .single();
+  if (!target) return { error: "not_found" };
+  if (target.role === "admin") return { error: "forbidden" };
+
+  const { error } = await admin.auth.admin.deleteUser(target.user_id);
+  if (error) return { error: error.message };
+
+  await admin.from("audit_logs").insert({
+    actor_profile_id: me.id,
+    action: "user.delete",
+    target_type: "profile",
+    target_id: profileId,
+    metadata: { role: target.role },
+  });
+  revalidatePath("/admin/users");
+  return { ok: true };
 }
