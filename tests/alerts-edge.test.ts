@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { evaluateAlerts, type EvalContext } from "@/lib/alerts";
 import { computeBaseline, buildSnapshot } from "@/lib/readiness";
-import type { AlertRule, MorningCheckin, PostTrainingCheckin, TrainingSession } from "@/lib/types";
+import type { AlertRule, MorningCheckin, PostTrainingCheckin } from "@/lib/types";
 
 const RULES: AlertRule[] = [
   { id: "1", code: "acute_pain", severity: "priority", enabled: true, params: { pain_statuses: ["acute_instability"], swelling: true, movement_limitation: true, min_severity: 7 }, description: "", version: 1 },
@@ -9,7 +9,6 @@ const RULES: AlertRule[] = [
   { id: "3", code: "joint_pain", severity: "review_load", enabled: true, params: { pain_statuses: ["joint_tendon"], min_severity: 5 }, description: "", version: 1 },
   { id: "4", code: "readiness_drop", severity: "attention", enabled: true, params: { sd_below: 1.0, min_abs_drop: 10 }, description: "", version: 1 },
   { id: "5", code: "sustained_decline", severity: "review_load", enabled: true, params: { days: 3, below_baseline: true }, description: "", version: 1 },
-  { id: "6", code: "load_spike", severity: "attention", enabled: true, params: { ratio: 1.5 }, description: "", version: 1 },
   { id: "8", code: "repeated_fatigue", severity: "attention", enabled: true, params: { days: 3, fatigue_min: 4 }, description: "", version: 1 },
 ];
 
@@ -26,18 +25,6 @@ const mkCheckin = (date: string, over: Partial<MorningCheckin> = {}): MorningChe
   pain_severity: null, pain_onset: null, pain_triggers: [],
   swelling: null, movement_limitation: null, symptoms: null, notes: null,
   ...over,
-});
-
-const mkSession = (date: string, load: number): TrainingSession => ({
-  id: `s-${date}-${load}`,
-  athlete_id: "a1",
-  group_id: null,
-  started_at: `${date}T16:00:00Z`,
-  duration_minutes: load / 5,
-  training_type: "court",
-  session_rpe: 5,
-  session_load: load,
-  created_at: `${date}T17:00:00Z`,
 });
 
 const mkPost = (submittedAt: string, over: Partial<PostTrainingCheckin> = {}): PostTrainingCheckin => ({
@@ -59,7 +46,6 @@ function ctx(over: Partial<EvalContext>): EvalContext {
     recentCheckins: [],
     dailyReadiness: [],
     baseline: null,
-    sessions: [],
     postCheckins: [],
     rules: RULES,
     ...over,
@@ -111,33 +97,15 @@ describe("sustained_decline requires consecutive days with data", () => {
   });
 });
 
-describe("load_spike with no previous-week data", () => {
-  it("does not fire when chronic load is zero (ratio undefined)", () => {
-    const cur = ["2026-10-18", "2026-10-19", "2026-10-20"].map((d) => mkSession(d, 900));
-    const res = evaluateAlerts(ctx({ sessions: cur }));
-    expect(res.some((r) => r.rule_code === "load_spike")).toBe(false);
-  });
-});
-
-describe("load windows bucket sessions by athlete-local day", () => {
-  it("a session in the first local hours (previous UTC day) still counts", () => {
-    // 2026-10-16 00:30 local in Chisinau = 2026-10-15T21:30Z — the UTC slice
-    // would wrongly exclude it from the acute window (local 10-16..10-23).
-    const chronic = [mkSession("2026-10-10", 600)];
-    const acuteLocal = { ...mkSession("2026-10-16", 1000), started_at: "2026-10-15T21:30:00Z" };
-    const res = evaluateAlerts(ctx({ sessions: [...chronic, acuteLocal], timezone: "Europe/Chisinau" }));
-    // local 10-16 is inside the acute window: 1000/600 = 1.67 >= 1.5 → fires
-    expect(res.some((r) => r.rule_code === "load_spike")).toBe(true);
-  });
-
-  it("a session on the local next day does not leak into today's acute window", () => {
-    // 2026-10-24 01:00 local in Chisinau = 2026-10-23T22:00Z.
-    // UTC slicing would bucket it on 10-23 (inside) — local bucketing puts it
-    // on 10-24 (outside).
-    const chronic = [mkSession("2026-10-10", 600)];
-    const lateSession = { ...mkSession("x", 1000), started_at: "2026-10-23T22:00:00Z" };
-    const res = evaluateAlerts(ctx({ sessions: [...chronic, lateSession], timezone: "Europe/Chisinau" }));
-    // acute window local 10-16..10-23 contains nothing → no spike
+describe("load rules removed", () => {
+  it("load-based rules produce no candidates even if stale enabled rows remain", () => {
+    const res = evaluateAlerts(
+      ctx({
+        rules: [
+          { id: "6", code: "load_spike", severity: "attention", enabled: true, params: { ratio: 1.5 }, description: "", version: 1 },
+        ],
+      }),
+    );
     expect(res.some((r) => r.rule_code === "load_spike")).toBe(false);
   });
 });

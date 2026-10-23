@@ -3,15 +3,6 @@ import { z } from "zod";
 const score15 = z.number().int().min(1).max(5);
 const painStatus = z.enum(["none", "muscle_soreness", "joint_tendon", "acute_instability", "other"]);
 const painSide = z.enum(["left", "right", "both", "na"]);
-const trainingType = z.enum([
-  "court",
-  "technique",
-  "game",
-  "physical",
-  "strength",
-  "recovery",
-  "mixed",
-]);
 
 export const morningCheckinSchema = z
   .object({
@@ -42,17 +33,8 @@ export const morningCheckinSchema = z
     }
   });
 
-export const trainingSessionSchema = z.object({
-  started_at: z.string().min(10),
-  duration_minutes: z.number().int().min(1).max(600),
-  training_type: trainingType,
-  session_rpe: z.number().int().min(0).max(10),
-  client_uuid: z.string().uuid(),
-});
-
 export const postTrainingSchema = z
   .object({
-    training_session_id: z.string().uuid(),
     overall_feeling: score15,
     leg_fatigue: score15,
     arm_shoulder_fatigue: score15,
@@ -104,5 +86,4 @@ export const alertReviewSchema = z.object({
 });
 
 export type MorningCheckinInput = z.infer<typeof morningCheckinSchema>;
-export type TrainingSessionInput = z.infer<typeof trainingSessionSchema>;
 export type PostTrainingInput = z.infer<typeof postTrainingSchema>;

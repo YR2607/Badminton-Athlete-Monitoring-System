@@ -21,8 +21,6 @@ const RULE_CODES = [
   "joint_pain",
   "readiness_drop",
   "sustained_decline",
-  "load_spike",
-  "load_with_decline",
   "repeated_fatigue",
   "missing_morning",
 ] as const;

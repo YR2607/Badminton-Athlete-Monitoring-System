@@ -222,9 +222,9 @@ const en: Dictionary = {
     normTitle: "Personal baseline",
     normBody:
       "Mean and spread over the first ≤14 days that have check-ins. At least 8 days of data are required — until then no 'vs baseline' comparisons or decline conclusions are shown. The card delta = today's score minus the baseline.",
-    loadTitle: "Load",
+    loadTitle: "Sessions",
     loadBody:
-      "Session load = RPE (perceived effort 1–10) × duration in minutes — entered by the athlete in the post-training check-in. '7-day load' sums the last 7 days, with the previous 7 days shown for comparison. A rise alone is context for review, not a diagnosis.",
+      "Athletes never enter session parameters — a session record is created automatically when the athlete submits the evening check-in (or the coach fills it in for them). 'Sessions today' counts these records per day. Load and RPE are not collected and feed no formula.",
     statusTitle: "Dashboard statuses",
     statusBody:
       "One status per athlete, in priority order. A red flag is never hidden behind a high score.",

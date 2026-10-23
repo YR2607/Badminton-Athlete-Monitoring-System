@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import type { Dictionary } from "@/i18n";
 import {
   coachUpsertMorningCheckin,
-  coachUpsertSession,
   coachUpsertPostCheckin,
 } from "@/app/actions/coach";
 import { Button } from "@/components/ui/button";
@@ -16,7 +15,6 @@ import type {
   MorningCheckin,
   PainStatus,
   PostTrainingCheckin,
-  TrainingSession,
 } from "@/lib/types";
 
 const PAIN_OPTIONS: PainStatus[] = [
@@ -289,100 +287,19 @@ export function CheckinEditor({
   );
 }
 
-/** Coach adds or edits a training session. */
-export function SessionEditor({
-  dict,
-  athleteId,
-  date,
-  session,
-}: {
-  dict: Dictionary;
-  athleteId: string;
-  date: string;
-  session: TrainingSession | null;
-}) {
-  const d = dict.day;
-  const pt = dict.postTraining;
-  const router = useRouter();
-  const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [f, setF] = useState({
-    time: session ? session.started_at.slice(11, 16) : "16:00",
-    duration: session?.duration_minutes?.toString() ?? "90",
-    rpe: session?.session_rpe,
-  });
-
-  async function save() {
-    if (f.rpe === undefined) {
-      toast.error(dict.common.error);
-      return;
-    }
-    setBusy(true);
-    const res = await coachUpsertSession({
-      id: session?.id,
-      athlete_id: athleteId,
-      started_at: new Date(`${date}T${f.time}:00`).toISOString(),
-      duration_minutes: Number(f.duration),
-      training_type: session?.training_type ?? "mixed",
-      session_rpe: f.rpe,
-    });
-    setBusy(false);
-    if (res.ok) {
-      toast.success(dict.common.saved);
-      setOpen(false);
-      router.refresh();
-    } else {
-      toast.error(res.error ?? dict.common.error);
-    }
-  }
-
-  if (!open) {
-    return (
-      <Button size="sm" variant={session ? "ghost" : "secondary"} className="mt-2" onClick={() => setOpen(true)}>
-        {session ? d.edit : d.addSession}
-      </Button>
-    );
-  }
-
-  return (
-    <div className="mt-3 space-y-3 rounded-xl border border-border p-3">
-      <p className="text-sm font-semibold">{session ? d.editSession : d.addSession}</p>
-      <div className="grid gap-2 sm:grid-cols-3">
-        <div>
-          <Label>{dict.admin.startTime}</Label>
-          <Input type="time" value={f.time} onChange={(e) => setF((s) => ({ ...s, time: e.target.value }))} />
-        </div>
-        <div>
-          <Label>{pt.duration}</Label>
-          <Input type="number" min={1} inputMode="numeric" value={f.duration} onChange={(e) => setF((s) => ({ ...s, duration: e.target.value }))} />
-        </div>
-      </div>
-      <div>
-        <p className="mb-1 text-sm">{pt.rpe}</p>
-        <ScaleInput value={f.rpe} onChange={(v) => setF((s) => ({ ...s, rpe: v }))} min={0} max={10} />
-      </div>
-      <div className="flex gap-2">
-        <Button onClick={save} disabled={busy}>
-          {dict.common.save}
-        </Button>
-        <Button variant="ghost" onClick={() => setOpen(false)}>
-          {dict.common.cancel}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/** Coach edits / fills the post-training check-in of a session. */
+/** Coach edits / fills the post-training check-in of a session. When the day
+ * has no session yet, saving creates the session marker automatically. */
 export function PostCheckinEditor({
   dict,
   athleteId,
   sessionId,
+  date,
   post,
 }: {
   dict: Dictionary;
   athleteId: string;
-  sessionId: string;
+  sessionId: string | null;
+  date: string;
   post: PostTrainingCheckin | null;
 }) {
   const d = dict.day;
@@ -408,6 +325,7 @@ export function PostCheckinEditor({
     setBusy(true);
     const res = await coachUpsertPostCheckin({
       training_session_id: sessionId,
+      session_date: date,
       athlete_id: athleteId,
       overall_feeling: f.feeling!,
       leg_fatigue: f.legs!,

@@ -5,7 +5,7 @@ import { getCurrentProfile } from "@/lib/auth";
 import { getDictionary, type Dictionary } from "@/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CheckinEditor, SessionEditor, PostCheckinEditor } from "./coach-edit";
+import { CheckinEditor, PostCheckinEditor } from "./coach-edit";
 import type {
   Athlete,
   MorningCheckin,
@@ -224,15 +224,11 @@ export default async function AthleteDayPage({
                   <div key={s.id} className="rounded-xl border border-border p-3">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                       <span>{time(s.started_at, tz)}</span>
-                      <span>
-                        {s.duration_minutes} {dict.common.minutes}
-                      </span>
-                      <span>
-                        {dict.history.rpe} {s.session_rpe}
-                      </span>
-                      <span className="font-semibold">
-                        {dict.history.load} {s.session_load}
-                      </span>
+                      {s.duration_minutes != null && (
+                        <span>
+                          {s.duration_minutes} {dict.common.minutes}
+                        </span>
+                      )}
                     </div>
                     <div className="mt-2">
                       <p className="text-xs font-medium text-muted">
@@ -254,15 +250,16 @@ export default async function AthleteDayPage({
                           )}
                         </>
                       )}
-                      <PostCheckinEditor dict={dict} athleteId={a.id} sessionId={s.id} post={p ?? null} />
+                      <PostCheckinEditor dict={dict} athleteId={a.id} sessionId={s.id} date={date} post={p ?? null} />
                     </div>
-                    <SessionEditor dict={dict} athleteId={a.id} date={date} session={s} />
                   </div>
                 );
               })}
             </div>
           )}
-          <SessionEditor dict={dict} athleteId={a.id} date={date} session={null} />
+          {((sessions as TrainingSession[]) ?? []).length === 0 && (
+            <PostCheckinEditor dict={dict} athleteId={a.id} sessionId={null} date={date} post={null} />
+          )}
         </CardContent>
       </Card>
     </div>

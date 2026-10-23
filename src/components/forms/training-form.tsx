@@ -6,7 +6,7 @@ import { useForm, Controller } from "react-hook-form";
 import { z } from "zod";
 import { toast } from "sonner";
 import type { Dictionary } from "@/i18n";
-import { submitTraining } from "@/app/actions/checkins";
+import { submitEveningCheckin } from "@/app/actions/checkins";
 import { ScaleInput } from "@/components/forms/scale-input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,10 +14,6 @@ import { Input, Label, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const schema = z.object({
-  started_at: z.string().min(10),
-  duration_minutes: z.coerce.number().int().min(1).max(600),
-  training_type: z.enum(["court", "technique", "game", "physical", "strength", "recovery", "mixed"]),
-  session_rpe: z.number().int().min(0).max(10),
   overall_feeling: z.number().min(1).max(5),
   leg_fatigue: z.number().min(1).max(5),
   arm_shoulder_fatigue: z.number().min(1).max(5),
@@ -34,28 +30,19 @@ const painValues = ["none", "muscle_soreness", "joint_tendon", "acute_instabilit
 const sideKeys = ["sideLeft", "sideRight", "sideBoth", "sideNa"] as const;
 const sideValues = ["left", "right", "both", "na"] as const;
 
-function toLocalInput(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-export function TrainingForm({ dict, defaultStartedAt }: { dict: Dictionary; defaultStartedAt?: string }) {
+export function TrainingForm({ dict }: { dict: Dictionary }) {
   const d = dict.postTraining;
   const dm = dict.morning;
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const { control, register, handleSubmit, watch, setValue } = useForm<FormValues>({
     defaultValues: {
-      started_at: defaultStartedAt ?? toLocalInput(new Date()),
       pain_status: "none",
       pain_triggers: [],
     },
   });
 
-  const rpe = watch("session_rpe");
-  const duration = watch("duration_minutes");
   const painStatus = watch("pain_status");
-  const load = (rpe ?? 0) * (duration ?? 0);
 
   async function onSubmit(values: FormValues) {
     const parsed = schema.safeParse(values);
@@ -65,27 +52,16 @@ export function TrainingForm({ dict, defaultStartedAt }: { dict: Dictionary; def
     }
     setBusy(true);
     try {
-      const res = await submitTraining({
-        session: {
-          started_at: new Date(values.started_at).toISOString(),
-          duration_minutes: values.duration_minutes,
-          // training type isn't collected — a single sport context makes the
-          // distinction noise; stored as "mixed" for schema compatibility.
-          training_type: "mixed",
-          session_rpe: values.session_rpe,
-          client_uuid: crypto.randomUUID(),
-        },
-        checkin: {
-          overall_feeling: values.overall_feeling,
-          leg_fatigue: values.leg_fatigue,
-          arm_shoulder_fatigue: values.arm_shoulder_fatigue,
-          pain_status: values.pain_status,
-          pain_location: values.pain_location,
-          pain_side: values.pain_side,
-          pain_triggers: values.pain_triggers,
-          notes: values.notes,
-          client_uuid: crypto.randomUUID(),
-        },
+      const res = await submitEveningCheckin({
+        overall_feeling: values.overall_feeling,
+        leg_fatigue: values.leg_fatigue,
+        arm_shoulder_fatigue: values.arm_shoulder_fatigue,
+        pain_status: values.pain_status,
+        pain_location: values.pain_location,
+        pain_side: values.pain_side,
+        pain_triggers: values.pain_triggers,
+        notes: values.notes,
+        client_uuid: crypto.randomUUID(),
       });
       if (res.ok) {
         toast.success(d.checkinSaved);
@@ -114,41 +90,6 @@ export function TrainingForm({ dict, defaultStartedAt }: { dict: Dictionary; def
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <Card>
-        <CardContent className="space-y-4 pt-4">
-          <div>
-            <Label htmlFor="started_at">{d.startedAt}</Label>
-            <Input id="started_at" type="datetime-local" {...register("started_at")} />
-          </div>
-          <div>
-            <Label htmlFor="duration">{d.duration}</Label>
-            <Input id="duration" type="number" inputMode="numeric" min={1} max={600} {...register("duration_minutes")} />
-          </div>
-          <div>
-            <p className="mb-2 text-sm font-medium">{d.rpe}</p>
-            <Controller
-              control={control}
-              name="session_rpe"
-              render={({ field }) => (
-                <ScaleInput min={0} max={10} value={field.value} onChange={field.onChange} />
-              )}
-            />
-            <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-muted">
-              <span>{d.rpeHints.easy}</span>
-              <span>{d.rpeHints.moderate}</span>
-              <span>{d.rpeHints.hard}</span>
-              <span>{d.rpeHints.veryHard}</span>
-              <span>{d.rpeHints.max}</span>
-            </div>
-            {load > 0 && (
-              <p className="mt-2 text-sm">
-                {d.sessionLoad}: <strong>{load}</strong>
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
       <Card>
         <CardContent className="space-y-4 pt-4">
           {scale("overall_feeling", d.overallFeeling, d.feelingLow, d.feelingHigh)}

@@ -4,11 +4,9 @@ import {
   acutePostFlags,
   ageInDays,
   athleteStatus,
-  loadInRange,
   pendingPostCheckins,
   STATUS_ORDER,
 } from "@/lib/athlete-status";
-import { localDate } from "@/lib/dates";
 import type { Baseline } from "@/lib/readiness";
 import type { MorningCheckin, PostTrainingCheckin, TrainingSession } from "@/lib/types";
 
@@ -41,10 +39,10 @@ const mkSession = (over: Partial<TrainingSession> = {}): TrainingSession => ({
   athlete_id: "a1",
   group_id: null,
   started_at: "2026-10-22T16:00:00Z",
-  duration_minutes: 90,
-  training_type: "mixed",
-  session_rpe: 5,
-  session_load: 450,
+  duration_minutes: null,
+  training_type: null,
+  session_rpe: null,
+  session_load: null,
   created_at: "2026-10-22T16:00:00Z",
   ...over,
 });
@@ -156,34 +154,21 @@ describe("pendingPostCheckins", () => {
     const pending = pendingPostCheckins([mkSession()], [], now);
     expect(pending).toHaveLength(1);
   });
+  it("a session without params is pending once past the grace period", () => {
+    // Session params are no longer collected — missing duration must not
+    // silently mean "still running" or "ended instantly".
+    const old = mkSession({ started_at: "2026-10-22T16:00:00Z" });
+    expect(pendingPostCheckins([old], [], now)).toHaveLength(1);
+    const fresh = mkSession({ started_at: "2026-10-22T19:30:00Z" });
+    expect(pendingPostCheckins([fresh], [], now)).toHaveLength(0);
+  });
   it("does not flag an answered or very recent session", () => {
     expect(pendingPostCheckins([mkSession()], [mkPost()], now)).toHaveLength(0);
-    const justEnded = mkSession({ started_at: "2026-10-22T18:45:00Z", duration_minutes: 90 });
+    const justEnded = mkSession({ started_at: "2026-10-22T19:30:00Z" });
     expect(pendingPostCheckins([justEnded], [], now)).toHaveLength(0);
   });
   it("no session record → nothing pending (absence is not zero load)", () => {
     expect(pendingPostCheckins([], [], now)).toHaveLength(0);
-  });
-});
-
-describe("loadInRange", () => {
-  it("sums loads inside the local-date window only", () => {
-    const s1 = mkSession({ started_at: "2026-10-20T16:00:00Z" });
-    const s2 = mkSession({ started_at: "2026-10-21T16:00:00Z", session_load: 300 });
-    const outside = mkSession({ id: "s9", started_at: "2026-10-10T16:00:00Z" });
-    expect(loadInRange([s1, s2, outside], "Europe/Chisinau", "2026-10-20", "2026-10-26")).toBe(750);
-  });
-  it("missing sessions → 0, and callers must not show it as a score", () => {
-    expect(loadInRange([], "UTC", "2026-10-20", "2026-10-26")).toBe(0);
-  });
-  it("timezones bucket the same instant to different days", () => {
-    // 23:00 UTC is Oct 22 in Chisinau (+3) but still Oct 22 16:00 in LA (-7)... wait:
-    // 2026-10-22T22:00Z → 23:00+3 = Oct 23 01:00 Chisinau; 15:00 LA Oct 22.
-    const s = mkSession({ started_at: "2026-10-22T22:00:00Z" });
-    expect(localDate(new Date(s.started_at), "Europe/Chisinau")).toBe("2026-10-23");
-    expect(localDate(new Date(s.started_at), "America/Los_Angeles")).toBe("2026-10-22");
-    expect(loadInRange([s], "Europe/Chisinau", "2026-10-22", "2026-10-22")).toBe(0);
-    expect(loadInRange([s], "America/Los_Angeles", "2026-10-22", "2026-10-22")).toBe(450);
   });
 });
 

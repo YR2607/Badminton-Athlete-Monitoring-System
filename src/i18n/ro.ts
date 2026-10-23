@@ -222,9 +222,9 @@ const ro: Dictionary = {
     normTitle: "Norma personală",
     normBody:
       "Media și abaterea pe primele ≤14 zile cu chestionare. Sunt necesare minimum 8 zile de date — până atunci nu apar comparații «față de normă» și concluzii de înrăutățire. Delta de pe card = scorul de azi minus norma.",
-    loadTitle: "Încărcătura",
+    loadTitle: "Antrenamente",
     loadBody:
-      "Încărcătura antrenamentului = RPE (efort perceput 1–10) × durata în minute — introdusă de sportiv în chestionarul post-antrenament. «Încărcătura 7 zile» — suma ultimelor 7 zile, alături precedentele 7 zile. Creșterea singură e context pentru verificare, nu diagnostic.",
+      "Sportivii nu introduc parametrii antrenamentului — înregistrarea se creează automat când sportivul trimite chestionarul de seară (sau antrenorul îl completează). «Antrenamente azi» — numărul acestor înregistrări pe zi. Încărcătura și RPE nu se colectează și nu intră în nicio formulă.",
     statusTitle: "Stările din panou",
     statusBody:
       "O stare per sportiv, în ordinea priorității. Un semnal alarmant nu se ascunde niciodată în spatele unui scor mare.",

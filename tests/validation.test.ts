@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { morningCheckinSchema, trainingSessionSchema, postTrainingSchema } from "@/lib/validation";
+import { morningCheckinSchema, postTrainingSchema } from "@/lib/validation";
 
 const uuid = "123e4567-e89b-42d3-a456-426614174000";
 
@@ -42,34 +42,9 @@ describe("morningCheckinSchema", () => {
   });
 });
 
-describe("trainingSessionSchema", () => {
-  it("accepts valid session", () => {
-    const r = trainingSessionSchema.safeParse({
-      started_at: "2026-10-23T16:00:00.000Z",
-      duration_minutes: 90,
-      training_type: "court",
-      session_rpe: 7,
-      client_uuid: uuid,
-    });
-    expect(r.success).toBe(true);
-  });
-  it("rejects rpe > 10 and absurd duration", () => {
-    expect(
-      trainingSessionSchema.safeParse({
-        started_at: "2026-10-23T16:00:00.000Z",
-        duration_minutes: 900,
-        training_type: "court",
-        session_rpe: 11,
-        client_uuid: uuid,
-      }).success,
-    ).toBe(false);
-  });
-});
-
 describe("postTrainingSchema", () => {
-  it("links to a session and validates scales", () => {
+  it("accepts wellness-only input (no session fields are collected)", () => {
     const ok = postTrainingSchema.safeParse({
-      training_session_id: uuid,
       overall_feeling: 4,
       leg_fatigue: 3,
       arm_shoulder_fatigue: 2,
@@ -78,5 +53,28 @@ describe("postTrainingSchema", () => {
       client_uuid: uuid,
     });
     expect(ok.success).toBe(true);
+  });
+
+  it("rejects scores outside 1..5 and pain without location", () => {
+    expect(
+      postTrainingSchema.safeParse({
+        overall_feeling: 6,
+        leg_fatigue: 3,
+        arm_shoulder_fatigue: 2,
+        pain_status: "none",
+        pain_triggers: [],
+        client_uuid: uuid,
+      }).success,
+    ).toBe(false);
+    expect(
+      postTrainingSchema.safeParse({
+        overall_feeling: 4,
+        leg_fatigue: 3,
+        arm_shoulder_fatigue: 2,
+        pain_status: "joint_tendon",
+        pain_triggers: [],
+        client_uuid: uuid,
+      }).success,
+    ).toBe(false);
   });
 });

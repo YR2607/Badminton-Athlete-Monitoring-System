@@ -188,14 +188,11 @@ async function main() {
     if (a.kind === "sparse") continue;
     for (let d = DAYS - 1; d >= 0; d--) {
       const date = addDays(today, -d);
-      const heavy = a.kind === "declining" && a.name === "Дарья Сырбу" && d <= 3; // engineered load spike
-      if (!TRAIN_DAYS.includes(weekdayOf(date)) && !heavy) continue;
+      if (!TRAIN_DAYS.includes(weekdayOf(date))) continue;
+      // Sessions carry no duration/RPE — params are no longer collected.
       sessions.push({
         athlete_id: a.id, group_id: group.id,
         started_at: `${date}T14:00:00Z`,
-        duration_minutes: heavy ? 120 : 80 + ((d * 17 + a.id.charCodeAt(0)) % 5) * 10,
-        training_type: ["court", "technique", "physical", "mixed"][(d + a.id.charCodeAt(2)) % 4],
-        session_rpe: heavy ? 9 : 5 + ((d + a.id.charCodeAt(3)) % 4),
         client_uuid: crypto.randomUUID(),
       });
     }

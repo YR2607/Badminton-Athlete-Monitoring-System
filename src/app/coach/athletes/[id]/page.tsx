@@ -5,12 +5,12 @@ import { getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { addDays, dateRange, localDate, resolveRange, todayInTz, type RangeKey } from "@/lib/dates";
 import { conditionScore, dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
-import { loadInRange, pendingPostCheckins } from "@/lib/athlete-status";
+import { pendingPostCheckins } from "@/lib/athlete-status";
 import { coachAthleteIds } from "@/lib/coach-data";
 import { AthleteSwitcher, type NavAthlete } from "./athlete-switcher";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { SeriesLineChart, LoadBarChart } from "@/components/charts/series-chart";
+import { SeriesLineChart } from "@/components/charts/series-chart";
 import { CoachNotes } from "./notes";
 import { AlertList } from "./alert-list";
 import { cn } from "@/lib/utils";
@@ -126,12 +126,6 @@ export default async function AthleteDetailPage({
     fatigue: c.fatigue_score,
     soreness: c.muscle_soreness_score,
   }));
-  const loads = ssInRange.map((s) => ({
-    date: localDate(new Date(s.started_at), tz),
-    load: s.session_load,
-    rpe: s.session_rpe,
-  }));
-
   const scores = inRangeSeries.map((p) => p.score);
   const stat = {
     avg: scores.length ? Math.round((scores.reduce((x, y) => x + y, 0) / scores.length) * 10) / 10 : null,
@@ -139,9 +133,7 @@ export default async function AthleteDetailPage({
     min: scores.length ? Math.min(...scores) : null,
     max: scores.length ? Math.max(...scores) : null,
     count: inRange.length,
-    totalLoad: ssInRange.reduce((x, s) => x + s.session_load, 0),
     sessions: ssInRange.length,
-    minutes: ssInRange.reduce((x, s) => x + s.duration_minutes, 0),
   };
 
   // Calendar: every day in range; filled check-in vs missed.
@@ -163,8 +155,6 @@ export default async function AthleteDetailPage({
     (s) => localDate(new Date(s.started_at), tz) === today,
   ).length;
   const pendingPosts = pendingPostCheckins(recentSs, recentPs, new Date());
-  const load7 = loadInRange(recentSs, tz, addDays(today, -6), today);
-  const loadPrev7 = loadInRange(recentSs, tz, addDays(today, -13), addDays(today, -7));
   const normObs = latestSnap?.input_data_count ?? ck.length;
   const normAvg = latestSnap?.baseline_avg ?? null;
   const normReady = latestSnap?.confidence === "sufficient" && normAvg !== null;
@@ -273,17 +263,6 @@ export default async function AthleteDetailPage({
                 )}
               </p>
             </div>
-            <div title={dict.common.loadHint}>
-              <p className="text-xs text-muted">{dd.today.load7d}</p>
-              <p className="font-medium tabular-nums">
-                {recentSs.length ? load7 : dict.common.noData}
-                {recentSs.length > 0 && (
-                  <span className="ml-1 text-xs text-muted">
-                    / {loadPrev7} {dd.today.prev7d}
-                  </span>
-                )}
-              </p>
-            </div>
             <div>
               <p className="text-xs text-muted">{dd.today.signals}</p>
               <div className="flex flex-wrap gap-1">
@@ -372,7 +351,7 @@ export default async function AthleteDetailPage({
           ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
         {[
           { label: dict.stats.avg, v: stat.avg, sub: dict.stats.of100, tone: true },
           { label: dict.stats.median, v: stat.median, sub: dict.stats.medianHint, tone: true },
@@ -380,7 +359,6 @@ export default async function AthleteDetailPage({
           { label: dict.stats.max, v: stat.max, sub: dict.stats.of100, tone: true },
           { label: dict.stats.count, v: stat.count },
           { label: dict.stats.sessions, v: stat.sessions },
-          { label: dict.stats.totalLoad, v: stat.totalLoad, sub: dict.stats.loadUnits },
         ].map(({ label, v, sub, tone }) => (
           <Card key={label}>
             <CardContent className="pt-3 pb-3">
@@ -493,19 +471,6 @@ export default async function AthleteDetailPage({
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{dict.history.weeklyLoad}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loads.length === 0 ? (
-            <p className="text-sm text-muted">{dict.common.noData}</p>
-          ) : (
-            <LoadBarChart data={loads} label={dict.history.load} />
-          )}
-        </CardContent>
-      </Card>
 
       <AlertList alerts={(alerts as Alert[]) ?? []} dict={dict} />
 

@@ -6,11 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile, getCurrentAthlete, audit } from "@/lib/auth";
 import { evaluateAthleteDay } from "@/lib/evaluate";
 import { localDate } from "@/lib/dates";
-import {
-  morningCheckinSchema,
-  trainingSessionSchema,
-  postTrainingSchema,
-} from "@/lib/validation";
+import { morningCheckinSchema, postTrainingSchema } from "@/lib/validation";
 
 export type ActionResult = { ok?: boolean; error?: string };
 
@@ -70,17 +66,17 @@ export async function submitMorningCheckin(input: unknown): Promise<ActionResult
   return { ok: true };
 }
 
-export async function submitTrainingSession(input: unknown): Promise<ActionResult & { session_id?: string }> {
-  const parsed = trainingSessionSchema.safeParse(input);
+/**
+ * Evening check-in: the athlete reports post-training wellness only. The
+ * session row is auto-created as a "training happened" marker — athletes
+ * never enter duration/RPE, so no load is computed from it.
+ */
+export async function submitEveningCheckin(input: unknown): Promise<ActionResult> {
+  const parsed = postTrainingSchema.safeParse(input);
   if (!parsed.success) return { error: "validation" };
   const ctx = await athleteContext();
   if (!ctx) return { error: "unauthenticated" };
-  const { athlete } = ctx;
-
-  const started = new Date(parsed.data.started_at);
-  if (Number.isNaN(started.getTime()) || started.getTime() > Date.now() + 3600_000) {
-    return { error: "invalid_date" };
-  }
+  const { profile, athlete } = ctx;
 
   const supabase = await createClient();
   const { data: membership } = await supabase
@@ -91,60 +87,32 @@ export async function submitTrainingSession(input: unknown): Promise<ActionResul
     .limit(1)
     .maybeSingle();
 
-  const { data, error } = await supabase
+  const { data: inserted, error: sErr } = await supabase
     .from("training_sessions")
     .insert({
       athlete_id: athlete.id,
       group_id: membership?.group_id ?? null,
-      started_at: started.toISOString(),
-      duration_minutes: parsed.data.duration_minutes,
-      training_type: parsed.data.training_type,
-      session_rpe: parsed.data.session_rpe,
+      started_at: new Date().toISOString(),
       client_uuid: parsed.data.client_uuid,
     })
     .select("id")
     .single();
-  if (error) return { error: error.code === "23505" ? "duplicate" : error.message };
 
-  await audit("session.create", "training_sessions", data.id, {});
-  revalidatePath("/athlete");
-  return { ok: true, session_id: data.id };
-}
-
-/**
- * Combined "after training" submission: creates the session row first
- * (duration + RPE + type), then the post-training check-in linked to it.
- */
-export async function submitTraining(input: {
-  session: unknown;
-  checkin: unknown;
-}): Promise<ActionResult> {
-  const s = await submitTrainingSession(input.session);
-  if (!s.ok || !s.session_id) return { error: s.error ?? "error" };
-  const c = await submitPostTraining({
-    ...(typeof input.checkin === "object" && input.checkin !== null ? input.checkin : {}),
-    training_session_id: s.session_id,
-  });
-  if (!c.ok) return { error: c.error ?? "error" };
-  return { ok: true };
-}
-
-export async function submitPostTraining(input: unknown): Promise<ActionResult> {
-  const parsed = postTrainingSchema.safeParse(input);
-  if (!parsed.success) return { error: "validation" };
-  const ctx = await athleteContext();
-  if (!ctx) return { error: "unauthenticated" };
-  const { profile, athlete } = ctx;
-
-  const supabase = await createClient();
-  // Verify the session belongs to this athlete (IDOR protection).
-  const { data: session } = await supabase
-    .from("training_sessions")
-    .select("id, started_at")
-    .eq("id", parsed.data.training_session_id)
-    .eq("athlete_id", athlete.id)
-    .maybeSingle();
-  if (!session) return { error: "forbidden" };
+  // A retry after a partial failure may hit the client_uuid unique constraint
+  // with the session already created — reuse it instead of failing.
+  let session = inserted;
+  if (sErr) {
+    if (sErr.code !== "23505") return { error: sErr.message };
+    const { data: existing } = await supabase
+      .from("training_sessions")
+      .select("id")
+      .eq("athlete_id", athlete.id)
+      .eq("client_uuid", parsed.data.client_uuid)
+      .maybeSingle();
+    if (!existing) return { error: "duplicate" };
+    session = existing;
+  }
+  if (!session) return { error: "error" };
 
   const { error } = await supabase.from("post_training_checkins").insert({
     training_session_id: session.id,
@@ -161,7 +129,7 @@ export async function submitPostTraining(input: unknown): Promise<ActionResult> 
   });
   if (error) return { error: error.code === "23505" ? "duplicate" : error.message };
 
-  const date = localDate(new Date(session.started_at), profile.timezone);
+  const date = localDate(new Date(), profile.timezone);
   try {
     await evaluateAthleteDay(createAdminClient(), athlete.id, date, profile.timezone);
   } catch (e) {

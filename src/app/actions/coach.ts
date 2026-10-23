@@ -145,60 +145,11 @@ export async function coachUpsertMorningCheckin(f: MorningFields): Promise<Actio
   return { ok: true };
 }
 
-export interface SessionFields {
-  id?: string;
-  athlete_id: string;
-  started_at: string; // ISO datetime
-  duration_minutes: number;
-  training_type: string;
-  session_rpe: number;
-  group_id?: string | null;
-}
-
-/** Coach adds or corrects a training session. */
-export async function coachUpsertSession(f: SessionFields): Promise<ActionResult> {
-  const me = await requireCoach();
-  if (!me) return { error: "forbidden" };
-  const athlete = await athleteAccess(f.athlete_id);
-  if (!athlete) return { error: "forbidden" };
-  const started = new Date(f.started_at);
-  if (!f.started_at || Number.isNaN(started.getTime()) || f.duration_minutes <= 0) {
-    return { error: "validation" };
-  }
-
-  const admin = createAdminClient();
-  const row = {
-    athlete_id: f.athlete_id,
-    group_id: f.group_id ?? null,
-    started_at: started.toISOString(),
-    duration_minutes: Math.round(f.duration_minutes),
-    training_type: f.training_type,
-    session_rpe: f.session_rpe,
-  };
-  // The update is scoped to athlete_id so a forged id cannot steal another
-  // athlete's session row (the match simply fails).
-  const { data, error } = f.id
-    ? await admin.from("training_sessions").update(row).eq("id", f.id).eq("athlete_id", f.athlete_id).select("id")
-    : await admin.from("training_sessions").insert(row).select("id");
-  if (error) return { error: error.message };
-  if (!data?.length) return { error: "not_found" };
-
-  const date = localDate(started, athlete.timezone);
-  await audit(f.id ? "session.coach_update" : "session.coach_create", "training_sessions", f.athlete_id, {
-    date,
-  });
-  try {
-    await evaluateAthleteDay(admin, f.athlete_id, date, athlete.timezone);
-  } catch (e) {
-    console.error("evaluate_failed", e);
-  }
-  revalidatePath(`/coach/athletes/${f.athlete_id}`);
-  revalidatePath("/analytics");
-  return { ok: true };
-}
-
 export interface PostCheckinFields {
-  training_session_id: string;
+  /** Existing session to attach to; when null, a session marker is created for `session_date`. */
+  training_session_id: string | null;
+  /** YYYY-MM-DD — required when creating the session marker. */
+  session_date?: string;
   athlete_id: string;
   overall_feeling: number;
   leg_fatigue: number;
@@ -218,19 +169,47 @@ export async function coachUpsertPostCheckin(f: PostCheckinFields): Promise<Acti
   if (!athlete) return { error: "forbidden" };
 
   const admin = createAdminClient();
-  // The session must belong to the same athlete — otherwise an upsert keyed on
-  // training_session_id could overwrite another athlete's post check-in.
-  const { data: session } = await admin
-    .from("training_sessions")
-    .select("id, started_at")
-    .eq("id", f.training_session_id)
-    .eq("athlete_id", f.athlete_id)
-    .maybeSingle();
-  if (!session) return { error: "forbidden" };
+  let session: { id: string; started_at: string } | null = null;
+  if (f.training_session_id) {
+    // The session must belong to the same athlete — otherwise an upsert keyed
+    // on training_session_id could overwrite another athlete's post check-in.
+    const { data } = await admin
+      .from("training_sessions")
+      .select("id, started_at")
+      .eq("id", f.training_session_id)
+      .eq("athlete_id", f.athlete_id)
+      .maybeSingle();
+    if (!data) return { error: "forbidden" };
+    session = data;
+  } else {
+    // No session on that day — create the "training happened" marker so the
+    // check-in has a parent row. Midday UTC keeps it inside the local date.
+    if (!f.session_date || !/^\d{4}-\d{2}-\d{2}$/.test(f.session_date)) {
+      return { error: "validation" };
+    }
+    const { data: membership } = await admin
+      .from("group_memberships")
+      .select("group_id")
+      .eq("athlete_id", f.athlete_id)
+      .is("left_at", null)
+      .limit(1)
+      .maybeSingle();
+    const { data: created, error: sErr } = await admin
+      .from("training_sessions")
+      .insert({
+        athlete_id: f.athlete_id,
+        group_id: membership?.group_id ?? null,
+        started_at: `${f.session_date}T12:00:00Z`,
+      })
+      .select("id, started_at")
+      .single();
+    if (sErr) return { error: sErr.message };
+    session = created;
+  }
 
   const { error } = await admin.from("post_training_checkins").upsert(
     {
-      training_session_id: f.training_session_id,
+      training_session_id: session.id,
       athlete_id: f.athlete_id,
       overall_feeling: f.overall_feeling,
       leg_fatigue: f.leg_fatigue,
@@ -247,7 +226,7 @@ export async function coachUpsertPostCheckin(f: PostCheckinFields): Promise<Acti
   if (error) return { error: error.message };
 
   await audit("postcheckin.coach_upsert", "post_training_checkins", f.athlete_id, {
-    session: f.training_session_id,
+    session: session.id,
   });
   const date = localDate(new Date(session.started_at), athlete.timezone);
   try {

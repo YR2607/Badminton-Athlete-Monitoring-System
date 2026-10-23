@@ -148,7 +148,6 @@ export default async function AnalyticsPage({
   const statCards: [string, string | number, number | null, boolean?, string?][] = [
     [d.checkins, `${summary.checkinsFilled}/${summary.checkinsExpected}`, delta(summary.fillRate, prevSummary.fillRate)],
     [d.sessions, summary.sessions, delta(summary.sessions, prevSummary.sessions)],
-    [d.totalLoad, summary.totalLoad, delta(summary.totalLoad, prevSummary.totalLoad), undefined, dict.common.loadHint],
     [d.avgReadiness, summary.avgReadiness ?? "—", delta(summary.avgReadiness, prevSummary.avgReadiness), undefined, dict.common.readinessHint],
     [d.alertsCount, summary.alerts, delta(summary.alerts, prevSummary.alerts), true],
   ];
@@ -178,7 +177,7 @@ export default async function AnalyticsPage({
       ) : (
         <>
           {/* Summary */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {statCards.map(([label, value, dl, invert, hint]) => (
               <Card key={label as string}>
                 <CardContent className="pt-3 pb-3">
@@ -288,10 +287,6 @@ export default async function AnalyticsPage({
                           <span>
                             {d.checkins}: {s.filled}/{s.expected} ({s.rate}%)
                           </span>
-                          <span>
-                            {d.totalLoad}: <b className="text-foreground">{s.totalLoad}</b>
-                            {prev && <Delta d={delta(s.totalLoad, prev.totalLoad)} />}
-                          </span>
                           <span>{d.sessions}: {s.sessions}</span>
                           {s.painDays > 0 && <Badge tone="danger">{d.painDays}: {s.painDays}</Badge>}
                           {s.alerts > 0 && <Badge tone="warn">{d.alertsCount}: {s.alerts}</Badge>}
@@ -345,8 +340,7 @@ export default async function AnalyticsPage({
                         </span>
                         {daySessions.length > 0 && (
                           <span className="shrink-0 text-xs text-muted tabular-nums">
-                            {d.sessions}: {daySessions.length} · {d.totalLoad}{" "}
-                            {daySessions.reduce((a, s) => a + s.session_load, 0)}
+                            {d.sessions}: {daySessions.length}
                           </span>
                         )}
                       </Link>

@@ -26,15 +26,15 @@ const mkCheckin = (date: string, over: Partial<MorningCheckin> = {}): MorningChe
   ...over,
 });
 
-const mkSession = (date: string, load = 300): TrainingSession => ({
-  id: `s-${date}-${load}`,
+const mkSession = (date: string): TrainingSession => ({
+  id: `s-${date}`,
   athlete_id: "a1",
   group_id: null,
   started_at: `${date}T16:00:00Z`,
-  duration_minutes: 90,
-  session_rpe: 4,
-  session_load: load,
-  training_type: "court",
+  duration_minutes: null,
+  session_rpe: null,
+  session_load: null,
+  training_type: null,
   created_at: `${date}T16:00:00Z`,
 });
 
@@ -71,13 +71,12 @@ describe("athleteStats", () => {
       days,
       [mkCheckin("2026-10-20", { pain_status: "joint_tendon", sleep_score: 2 }),
        mkCheckin("2026-10-21", { sleep_score: 4 })],
-      [mkSession("2026-10-20", 400), mkSession("2026-10-21", 200)],
+      [mkSession("2026-10-20"), mkSession("2026-10-21")],
       [mkAlert("2026-10-20")],
     );
     expect(s.painDays).toBe(1);
     expect(s.avgSleep).toBe(3);
     expect(s.sessions).toBe(2);
-    expect(s.totalLoad).toBe(600);
     expect(s.alerts).toBe(1);
     expect(s.cells[0].hasPain).toBe(true);
   });
@@ -99,7 +98,7 @@ describe("periodSummary", () => {
     expect(s.checkinsFilled).toBe(4);
     expect(s.checkinsExpected).toBe(6);
     expect(s.fillRate).toBe(67);
-    expect(s.totalLoad).toBe(300);
+    expect(s.sessions).toBe(1);
     expect(s.alerts).toBe(1);
   });
 });

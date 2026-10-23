@@ -19,9 +19,10 @@ PostgreSQL (Supabase). Миграции: `supabase/migrations/0001..0003`.
 - **morning_checkins** — одна анкета на (athlete_id, checkin_date); шесть
   шкал 1–5, блок боли (status/location/side/severity/onset/triggers/
   swelling/limitation), symptoms, client_uuid — идемпотентность.
-- **training_sessions** — started_at, duration_minutes (1–600),
-  training_type, session_rpe (0–10), session_load = duration×rpe
-  (GENERATED ALWAYS — БД сама верифицирует). Несколько тренировок в день.
+- **training_sessions** — started_at; с миграции 0006 duration_minutes,
+  training_type, session_rpe nullable (параметры не собираются — запись это
+  маркер «тренировка была», создаётся автоматически с вечерней анкетой).
+  session_load = duration×rpe (GENERATED ALWAYS → NULL для новых записей).
 - **post_training_checkins** — 1:1 с session (unique training_session_id),
   шкалы самочувствия/ног/рук, блок боли.
 - **readiness_snapshots** — производные от анкет: score 0–100,

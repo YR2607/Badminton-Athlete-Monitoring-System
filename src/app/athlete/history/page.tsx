@@ -5,7 +5,7 @@ import { addDays, localDate, todayInTz } from "@/lib/dates";
 import { dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { SeriesLineChart, LoadBarChart } from "@/components/charts/series-chart";
+import { SeriesLineChart } from "@/components/charts/series-chart";
 import type { MorningCheckin, PostTrainingCheckin, TrainingSession } from "@/lib/types";
 
 function avg(nums: number[]): number | null {
@@ -13,14 +13,12 @@ function avg(nums: number[]): number | null {
   return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10;
 }
 
-function isoWeekKey(d: Date): string {
-  const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-  const day = (t.getUTCDay() + 6) % 7;
-  t.setUTCDate(t.getUTCDate() - day + 3);
-  const firstThursday = new Date(Date.UTC(t.getUTCFullYear(), 0, 4));
-  const week =
-    1 + Math.round(((t.getTime() - firstThursday.getTime()) / 86400000 - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7);
-  return `${t.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
+function localTime(iso: string, tz: string): string {
+  return new Date(iso).toLocaleTimeString("ru-RU", {
+    timeZone: tz,
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 export default async function HistoryPage({
@@ -85,13 +83,6 @@ export default async function HistoryPage({
     fatigue: c.fatigue_score,
     soreness: c.muscle_soreness_score,
   }));
-
-  const weeklyLoad = new Map<string, number>();
-  for (const s of ss) {
-    const key = isoWeekKey(new Date(s.started_at));
-    weeklyLoad.set(key, (weeklyLoad.get(key) ?? 0) + s.session_load);
-  }
-  const weekly = [...weeklyLoad.entries()].map(([date, load]) => ({ date, load }));
 
   const painEntries = ck.filter((c) => c.pain_status !== "none");
 
@@ -179,19 +170,6 @@ export default async function HistoryPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>{h.weeklyLoad}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {weekly.length === 0 ? (
-            <p className="text-sm text-muted">{dict.common.noData}</p>
-          ) : (
-            <LoadBarChart data={weekly} label={h.load} />
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <CardTitle>{h.trainings}</CardTitle>
         </CardHeader>
         <CardContent>
@@ -206,8 +184,8 @@ export default async function HistoryPage({
                   <li key={s.id} className="flex justify-between py-2">
                     <span>{localDate(new Date(s.started_at), tz)}</span>
                     <span className="text-muted">
-                      {s.duration_minutes} {dict.common.minutes} · {h.rpe} {s.session_rpe} · {h.load}{" "}
-                      {s.session_load}
+                      {localTime(s.started_at, tz)}
+                      {s.duration_minutes != null ? ` · ${s.duration_minutes} ${dict.common.minutes}` : ""}
                     </span>
                   </li>
                 ))}

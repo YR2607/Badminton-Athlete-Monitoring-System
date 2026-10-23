@@ -23,9 +23,11 @@
 | `joint_pain` | attention / review_load | joint_tendon/other; review_load если severity ≥5 | убрать провоцирующие движения, переоценка |
 | `readiness_drop` | attention | score < baseline.avg − 1·sd ИЛИ падение ≥ 10 (нужен baseline) | обсудить восстановление |
 | `sustained_decline` | review_load | все последние 3 дня ниже baseline | пересмотреть нагрузку |
-| `load_spike` | attention | сумма нагрузки за 7д ≥ 1.5× предыдущих 7д | стабилизировать объём |
-| `load_with_decline` | review_load | рост нагрузки ≥1.3× И score < baseline | пересмотреть нагрузку |
 | `repeated_fatigue` | attention | fatigue ≥ 4 три дня подряд | проверить сон, лёгкий день |
+
+Правила `load_spike` и `load_with_decline` отключены: параметры тренировок
+(duration/RPE) больше не собираются, поэтому нагрузка не вычисляется. Строки
+правил остаются в `alert_rules` с `enabled = false` (миграция 0006).
 | `missing_morning` | attention | анкета не заполнена к 12:00 лок. (внешний джоб напоминаний) | информирование тренера |
 
 ## Изоляция медицинских сигналов

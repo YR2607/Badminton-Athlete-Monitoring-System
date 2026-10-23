@@ -11,7 +11,6 @@ import {
   acutePostFlags,
   ageInDays,
   athleteStatus,
-  loadInRange,
   pendingPostCheckins,
   DECLINE_RULES,
   type AthleteStatus,
@@ -58,9 +57,6 @@ export interface CoachAthleteRow {
   scheduledMissedYesterday: boolean | null;
   /** Registered sessions ended >1h ago without a post-training check-in. */
   pendingPostCount: number;
-  load7d: number;
-  loadPrev7d: number;
-  lastLoad: number | null;
   missedYesterday: boolean;
   series: { date: string; score: number }[];
 }
@@ -172,13 +168,10 @@ export async function coachDashboard(
     checkinsByAthlete.set(c.athlete_id, list);
   }
   const sessionsByAthlete = new Map<string, TrainingSession[]>();
-  const lastSession = new Map<string, TrainingSession>();
   for (const s of (sessions as TrainingSession[] | null) ?? []) {
     const list = sessionsByAthlete.get(s.athlete_id) ?? [];
     list.push(s);
     sessionsByAthlete.set(s.athlete_id, list);
-    const cur = lastSession.get(s.athlete_id);
-    if (!cur || s.started_at > cur.started_at) lastSession.set(s.athlete_id, s);
   }
   const postsByAthlete = new Map<string, PostTrainingCheckin[]>();
   for (const p of (posts as PostTrainingCheckin[] | null) ?? []) {
@@ -281,9 +274,6 @@ export async function coachDashboard(
       sessionsToday,
       scheduledMissedYesterday,
       pendingPostCount,
-      load7d: loadInRange(aSessions, athleteTz, addDays(today, -6), today),
-      loadPrev7d: loadInRange(aSessions, athleteTz, addDays(today, -13), addDays(today, -7)),
-      lastLoad: lastSession.get(a.id)?.session_load ?? null,
       missedYesterday: !list.some((c) => c.checkin_date === yesterday),
       series: series.filter((s) => s.date >= since14),
     };

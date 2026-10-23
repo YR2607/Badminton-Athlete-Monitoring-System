@@ -2,7 +2,7 @@ import type { Alert, MorningCheckin, PostTrainingCheckin, TrainingSession } from
 import { dailyConditionSeries } from "@/lib/readiness";
 
 /**
- * Period analytics: check-in completion and aggregated wellbeing/load stats.
+ * Period analytics: check-in completion and aggregated wellbeing stats.
  * Pure functions over fetched rows — unit-tested, no DB access.
  */
 
@@ -25,7 +25,6 @@ export interface AthletePeriodStats {
   avgMood: number | null;
   avgReadiness: number | null;
   sessions: number;
-  totalLoad: number;
   painDays: number;
   alerts: number;
   cells: DayCell[]; // per-day fill status, ascending
@@ -37,7 +36,6 @@ export interface PeriodSummary {
   checkinsExpected: number;
   fillRate: number; // 0..100
   sessions: number;
-  totalLoad: number;
   avgReadiness: number | null;
   alerts: number;
 }
@@ -76,7 +74,6 @@ export function athleteStats(
     avgMood: avg(checkins.map((c) => c.mood_score)),
     avgReadiness: avg(scores.map((s) => s.score)),
     sessions: sessions.length,
-    totalLoad: sessions.reduce((a, s) => a + s.session_load, 0),
     painDays: new Set(
       checkins.filter((c) => c.pain_status !== "none").map((c) => c.checkin_date),
     ).size,
@@ -94,7 +91,6 @@ export function periodSummary(stats: AthletePeriodStats[]): PeriodSummary {
     checkinsExpected: expected,
     fillRate: expected ? Math.round((filled / expected) * 100) : 0,
     sessions: stats.reduce((a, s) => a + s.sessions, 0),
-    totalLoad: stats.reduce((a, s) => a + s.totalLoad, 0),
     avgReadiness: avg(stats.flatMap((s) => (s.avgReadiness !== null ? [s.avgReadiness] : []))),
     alerts: stats.reduce((a, s) => a + s.alerts, 0),
   };

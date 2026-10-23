@@ -1,6 +1,5 @@
 import type { Baseline } from "@/lib/readiness";
 import { MIN_BASELINE_OBSERVATIONS } from "@/lib/readiness";
-import { localDate } from "@/lib/dates";
 import type { MorningCheckin, PostTrainingCheckin, TrainingSession } from "@/lib/types";
 
 /**
@@ -37,7 +36,6 @@ export const STATUS_ORDER: Record<AthleteStatus, number> = {
 export const DECLINE_RULES = new Set([
   "readiness_drop",
   "sustained_decline",
-  "load_with_decline",
   "repeated_fatigue",
   "joint_pain",
 ]);
@@ -88,25 +86,11 @@ export function ageInDays(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 }
 
-/** Sum of session loads whose local date falls inside [from, to] inclusive. */
-export function loadInRange(
-  sessions: TrainingSession[],
-  tz: string,
-  from: string,
-  to: string,
-): number {
-  return sessions
-    .filter((s) => {
-      const d = localDate(new Date(s.started_at), tz);
-      return d >= from && d <= to;
-    })
-    .reduce((a, s) => a + s.session_load, 0);
-}
-
 /**
- * Registered sessions that ended more than `graceMinutes` ago and still have
- * no post-training check-in. Absence of a session record is NOT treated as
- * zero load — this only counts actually registered trainings.
+ * Registered sessions that started more than `graceMinutes` ago and still
+ * have no post-training check-in. A session with no recorded duration is
+ * pending once it is older than the grace period — missing params are never
+ * treated as a zero-length session.
  */
 export function pendingPostCheckins(
   sessions: TrainingSession[],
@@ -117,6 +101,8 @@ export function pendingPostCheckins(
   const answered = new Set(posts.map((p) => p.training_session_id));
   const cutoff = now.getTime() - graceMinutes * 60_000;
   return sessions.filter(
-    (s) => !answered.has(s.id) && Date.parse(s.started_at) + s.duration_minutes * 60_000 < cutoff,
+    (s) =>
+      !answered.has(s.id) &&
+      Date.parse(s.started_at) + (s.duration_minutes ?? 0) * 60_000 < cutoff,
   );
 }

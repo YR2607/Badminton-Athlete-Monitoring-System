@@ -123,8 +123,8 @@ export async function buildXlsx(b: ExportBundle): Promise<Buffer> {
     ["sessions", b.sessions.length],
     ["post_checkins", b.postCheckins.length],
     ["alerts", b.alerts.length],
-    ["total_load", b.sessions.reduce((x, s) => x + s.session_load, 0)],
-    ["total_minutes", b.sessions.reduce((x, s) => x + s.duration_minutes, 0)],
+    ["total_load", b.sessions.reduce((x, s) => x + (s.session_load ?? 0), 0)],
+    ["total_minutes", b.sessions.reduce((x, s) => x + (s.duration_minutes ?? 0), 0)],
   ]);
   sheet("Athletes", ["athlete_code", "display_name", "group", "birth_year", "status"],
     b.athletes.map((a) => [a.athlete_code, a.display_name ?? "", a.group_name ?? "", a.birth_year ?? "", a.status]));

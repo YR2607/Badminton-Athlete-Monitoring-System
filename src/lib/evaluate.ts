@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildSnapshot, dailyConditionSeries, computeBaseline, postsByLocalDate } from "@/lib/readiness";
 import { evaluateAlerts } from "@/lib/alerts";
 import { addDays, localDate, localDayUtcBounds } from "@/lib/dates";
-import type { AlertRule, MorningCheckin, PostTrainingCheckin, TrainingSession } from "@/lib/types";
+import type { AlertRule, MorningCheckin, PostTrainingCheckin } from "@/lib/types";
 
 /**
  * Recompute the athlete's readiness snapshot for `date` and evaluate alert
@@ -23,7 +23,7 @@ export async function evaluateAthleteDay(
   // a UTC-midnight bound silently drops the first local hours of the window.
   const windowStart = localDayUtcBounds(from, timezone).start.toISOString();
 
-  const [{ data: checkins }, { data: sessions }, { data: post }, { data: rules }] =
+  const [{ data: checkins }, { data: post }, { data: rules }] =
     await Promise.all([
       admin
         .from("morning_checkins")
@@ -31,11 +31,6 @@ export async function evaluateAthleteDay(
         .eq("athlete_id", athleteId)
         .gte("checkin_date", from)
         .order("checkin_date", { ascending: true }),
-      admin
-        .from("training_sessions")
-        .select("*")
-        .eq("athlete_id", athleteId)
-        .gte("started_at", windowStart),
       admin
         .from("post_training_checkins")
         .select("*")
@@ -84,9 +79,6 @@ export async function evaluateAthleteDay(
     ),
     dailyReadiness: series,
     baseline,
-    sessions: ((sessions as TrainingSession[]) ?? []).filter(
-      (s) => localDate(new Date(s.started_at), timezone) >= from,
-    ),
     postCheckins: postsAll,
     rules: (rules as AlertRule[]) ?? [],
   });

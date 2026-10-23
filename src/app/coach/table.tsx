@@ -11,7 +11,7 @@ import { Sparkline } from "@/components/charts/sparkline";
 import { cn } from "@/lib/utils";
 import type { Group } from "@/lib/types";
 
-type SortKey = "priority" | "name" | "readiness" | "load";
+type SortKey = "priority" | "name" | "readiness";
 
 const ALL_STATUSES: AthleteStatus[] = ["needs_check", "declining", "no_today", "insufficient", "ok"];
 
@@ -77,8 +77,6 @@ export function CoachTable({
           );
         case "readiness":
           return (a.todayScore ?? -1) - (b.todayScore ?? -1);
-        case "load":
-          return b.load7d - a.load7d;
         default:
           return (a.profile?.display_name ?? "").localeCompare(b.profile?.display_name ?? "");
       }
@@ -126,7 +124,6 @@ export function CoachTable({
           <option value="priority">{d.sortPriority}</option>
           <option value="name">{d.tableAthlete}</option>
           <option value="readiness">{d.tableReadiness}</option>
-          <option value="load">{d.tableLastLoad}</option>
         </Select>
       </div>
 
@@ -199,7 +196,7 @@ export function CoachTable({
                 </span>
                 <span className="text-xs text-muted">
                   {d.tableSleep} {r.todayCheckin?.sleep_score ?? "—"} · {d.tableFatigue}{" "}
-                  {r.todayCheckin?.fatigue_score ?? "—"} · 7д {r.load7d || "—"}
+                  {r.todayCheckin?.fatigue_score ?? "—"}
                 </span>
               </div>
 

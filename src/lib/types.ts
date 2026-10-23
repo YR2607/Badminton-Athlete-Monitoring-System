@@ -100,10 +100,11 @@ export interface TrainingSession {
   athlete_id: string;
   group_id: string | null;
   started_at: string;
-  duration_minutes: number;
-  training_type: TrainingType;
-  session_rpe: number;
-  session_load: number;
+  /** Null unless entered historically — session params are no longer collected. */
+  duration_minutes: number | null;
+  training_type: TrainingType | null;
+  session_rpe: number | null;
+  session_load: number | null;
   created_at: string;
 }
 

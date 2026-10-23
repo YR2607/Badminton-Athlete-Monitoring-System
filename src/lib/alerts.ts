@@ -3,7 +3,6 @@ import type {
   AlertSeverity,
   MorningCheckin,
   PostTrainingCheckin,
-  TrainingSession,
 } from "@/lib/types";
 import type { Baseline } from "@/lib/readiness";
 import { addDays, localDate } from "@/lib/dates";
@@ -26,7 +25,6 @@ export interface EvalContext {
   recentCheckins: MorningCheckin[]; // recent days incl. today, any order
   dailyReadiness: { date: string; score: number }[]; // ascending by date
   baseline: Baseline | null;
-  sessions: TrainingSession[]; // recent ~14d
   postCheckins: PostTrainingCheckin[]; // recent ~14d
   rules: AlertRule[]; // enabled rules
 }
@@ -58,10 +56,6 @@ const RECO: Record<string, string> = {
     "Готовность ниже личной нормы. Обсудить восстановление (сон, нагрузка, стресс) и при необходимости скорректировать интенсивность.",
   sustained_decline:
     "Состояние хуже личной нормы несколько дней подряд. Пересмотреть ближайшую нагрузку и обсудить восстановление.",
-  load_spike:
-    "Тренировочная нагрузка заметно выросла. Проверить переносимость и рассмотреть стабилизацию объёма.",
-  load_with_decline:
-    "Нагрузка растёт на фоне ухудшения самочувствия. Пересмотреть нагрузку и повторно оценить состояние.",
   repeated_fatigue:
     "Высокая субъективная усталость несколько дней подряд. Проверить сон и восстановление, рассмотреть лёгкий день.",
 };
@@ -252,54 +246,6 @@ export function evaluateAlerts(ctx: EvalContext): AlertCandidate[] {
           days_below_baseline: scores.length,
           baseline_avg: ctx.baseline.avg,
           recent_scores: scores,
-        }, ctx.checkin?.id ?? null),
-      );
-    }
-  }
-
-  // ---- load rules ----
-  const prevFrom = addDays(ctx.today, -14);
-  const prevTo = addDays(ctx.today, -8);
-  const acuteFrom = addDays(ctx.today, -7);
-  // Sessions are bucketed by athlete-local day — not by their UTC timestamp.
-  const loadIn = (from: string, to: string) =>
-    ctx.sessions
-      .filter((s) => {
-        const d = localDate(new Date(s.started_at), tz);
-        return d >= from && d <= to;
-      })
-      .reduce((a, s) => a + s.session_load, 0);
-  const acuteLoad = loadIn(acuteFrom, ctx.today);
-  const chronicLoad = loadIn(prevFrom, prevTo);
-
-  const spikeRule = rule(ctx, "load_spike");
-  if (spikeRule && chronicLoad > 0) {
-    const ratio = acuteLoad / chronicLoad;
-    if (ratio >= num(spikeRule.params.ratio, 1.5)) {
-      out.push(
-        mk(ctx, "load_spike", "attention", {
-          acute_7d_load: acuteLoad,
-          previous_7d_load: chronicLoad,
-          ratio: Math.round(ratio * 100) / 100,
-        }, null),
-      );
-    }
-  }
-
-  const ldRule = rule(ctx, "load_with_decline");
-  if (ldRule && ctx.baseline && chronicLoad > 0 && todayScore !== null) {
-    const ratio = acuteLoad / chronicLoad;
-    if (
-      ratio >= num(ldRule.params.load_ratio, 1.3) &&
-      todayScore < ctx.baseline.avg
-    ) {
-      out.push(
-        mk(ctx, "load_with_decline", "review_load", {
-          acute_7d_load: acuteLoad,
-          previous_7d_load: chronicLoad,
-          ratio: Math.round(ratio * 100) / 100,
-          today_score: todayScore,
-          baseline_avg: ctx.baseline.avg,
         }, ctx.checkin?.id ?? null),
       );
     }
