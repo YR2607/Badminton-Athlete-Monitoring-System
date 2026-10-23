@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile, audit } from "@/lib/auth";
+import { isValidTimeZone } from "@/lib/dates";
 import type { ActionResult } from "@/app/actions/checkins";
 
 /** Users may only change these own-profile fields (role is not editable). */
@@ -19,7 +20,7 @@ export async function updateOwnSettings(input: {
   if (input.preferred_language && ["ru", "ro", "en"].includes(input.preferred_language)) {
     patch.preferred_language = input.preferred_language;
   }
-  if (input.timezone && /^[A-Za-z_]+\/[A-Za-z_+-]+$/.test(input.timezone)) {
+  if (input.timezone && isValidTimeZone(input.timezone)) {
     patch.timezone = input.timezone;
   }
   if (Object.keys(patch).length === 0) return { error: "validation" };

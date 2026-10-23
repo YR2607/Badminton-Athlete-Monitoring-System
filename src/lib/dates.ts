@@ -34,6 +34,29 @@ export function todayInTz(tz: string): string {
   return localDate(new Date(), tz);
 }
 
+/** Minutes since local midnight in `tz` (0–1439). Safe for DST and :30/:45 offsets. */
+export function localMinutesOfDay(date: Date, tz: string): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: tz,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const h = Number(parts.find((p) => p.type === "hour")?.value ?? "0") % 24;
+  const m = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
+  return h * 60 + m;
+}
+
+/** True when `tz` is a valid IANA timezone name (rejects "Foo/Bar"). */
+export function isValidTimeZone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Inclusive list of calendar dates between from and to (YYYY-MM-DD). */
 export function dateRange(from: string, to: string): string[] {
   const out: string[] = [];

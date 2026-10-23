@@ -55,15 +55,19 @@ export async function reviewAlert(input: unknown): Promise<ActionResult> {
   return { ok: true };
 }
 
-/** True when the current user (coach/admin) can see this athlete via RLS. */
-async function canAccess(athleteId: string) {
+/** Athlete row + timezone when the current user may access it via RLS. */
+async function athleteAccess(
+  athleteId: string,
+): Promise<{ id: string; timezone: string } | null> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("athletes")
-    .select("id")
+    .select("id, profile:profiles(timezone)")
     .eq("id", athleteId)
     .maybeSingle();
-  return !!data;
+  if (!data) return null;
+  const tz = (data as { profile?: { timezone?: string } }).profile?.timezone ?? "UTC";
+  return { id: data.id, timezone: tz };
 }
 
 async function requireCoach() {
@@ -98,7 +102,8 @@ export async function coachUpsertMorningCheckin(f: MorningFields): Promise<Actio
   const me = await requireCoach();
   if (!me) return { error: "forbidden" };
   if (!/^\d{4}-\d{2}-\d{2}$/.test(f.checkin_date)) return { error: "validation" };
-  if (!(await canAccess(f.athlete_id))) return { error: "forbidden" };
+  const athlete = await athleteAccess(f.athlete_id);
+  if (!athlete) return { error: "forbidden" };
 
   const admin = createAdminClient();
   const { error } = await admin.from("morning_checkins").upsert(
@@ -130,7 +135,7 @@ export async function coachUpsertMorningCheckin(f: MorningFields): Promise<Actio
   await audit("checkin.coach_upsert", "morning_checkins", f.athlete_id, {
     date: f.checkin_date,
   });
-  await evaluateAthleteDay(admin, f.athlete_id, f.checkin_date, me.timezone);
+  await evaluateAthleteDay(admin, f.athlete_id, f.checkin_date, athlete.timezone);
   revalidatePath(`/coach/athletes/${f.athlete_id}`);
   revalidatePath("/analytics");
   return { ok: true };
@@ -150,27 +155,35 @@ export interface SessionFields {
 export async function coachUpsertSession(f: SessionFields): Promise<ActionResult> {
   const me = await requireCoach();
   if (!me) return { error: "forbidden" };
-  if (!(await canAccess(f.athlete_id))) return { error: "forbidden" };
-  if (!f.started_at || f.duration_minutes <= 0) return { error: "validation" };
+  const athlete = await athleteAccess(f.athlete_id);
+  if (!athlete) return { error: "forbidden" };
+  const started = new Date(f.started_at);
+  if (!f.started_at || Number.isNaN(started.getTime()) || f.duration_minutes <= 0) {
+    return { error: "validation" };
+  }
 
   const admin = createAdminClient();
   const row = {
     athlete_id: f.athlete_id,
     group_id: f.group_id ?? null,
-    started_at: new Date(f.started_at).toISOString(),
+    started_at: started.toISOString(),
     duration_minutes: Math.round(f.duration_minutes),
     training_type: f.training_type,
     session_rpe: f.session_rpe,
   };
-  const { error } = f.id
-    ? await admin.from("training_sessions").update(row).eq("id", f.id)
-    : await admin.from("training_sessions").insert(row);
+  // The update is scoped to athlete_id so a forged id cannot steal another
+  // athlete's session row (the match simply fails).
+  const { data, error } = f.id
+    ? await admin.from("training_sessions").update(row).eq("id", f.id).eq("athlete_id", f.athlete_id).select("id")
+    : await admin.from("training_sessions").insert(row).select("id");
   if (error) return { error: error.message };
+  if (!data?.length) return { error: "not_found" };
 
+  const date = localDate(started, athlete.timezone);
   await audit(f.id ? "session.coach_update" : "session.coach_create", "training_sessions", f.athlete_id, {
-    date: f.started_at.slice(0, 10),
+    date,
   });
-  await evaluateAthleteDay(admin, f.athlete_id, f.started_at.slice(0, 10), me.timezone);
+  await evaluateAthleteDay(admin, f.athlete_id, date, athlete.timezone);
   revalidatePath(`/coach/athletes/${f.athlete_id}`);
   revalidatePath("/analytics");
   return { ok: true };
@@ -193,9 +206,20 @@ export interface PostCheckinFields {
 export async function coachUpsertPostCheckin(f: PostCheckinFields): Promise<ActionResult> {
   const me = await requireCoach();
   if (!me) return { error: "forbidden" };
-  if (!(await canAccess(f.athlete_id))) return { error: "forbidden" };
+  const athlete = await athleteAccess(f.athlete_id);
+  if (!athlete) return { error: "forbidden" };
 
   const admin = createAdminClient();
+  // The session must belong to the same athlete — otherwise an upsert keyed on
+  // training_session_id could overwrite another athlete's post check-in.
+  const { data: session } = await admin
+    .from("training_sessions")
+    .select("id, started_at")
+    .eq("id", f.training_session_id)
+    .eq("athlete_id", f.athlete_id)
+    .maybeSingle();
+  if (!session) return { error: "forbidden" };
+
   const { error } = await admin.from("post_training_checkins").upsert(
     {
       training_session_id: f.training_session_id,
@@ -217,7 +241,10 @@ export async function coachUpsertPostCheckin(f: PostCheckinFields): Promise<Acti
   await audit("postcheckin.coach_upsert", "post_training_checkins", f.athlete_id, {
     session: f.training_session_id,
   });
+  const date = localDate(new Date(session.started_at), athlete.timezone);
+  await evaluateAthleteDay(admin, f.athlete_id, date, athlete.timezone);
   revalidatePath(`/coach/athletes/${f.athlete_id}`);
+  revalidatePath("/analytics");
   return { ok: true };
 }
 

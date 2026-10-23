@@ -154,7 +154,9 @@ export function buildSnapshot(
     baseline_sd: baseline?.sd ?? null,
     baseline_version: baseline?.version ?? baselineVersion,
     input_data_count: history.length + 1,
-    confidence: confidenceFor(history.length + 1),
+    // Confidence tracks whether a personal baseline could be computed —
+    // it must not report "sufficient" while baseline_avg is still null.
+    confidence: confidenceFor(baseline ? baseline.count : 0),
     explanation: { band: bandForScore(score), flags, delta_vs_baseline: delta },
   };
 }

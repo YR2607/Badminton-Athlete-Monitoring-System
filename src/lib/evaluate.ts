@@ -67,6 +67,7 @@ export async function evaluateAthleteDay(
   const candidates = evaluateAlerts({
     athleteId,
     today: date,
+    timezone,
     checkin: todayCheckin,
     recentCheckins: ((checkins as MorningCheckin[]) ?? []).filter(
       (c) => c.checkin_date >= addDays(date, -14),
@@ -101,13 +102,24 @@ export async function evaluateAthleteDay(
       .from("coach_assignments")
       .select("coach_profile_id, group_id, athlete_id")
       .or(`athlete_id.eq.${athleteId},group_id.in.(${await groupIdsOf(admin, athleteId)})`);
+    const coachIds = [...new Set((coaches ?? []).map((c) => c.coach_profile_id as string))];
+    const { data: profs } = coachIds.length
+      ? await admin.from("profiles").select("id, preferred_language").in("id", coachIds)
+      : { data: [] };
+    const langOf = new Map((profs ?? []).map((p) => [p.id as string, p.preferred_language as string]));
+    const TITLES: Record<string, string> = {
+      ru: "Приоритетный сигнал",
+      en: "Priority alert",
+      ro: "Semnal prioritar",
+    };
     for (const c of coaches ?? []) {
+      const title = TITLES[langOf.get(c.coach_profile_id) ?? "ru"] ?? TITLES.ru;
       for (const p of priorities) {
         await admin.from("notifications").upsert(
           {
             profile_id: c.coach_profile_id,
             kind: "priority_alert",
-            title: "Приоритетный сигнал",
+            title,
             body: `${p.rule_code}: ${p.recommendation}`,
             data: { athlete_id: athleteId, rule: p.rule_code },
             dedup_key: `notif:${c.coach_profile_id}:${p.dedup_key}`,

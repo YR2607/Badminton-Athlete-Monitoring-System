@@ -1,4 +1,4 @@
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import type {
   Alert,
   Athlete,
@@ -25,7 +25,9 @@ export interface ExportBundle {
 }
 
 const esc = (v: unknown): string => {
-  const s = v === null || v === undefined ? "" : String(v);
+  let s = v === null || v === undefined ? "" : String(v);
+  // CSV formula injection: a leading = + - @ or tab executes in Excel/Sheets.
+  if (/^[=+\-@\t]/.test(s)) s = `'${s}`;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
@@ -95,11 +97,20 @@ export function buildCsv(b: ExportBundle): string {
   return parts.join("\n");
 }
 
-export function buildXlsx(b: ExportBundle): Buffer {
-  const wb = XLSX.utils.book_new();
+export async function buildXlsx(b: ExportBundle): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
   const sheet = (name: string, headers: string[], rows: unknown[][]) => {
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    XLSX.utils.book_append_sheet(wb, ws, name);
+    const ws = wb.addWorksheet(name);
+    ws.addRow(headers);
+    // Strings that look like formulas are prefixed so a hostile note cannot
+    // execute when the file is opened in Excel.
+    for (const r of rows) {
+      ws.addRow(
+        r.map((v) =>
+          typeof v === "string" && /^[=+\-@\t]/.test(v) ? `'${v}` : (v as ExcelJS.CellValue),
+        ),
+      );
+    }
   };
 
   sheet("Summary", ["field", "value"], [
@@ -146,22 +157,29 @@ export function buildXlsx(b: ExportBundle): Buffer {
       a.recommendation, JSON.stringify(a.evidence), a.resolution_note ?? "",
     ]));
 
-  return XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+  const buf = await wb.xlsx.writeBuffer();
+  return Buffer.from(buf as ArrayBuffer);
 }
 
-/** Printable HTML report (browser → Save as PDF). */
+const escapeHtml = (s: string) =>
+  s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+/** Printable HTML report (browser → Save as PDF). All data is escaped. */
 export function buildHtmlReport(b: ExportBundle, title: string): string {
   const rows = (h: string[], data: unknown[][]) =>
-    `<table><thead><tr>${h.map((x) => `<th>${x}</th>`).join("")}</tr></thead><tbody>${data
-      .map((r) => `<tr>${r.map((x) => `<td>${String(x ?? "")}</td>`).join("")}</tr>`)
+    `<table><thead><tr>${h.map((x) => `<th>${escapeHtml(x)}</th>`).join("")}</tr></thead><tbody>${data
+      .map((r) => `<tr>${r.map((x) => `<td>${escapeHtml(String(x ?? ""))}</td>`).join("")}</tr>`)
       .join("")}</tbody></table>`;
-  const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-  void escapeHtml;
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
 <style>body{font-family:system-ui,sans-serif;color:#17233b;margin:24px}h1{font-size:20px}h2{font-size:14px;margin-top:20px}table{border-collapse:collapse;width:100%;font-size:11px}td,th{border:1px solid #e3e8f0;padding:4px 6px;text-align:left}th{background:#f6f8fb}</style>
 </head><body>
-<h1>${title}</h1>
-<p>Generated: ${b.generatedAt} · TZ: ${b.timezone} · Range: ${b.rangeFrom} – ${b.rangeTo}</p>
+<h1>${escapeHtml(title)}</h1>
+<p>Generated: ${escapeHtml(b.generatedAt)} · TZ: ${escapeHtml(b.timezone)} · Range: ${escapeHtml(b.rangeFrom)} – ${escapeHtml(b.rangeTo)}</p>
 <h2>Athletes</h2>${rows(["code", "group", "year", "status"], b.athletes.map((a) => [a.athlete_code, a.group_name ?? "", a.birth_year ?? "", a.status]))}
 <h2>Morning Check-ins</h2>${rows(["code", "date", "sleep", "recovery", "fatigue", "soreness", "stress", "mood", "readiness", "pain"], b.morning.map((c) => [athleteLabel(b, c.athlete_id), c.checkin_date, c.sleep_score, c.recovery_score, c.fatigue_score, c.muscle_soreness_score, c.stress_score, c.mood_score, readinessScore(normalizeCheckin(c)), c.pain_status]))}
 <h2>Training Sessions</h2>${rows(["code", "date", "type", "min", "rpe", "load"], b.sessions.map((s) => [athleteLabel(b, s.athlete_id), localDate(new Date(s.started_at), b.timezone), s.training_type, s.duration_minutes, s.session_rpe, s.session_load]))}

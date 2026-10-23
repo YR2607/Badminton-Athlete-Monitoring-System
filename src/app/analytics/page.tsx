@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { addDays, dateRange, resolveRange, type RangeKey } from "@/lib/dates";
 import { athleteStats, periodSummary, delta, type AthletePeriodStats } from "@/lib/analytics";
@@ -25,7 +25,7 @@ export default async function AnalyticsPage({
 }: {
   searchParams: Promise<{ group?: string; athlete?: string; range?: string; from?: string; to?: string }>;
 }) {
-  const me = (await getCurrentProfile())!;
+  const me = await requireRole(["coach", "admin"]);
   const dict = getDictionary(me.preferred_language);
   const d = dict.analytics;
   const sp = await searchParams;

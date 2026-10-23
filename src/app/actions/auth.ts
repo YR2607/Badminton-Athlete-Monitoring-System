@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { homeForRole } from "@/lib/auth";
+import { isValidTimeZone } from "@/lib/dates";
+import { createUserSchema } from "@/lib/validation";
 import type { AppRole } from "@/lib/types";
 
 /** Athletes log in by their code (ATH-001 → ath-001@rally.local); coaches/admins by email. */
@@ -57,7 +59,7 @@ export async function requestPasswordReset(
   const supabase = await createClient();
   const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${origin}/reset-password`,
+    redirectTo: `${origin}/auth/callback?next=/reset-password`,
   });
   // Always report success to avoid account enumeration.
   return { ok: true };
@@ -101,23 +103,29 @@ export async function adminCreateUser(input: {
     .single();
   if (me?.role !== "admin") return { error: "forbidden" };
 
-  const code = input.athlete_code?.trim();
-  const email = input.email?.trim().toLowerCase() || (code ? loginToEmail(code) : "");
-  if (!email) return { error: "email_or_code_required" };
-  if (input.role === "athlete" && !code) return { error: "code_required" };
+  const parsed = createUserSchema.safeParse({
+    ...input,
+    email: input.email?.trim() || undefined,
+    athlete_code: input.athlete_code?.trim() || undefined,
+  });
+  if (!parsed.success) return { error: "validation" };
+  if (!isValidTimeZone(parsed.data.timezone)) return { error: "validation" };
+
+  const code = parsed.data.athlete_code;
+  const email = parsed.data.email?.toLowerCase() || (code ? loginToEmail(code) : "");
 
   const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.createUser({
     email,
-    password: input.password,
+    password: parsed.data.password,
     email_confirm: true,
     user_metadata: {
-      display_name: input.display_name,
-      role: input.role,
-      preferred_language: input.preferred_language ?? "ru",
-      timezone: input.timezone ?? "Europe/Chisinau",
+      display_name: parsed.data.display_name,
+      role: parsed.data.role,
+      preferred_language: parsed.data.preferred_language,
+      timezone: parsed.data.timezone,
       athlete_code: code,
-      birth_year: input.birth_year,
+      birth_year: parsed.data.birth_year,
     },
   });
   if (error) return { error: error.message };
@@ -127,11 +135,11 @@ export async function adminCreateUser(input: {
     action: "user.create",
     target_type: "auth.user",
     target_id: data.user.id,
-    metadata: { role: input.role, email },
+    metadata: { role: parsed.data.role, email },
   });
 
   let athleteId: string | undefined;
-  if (input.role === "athlete") {
+  if (parsed.data.role === "athlete") {
     const { data: prof } = await admin
       .from("profiles")
       .select("id")

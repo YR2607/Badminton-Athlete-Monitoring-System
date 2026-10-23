@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { localDate, localHour, localWeekday } from "@/lib/dates";
+import { localDate, localMinutesOfDay, localWeekday } from "@/lib/dates";
 import type { Athlete, GroupMembership, Profile, TrainingSchedule } from "@/lib/types";
 
 /**
@@ -12,11 +12,28 @@ import type { Athlete, GroupMembership, Profile, TrainingSchedule } from "@/lib/
  *    by MORNING_REMINDER_HOUR local time (default 10).
  *  - post_training_reminder: to athletes who had a scheduled group training
  *    ≥90 min ago and haven't submitted a session today.
- *  - coach_missing_morning: to coaches listing athletes still missing.
+ *  - missing_morning alert rule: recorded for athletes still missing a
+ *    check-in after the rule's after_local_hour (default 12).
  *
  * External delivery (push/email/Telegram) intentionally NOT implemented here —
  * wire a provider in `deliverNotification()` when credentials are available.
  */
+
+const TXT: Record<string, Record<string, { title: string; body: string }>> = {
+  morning_reminder: {
+    ru: { title: "Утренняя анкета", body: "Не забудь заполнить утреннюю анкету" },
+    en: { title: "Morning check-in", body: "Don't forget to fill in your morning check-in" },
+    ro: { title: "Chestionarul de dimineață", body: "Nu uita să completezi chestionarul de dimineață" },
+  },
+  post_training_reminder: {
+    ru: { title: "Анкета после тренировки", body: "Заполни анкету после сегодняшней тренировки" },
+    en: { title: "Post-training check-in", body: "Please fill in the check-in after today's session" },
+    ro: { title: "Chestionar post-antrenament", body: "Completează chestionarul după antrenamentul de azi" },
+  },
+};
+
+const text = (kind: string, lang: string) => TXT[kind]?.[lang] ?? TXT[kind]?.ru ?? { title: kind, body: "" };
+
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
@@ -28,8 +45,16 @@ export async function GET(req: NextRequest) {
   const { data: athletes } = await admin.from("athletes").select("*").eq("status", "active");
   const { data: memberships } = await admin.from("group_memberships").select("*").is("left_at", null);
   const { data: schedules } = await admin.from("training_schedules").select("*").eq("active", true);
+  const { data: missingRule } = await admin
+    .from("alert_rules")
+    .select("severity, params")
+    .eq("code", "missing_morning")
+    .eq("enabled", true)
+    .maybeSingle();
 
   const profById = new Map(((profiles as Profile[]) ?? []).map((p) => [p.id, p]));
+  const missingAfter =
+    Number((missingRule?.params as { after_local_hour?: number } | null)?.after_local_hour ?? 12) * 60;
   let created = 0;
 
   for (const a of (athletes as Athlete[]) ?? []) {
@@ -38,6 +63,7 @@ export async function GET(req: NextRequest) {
     const tz = profile.timezone;
     const now = new Date();
     const today = localDate(now, tz);
+    const minutesNow = localMinutesOfDay(now, tz);
 
     const { data: ck } = await admin
       .from("morning_checkins")
@@ -47,18 +73,32 @@ export async function GET(req: NextRequest) {
       .maybeSingle();
 
     const morningHour = Number(process.env.MORNING_REMINDER_HOUR ?? 10);
-    if (!ck && localHour(now, tz) >= morningHour) {
+    if (!ck && minutesNow >= morningHour * 60) {
+      const t = text("morning_reminder", profile.preferred_language);
       const { error } = await admin.from("notifications").upsert(
         {
           profile_id: profile.id,
           kind: "morning_reminder",
-          title: "Утренняя анкета",
-          body: "Не забудь заполнить утреннюю анкету",
+          title: t.title,
+          body: t.body,
           dedup_key: `morning:${a.id}:${today}`,
         },
         { onConflict: "dedup_key" },
       );
       if (!error) created++;
+    }
+
+    // missing_morning alert rule: no check-in after the configured local hour.
+    if (!ck && missingRule && minutesNow >= missingAfter) {
+      await admin.rpc("record_alert", {
+        p_athlete_id: a.id,
+        p_rule_code: "missing_morning",
+        p_severity: missingRule.severity,
+        p_evidence: { date: today, local_minutes: minutesNow },
+        p_recommendation:
+          "Утренняя анкета не заполнена к полудню. Уточнить у спортсмена, всё ли в порядке.",
+        p_dedup_key: `${a.id}:missing_morning:${today}`,
+      });
     }
 
     // Post-training: a scheduled session for the athlete's group ended >= 90min ago
@@ -79,14 +119,14 @@ export async function GET(req: NextRequest) {
         .maybeSingle();
       if (!session) {
         const [h, m] = todays[0].start_time.split(":").map(Number);
-        const minutesNow = localHour(now, tz) * 60 + new Date().getMinutes();
         if (minutesNow >= h * 60 + m + 90) {
+          const t = text("post_training_reminder", profile.preferred_language);
           const { error } = await admin.from("notifications").upsert(
             {
               profile_id: profile.id,
               kind: "post_training_reminder",
-              title: "Анкета после тренировки",
-              body: "Заполни анкету после сегодняшней тренировки",
+              title: t.title,
+              body: t.body,
               dedup_key: `post:${a.id}:${today}`,
             },
             { onConflict: "dedup_key" },

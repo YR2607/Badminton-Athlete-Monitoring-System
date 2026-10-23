@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
 
   const filename = `rallymonitor-${from}_${to}.${format === "xlsx" ? "xlsx" : format === "html" ? "html" : "csv"}`;
   if (format === "xlsx") {
-    const buf = buildXlsx(bundle);
+    const buf = await buildXlsx(bundle);
     return new NextResponse(new Uint8Array(buf), {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

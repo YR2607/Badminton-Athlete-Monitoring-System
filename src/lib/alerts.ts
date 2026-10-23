@@ -6,7 +6,7 @@ import type {
   TrainingSession,
 } from "@/lib/types";
 import type { Baseline } from "@/lib/readiness";
-import { addDays } from "@/lib/dates";
+import { addDays, localDate } from "@/lib/dates";
 
 /**
  * Rule-based alert engine. Every alert carries concrete evidence so a coach can
@@ -21,6 +21,7 @@ import { addDays } from "@/lib/dates";
 export interface EvalContext {
   athleteId: string;
   today: string; // athlete-local date YYYY-MM-DD
+  timezone?: string; // athlete TZ — used to assign submitted_at to a local day
   checkin: MorningCheckin | null; // today's morning check-in, if any
   recentCheckins: MorningCheckin[]; // recent days incl. today, any order
   dailyReadiness: { date: string; score: number }[]; // ascending by date
@@ -144,7 +145,12 @@ export function evaluateAlerts(ctx: EvalContext): AlertCandidate[] {
       return c?.checkin_date === ctx.today;
     }
     const pc = ctx.postCheckins.find((x) => x.id === p.sourceId);
-    return pc ? pc.submitted_at.slice(0, 10) === ctx.today : false;
+    if (!pc) return false;
+    // Assign the submission to an athlete-local day — a UTC slice can shift a
+    // near-midnight check-in into the wrong day and silently drop the alert.
+    return pc.submitted_at.slice(0, 10) === ctx.today ||
+      (ctx.timezone !== undefined &&
+        localDate(new Date(pc.submitted_at), ctx.timezone) === ctx.today);
   });
 
   // ---- priority: acute pain / red flags (independent of readiness score) ----

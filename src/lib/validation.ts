@@ -69,16 +69,27 @@ export const postTrainingSchema = z
     }
   });
 
-export const createUserSchema = z.object({
-  email: z.string().email().max(320),
-  password: z.string().min(10).max(128),
-  display_name: z.string().min(1).max(120),
-  role: z.enum(["athlete", "coach", "admin"]),
-  preferred_language: z.enum(["ru", "ro", "en"]).default("ru"),
-  timezone: z.string().max(64).default("Europe/Chisinau"),
-  athlete_code: z.string().min(2).max(32).optional(),
-  birth_year: z.number().int().min(1990).max(new Date().getFullYear()).optional(),
-});
+export const createUserSchema = z
+  .object({
+    // Athletes may have no real email — their login is the athlete code.
+    email: z.string().email().max(320).optional().or(z.literal("")),
+    password: z.string().min(10).max(128),
+    display_name: z.string().min(1).max(120),
+    role: z.enum(["athlete", "coach", "admin"]),
+    preferred_language: z.enum(["ru", "ro", "en"]).default("ru"),
+    timezone: z.string().max(64).default("Europe/Chisinau"),
+    // The code becomes the login email local part — restrict to email-safe chars.
+    athlete_code: z.string().regex(/^[A-Za-z0-9_-]+$/).min(2).max(32).optional(),
+    birth_year: z.number().int().min(1990).max(new Date().getFullYear()).optional(),
+  })
+  .refine((v) => v.role !== "athlete" || !!v.athlete_code, {
+    message: "code_required",
+    path: ["athlete_code"],
+  })
+  .refine((v) => !!v.email || !!v.athlete_code, {
+    message: "email_or_code_required",
+    path: ["email"],
+  });
 
 export const coachNoteSchema = z.object({
   athlete_id: z.string().uuid(),

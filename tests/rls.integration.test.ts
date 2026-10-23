@@ -90,7 +90,9 @@ run("RLS isolation", () => {
   });
 
   it("athlete A cannot read athlete B check-ins", async () => {
-    await athleteA.from("morning_checkins").insert({
+    // Fixture rows go through the service client: the hardened athlete INSERT
+    // policy only accepts the athlete-local "today" date.
+    await admin.from("morning_checkins").insert({
       athlete_id: athleteAId,
       checkin_date: "2020-01-01",
       sleep_score: 3, recovery_score: 3, fatigue_score: 3,
@@ -131,5 +133,67 @@ run("RLS isolation", () => {
     const a = await athleteA.from("alerts").select("*").limit(5);
     expect(n.data).toEqual([]);
     expect(a.data).toEqual([]);
+  });
+
+  it("athlete cannot write training_schedules for own group", async () => {
+    const { error } = await athleteA.from("training_schedules").insert({
+      group_id: groupId,
+      weekday: 6,
+      start_time: "09:00",
+      training_type: "mixed",
+    });
+    expect(error).not.toBeNull();
+  });
+
+  it("coach cannot write consent_records", async () => {
+    const { error } = await coachX.from("consent_records").insert({
+      athlete_id: athleteAId,
+      consent_type: "test",
+      status: "granted",
+    });
+    expect(error).not.toBeNull();
+  });
+
+  it("athlete cannot backfill a morning check-in for a past date", async () => {
+    const { error } = await athleteA.from("morning_checkins").insert({
+      athlete_id: athleteAId,
+      checkin_date: "2020-02-02",
+      sleep_score: 3, recovery_score: 3, fatigue_score: 3,
+      muscle_soreness_score: 3, stress_score: 3, mood_score: 3,
+    });
+    expect(error).not.toBeNull();
+  });
+
+  it("athlete cannot self-record an alert via record_alert", async () => {
+    const { error } = await athleteA.rpc("record_alert", {
+      p_athlete_id: athleteAId,
+      p_rule_code: "fake",
+      p_severity: "priority",
+      p_evidence: {},
+      p_recommendation: "x",
+      p_dedup_key: `test:${stamp}`,
+    });
+    expect(error).not.toBeNull();
+  });
+
+  it("athlete cannot attach a post check-in to another athlete's session", async () => {
+    // session belongs to athlete A; try to link athlete B's post check-in to it
+    const { data: sess } = await admin
+      .from("training_sessions")
+      .insert({
+        athlete_id: athleteAId,
+        started_at: new Date().toISOString(),
+        duration_minutes: 60,
+        training_type: "court",
+        session_rpe: 5,
+      })
+      .select("id")
+      .single();
+    const { error } = await athleteB.from("post_training_checkins").insert({
+      training_session_id: sess!.id,
+      athlete_id: athleteAId, // spoofed — not B's own id either
+      overall_feeling: 3, leg_fatigue: 3, arm_shoulder_fatigue: 3,
+    });
+    expect(error).not.toBeNull();
   });
 });
