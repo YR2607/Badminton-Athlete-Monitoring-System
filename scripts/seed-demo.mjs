@@ -88,7 +88,6 @@ async function main() {
   const athleteByCode = new Map((athletesRows ?? []).map(a => [a.athlete_code, a]));
 
   if (cleanup) {
-    const demoIds = (athletesRows ?? []).filter(a => /^DEMO-1\d\d$/.test(a.athlete_code)).map(a => a.id);
     const profIds = (athletesRows ?? []).filter(a => /^DEMO-1\d\d$/.test(a.athlete_code)).map(a => a.profile_id);
     if (profIds.length) {
       const { data: profs } = await sb.from("profiles").select("user_id").in("id", profIds);
