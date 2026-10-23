@@ -515,6 +515,9 @@ const ro: Dictionary = {
   },
   day: {
     title: "Zi",
+    dayScore: "Scorul zilei",
+    morningShort: "dimineață",
+    eveningShort: "seară",
     morningCheckin: "Chestionar de dimineață",
     noCheckin: "Chestionarul de dimineață nu a fost completat",
     submittedAt: "Completat",

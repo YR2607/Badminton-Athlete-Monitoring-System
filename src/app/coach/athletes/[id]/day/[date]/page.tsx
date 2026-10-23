@@ -6,6 +6,13 @@ import { getDictionary, type Dictionary } from "@/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckinEditor, PostCheckinEditor } from "./coach-edit";
+import {
+  conditionScore,
+  normalizeCheckin,
+  postWellnessScore,
+  readinessScore,
+} from "@/lib/readiness";
+import { cn } from "@/lib/utils";
 import type {
   Athlete,
   MorningCheckin,
@@ -133,7 +140,8 @@ export default async function AthleteDayPage({
     .maybeSingle();
   const tz = ((aProfile as Profile | null)?.timezone) ?? me.timezone;
 
-  const [{ data: checkin }, { data: sessions }, { data: postCheckins }] = await Promise.all([
+  const [{ data: checkin }, { data: sessions }, { data: postCheckins }, { data: snapshot }] =
+    await Promise.all([
     supabase
       .from("morning_checkins")
       .select("*")
@@ -153,12 +161,26 @@ export default async function AthleteDayPage({
       .eq("athlete_id", a.id)
       .gte("submitted_at", `${date}T00:00:00Z`)
       .lte("submitted_at", `${date}T23:59:59Z`),
+    supabase
+      .from("readiness_snapshots")
+      .select("explanation")
+      .eq("athlete_id", a.id)
+      .eq("snapshot_date", date)
+      .maybeSingle(),
   ]);
 
   const c = checkin as MorningCheckin | null;
-  const postBySession = new Map(
-    ((postCheckins as PostTrainingCheckin[]) ?? []).map((p) => [p.training_session_id, p]),
-  );
+  const posts = (postCheckins as PostTrainingCheckin[]) ?? [];
+  const postBySession = new Map(posts.map((p) => [p.training_session_id, p]));
+  const latestPost = posts.length
+    ? posts.reduce((a, b) => (a.submitted_at >= b.submitted_at ? a : b))
+    : null;
+  const morningScore = c ? readinessScore(normalizeCheckin(c)) : null;
+  const dayScore = c ? conditionScore(c, latestPost) : null;
+  const eveningScore = latestPost ? postWellnessScore(latestPost) : null;
+  const deltaVsBaseline =
+    ((snapshot as { explanation?: { delta_vs_baseline?: number | null } } | null)?.explanation
+      ?.delta_vs_baseline ?? null);
   const h = dict.history;
 
   return (
@@ -171,6 +193,37 @@ export default async function AthleteDayPage({
           {(aProfile as Profile | null)?.display_name ?? a.athlete_code} · {date}
         </h1>
       </div>
+
+      {dayScore !== null && (
+        <Card>
+          <CardContent className="flex items-center justify-between gap-3 py-4">
+            <div className="min-w-0">
+              <p className="text-sm text-muted">{d.dayScore}</p>
+              <p className="mt-0.5 text-xs text-muted">
+                {d.morningShort} {Math.round(morningScore!)}
+                {eveningScore !== null && ` · ${d.eveningShort} ${Math.round(eveningScore)}`}
+              </p>
+            </div>
+            <div className="shrink-0 text-right">
+              <p
+                title={dict.common.readinessHint}
+                className={cn(
+                  "text-2xl font-bold tabular-nums leading-none",
+                  dayScore >= 70 ? "text-ok" : dayScore >= 45 ? "text-warn" : "text-danger",
+                )}
+              >
+                {Math.round(dayScore)}
+              </p>
+              {deltaVsBaseline !== null && (
+                <p className="mt-1 text-[11px] text-muted">
+                  {deltaVsBaseline > 0 ? "▲" : "▼"} {Math.abs(Math.round(deltaVsBaseline))}{" "}
+                  {dict.coach.vsBaseline}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

@@ -515,6 +515,9 @@ const en: Dictionary = {
   },
   day: {
     title: "Day",
+    dayScore: "Day score",
+    morningShort: "morning",
+    eveningShort: "evening",
     morningCheckin: "Morning check-in",
     noCheckin: "Morning check-in not filled",
     submittedAt: "Submitted",

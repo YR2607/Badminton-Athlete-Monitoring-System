@@ -517,6 +517,9 @@ const ru = {
   },
   day: {
     title: "День",
+    dayScore: "Балл дня",
+    morningShort: "утро",
+    eveningShort: "вечер",
     morningCheckin: "Утренняя анкета",
     noCheckin: "Утренняя анкета не заполнена",
     submittedAt: "Заполнено",
