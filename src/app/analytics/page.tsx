@@ -127,17 +127,20 @@ export default async function AnalyticsPage({
     return a ? (profById.get(a.profile_id)?.display_name ?? a.athlete_code) : id;
   };
 
-  const statCards: [string, string | number, number | null, boolean?][] = [
+  const statCards: [string, string | number, number | null, boolean?, string?][] = [
     [d.checkins, `${summary.checkinsFilled}/${summary.checkinsExpected}`, delta(summary.fillRate, prevSummary.fillRate)],
     [d.sessions, summary.sessions, delta(summary.sessions, prevSummary.sessions)],
-    [d.totalLoad, summary.totalLoad, delta(summary.totalLoad, prevSummary.totalLoad)],
-    [d.avgReadiness, summary.avgReadiness ?? "—", delta(summary.avgReadiness, prevSummary.avgReadiness)],
+    [d.totalLoad, summary.totalLoad, delta(summary.totalLoad, prevSummary.totalLoad), undefined, dict.common.loadHint],
+    [d.avgReadiness, summary.avgReadiness ?? "—", delta(summary.avgReadiness, prevSummary.avgReadiness), undefined, dict.common.readinessHint],
     [d.alertsCount, summary.alerts, delta(summary.alerts, prevSummary.alerts), true],
   ];
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">{d.title}</h1>
+      <div>
+        <h1 className="text-xl font-bold">{d.title}</h1>
+        <p className="text-sm text-muted">{d.hint}</p>
+      </div>
 
       <AnalyticsFilters
         dict={dict}
@@ -158,13 +161,13 @@ export default async function AnalyticsPage({
         <>
           {/* Summary */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {statCards.map(([label, value, dl, invert]) => (
+            {statCards.map(([label, value, dl, invert, hint]) => (
               <Card key={label as string}>
                 <CardContent className="pt-3 pb-3">
                   <p className="text-lg font-bold tabular-nums">
                     {value} <Delta d={dl} invert={invert} />
                   </p>
-                  <p className="text-xs text-muted">{label}</p>
+                  <p className="text-xs text-muted" title={hint}>{label}</p>
                 </CardContent>
               </Card>
             ))}

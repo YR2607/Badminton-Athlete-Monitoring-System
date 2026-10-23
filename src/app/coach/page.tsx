@@ -41,7 +41,10 @@ export default async function CoachDashboard({
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">{d.dashboard}</h1>
+      <div>
+        <h1 className="text-xl font-bold">{d.dashboard}</h1>
+        <p className="text-sm text-muted">{d.dashboardHint}</p>
+      </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Card>
@@ -75,6 +78,7 @@ export default async function CoachDashboard({
       <Card>
         <CardHeader>
           <CardTitle>{d.compare}</CardTitle>
+          <p className="text-xs text-muted">{d.compareHint}</p>
         </CardHeader>
         <CardContent>
           <CompareChart athletes={compareAthletes} dict={dict} />

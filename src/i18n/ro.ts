@@ -37,6 +37,8 @@ const ro: Dictionary = {
     close: "Închide",
     details: "Detalii",
     period: "Perioadă",
+    loadHint: "Încărcătura = suma RPE × minute pe toate antrenamentele din perioadă",
+    readinessHint: "Pregătirea 0–100 din chestionarul de dimineață: somn, oboseală, stres, dispoziție, durere",
   },
   auth: {
     signIn: "Autentificare",
@@ -205,6 +207,7 @@ const ro: Dictionary = {
   },
   coach: {
     dashboard: "Prezentare generală a grupei",
+    dashboardHint: "Cine a completat chestionarul de dimineață și cine are nevoie de atenție azi",
     athletesInGroup: "Sportivi în grupă",
     filledToday: "Au completat chestionarul de dimineață",
     missingToday: "Nu au completat",
@@ -227,7 +230,8 @@ const ro: Dictionary = {
     filterByAge: "După vârstă",
     hasPain: "Are dureri",
     missedCheckins: "Chestionare lipsă",
-    compare: "Compararea pregătirii (14 zile)",
+    compare: "Dinamica pregătirii — cine scade (14 zile)",
+    compareHint: "Sunt afișați sportivii cu semnale. Atinge numele pentru a activa sau ascunde linia. Punctată — media grupei.",
     groupAvg: "Media grupei",
     vsBaseline: "față de normă",
     noAccess: "Niciun sportiv alocat",
@@ -456,7 +460,8 @@ const ro: Dictionary = {
     editPost: "Editează chestionarul",
   },
   analytics: {
-    title: "Analiză",
+    title: "Statistici pe perioadă",
+    hint: "Completarea chestionarelor și încărcătura pe perioadă. ▲▼ — schimbare față de perioada precedentă identică.",
     scopeAll: "Toți sportivii",
     pickGroup: "Grupă",
     pickAthlete: "Sportiv",

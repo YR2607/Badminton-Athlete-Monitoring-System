@@ -114,7 +114,10 @@ export function CoachTable({
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className={cn("text-xl font-bold tabular-nums leading-none", readinessTone(r.readiness))}>
+                  <p
+                    title={dict.common.readinessHint}
+                    className={cn("text-xl font-bold tabular-nums leading-none", readinessTone(r.readiness))}
+                  >
                     {r.readiness !== null ? Math.round(r.readiness) : "—"}
                   </p>
                   {r.readinessDelta !== null && (

@@ -37,6 +37,8 @@ const en: Dictionary = {
     close: "Close",
     details: "Details",
     period: "Period",
+    loadHint: "Load = sum of RPE × minutes across all sessions in the period",
+    readinessHint: "Readiness 0–100 from the morning check-in: sleep, fatigue, stress, mood, pain",
   },
   auth: {
     signIn: "Sign in",
@@ -205,6 +207,7 @@ const en: Dictionary = {
   },
   coach: {
     dashboard: "Group overview",
+    dashboardHint: "Who filled in the morning check-in and who needs attention today",
     athletesInGroup: "Athletes in group",
     filledToday: "Completed morning check-in",
     missingToday: "Missing check-in",
@@ -227,7 +230,8 @@ const en: Dictionary = {
     filterByAge: "By age",
     hasPain: "Has pain",
     missedCheckins: "Missed check-ins",
-    compare: "Readiness comparison (14 days)",
+    compare: "Readiness trend — who's slipping (14 days)",
+    compareHint: "Athletes with signals are shown. Tap a name to toggle a line. Dashed — group average.",
     groupAvg: "Group average",
     vsBaseline: "vs baseline",
     noAccess: "No athletes assigned",
@@ -456,7 +460,8 @@ const en: Dictionary = {
     editPost: "Edit check-in",
   },
   analytics: {
-    title: "Analytics",
+    title: "Period statistics",
+    hint: "Check-in completion and training load for the period. ▲▼ — change vs the same previous period.",
     scopeAll: "All athletes",
     pickGroup: "Group",
     pickAthlete: "Athlete",
