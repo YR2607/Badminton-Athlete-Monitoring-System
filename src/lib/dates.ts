@@ -41,7 +41,16 @@ export function dateRange(from: string, to: string): string[] {
   return out;
 }
 
-export type RangeKey = "7d" | "14d" | "30d" | "90d" | "month" | "prev_month" | "custom";
+export type RangeKey =
+  | "day"
+  | "yesterday"
+  | "7d"
+  | "14d"
+  | "30d"
+  | "90d"
+  | "month"
+  | "prev_month"
+  | "custom";
 
 export function resolveRange(
   key: RangeKey,
@@ -50,6 +59,12 @@ export function resolveRange(
 ): { from: string; to: string } {
   const today = todayInTz(tz);
   switch (key) {
+    case "day":
+      return { from: today, to: today };
+    case "yesterday": {
+      const y = addDays(today, -1);
+      return { from: y, to: y };
+    }
     case "7d":
       return { from: addDays(today, -6), to: today };
     case "14d":

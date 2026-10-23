@@ -17,6 +17,7 @@ const ICONS: Record<string, string> = {
   audit: "M8 3h8l4 4v14H8zM12 11v5M9 16h6",
   settings: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm8 4h-2m-4-8V2m-4 2v2M4 12h2m4 8v-2m-6.4-9.4 1.4 1.4m9.2 9.2 1.4 1.4m0-12-1.4 1.4M4.6 18.6 6 17.2",
   export: "M12 3v12m0 0 4-4m-4 4-4-4M4 17v4h16v-4",
+  analytics: "M4 20V10m6 10V4m6 16v-7m4 7H2",
 };
 
 function iconKey(href: string): string {
@@ -30,6 +31,7 @@ function iconKey(href: string): string {
   if (href.includes("audit")) return "audit";
   if (href.includes("settings")) return "settings";
   if (href.includes("export")) return "export";
+  if (href.includes("analytics")) return "analytics";
   return "home";
 }
 
@@ -46,12 +48,14 @@ export function navItems(role: AppRole, d: Dictionary): { href: string; label: s
   if (role === "coach") {
     return [
       { href: "/coach", label: d.nav.home },
+      { href: "/analytics", label: d.analytics.title },
       { href: "/coach/alerts", label: d.nav.alerts },
       { href: "/coach/export", label: d.export.title },
     ];
   }
   return [
     { href: "/admin", label: d.nav.home },
+    { href: "/analytics", label: d.analytics.title },
     { href: "/admin/users", label: d.nav.users },
     { href: "/admin/groups", label: d.nav.groups },
     { href: "/admin/rules", label: d.nav.rules },
