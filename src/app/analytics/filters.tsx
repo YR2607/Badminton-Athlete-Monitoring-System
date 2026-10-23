@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import type { Dictionary } from "@/i18n";
 import { Input, Select } from "@/components/ui/input";
+import { SearchSelect } from "@/components/ui/search-select";
 import { cn } from "@/lib/utils";
 
 export interface AthleteOption {
@@ -57,17 +58,14 @@ export function AnalyticsFilters({
             </option>
           ))}
         </Select>
-        <Select
+        <SearchSelect
+          options={athleteOptions}
           value={current.athlete}
-          onChange={(e) => push({ athlete: e.target.value })}
-        >
-          <option value="">{dict.analytics.scopeAll}</option>
-          {athleteOptions.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.label}
-            </option>
-          ))}
-        </Select>
+          onChange={(id) => push({ athlete: id })}
+          allLabel={dict.analytics.scopeAll}
+          searchPlaceholder={dict.common.search}
+          emptyLabel={dict.common.noResults}
+        />
       </div>
       <div className="flex flex-wrap gap-1.5">
         {RANGE_KEYS.map((k) => (

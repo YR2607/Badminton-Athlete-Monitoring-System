@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Dictionary } from "@/i18n";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
+import { SearchSelect } from "@/components/ui/search-select";
 import type { Group } from "@/lib/types";
 
 export function ExportForm({
@@ -68,14 +69,13 @@ export function ExportForm({
         {scope === "athlete" && (
           <div>
             <Label>{dict.common.athlete}</Label>
-            <Select value={athleteId} onChange={(e) => setAthleteId(e.target.value)}>
-              <option value="">—</option>
-              {athletes.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.label}
-                </option>
-              ))}
-            </Select>
+            <SearchSelect
+              options={athletes}
+              value={athleteId}
+              onChange={setAthleteId}
+              searchPlaceholder={dict.common.search}
+              emptyLabel={dict.common.noResults}
+            />
           </div>
         )}
         <div>

@@ -27,6 +27,7 @@ const ro: Dictionary = {
     optional: "opțional",
     error: "Ceva a mers greșit. Încearcă din nou.",
     noData: "Nu există date pentru perioada selectată",
+    noResults: "Nimic găsit",
     insufficientData: "Date insuficiente deocamdată",
     signOut: "Ieșire",
     athlete: "Sportiv",

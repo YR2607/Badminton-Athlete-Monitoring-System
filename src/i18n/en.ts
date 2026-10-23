@@ -27,6 +27,7 @@ const en: Dictionary = {
     optional: "optional",
     error: "Something went wrong. Please try again.",
     noData: "No data for the selected period",
+    noResults: "Nothing found",
     insufficientData: "Not enough data yet",
     signOut: "Sign out",
     athlete: "Athlete",

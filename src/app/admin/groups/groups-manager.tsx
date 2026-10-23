@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
+import { SearchSelect } from "@/components/ui/search-select";
 import type { Group, GroupMembership, TrainingSchedule } from "@/lib/types";
 
 interface Opt {
@@ -90,14 +91,14 @@ export function GroupsManager({
           <CardTitle>{d.addToGroup}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Select value={athleteId} onChange={(e) => setAthleteId(e.target.value)}>
-            <option value="">{dict.common.athlete}…</option>
-            {athletes.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.label}
-              </option>
-            ))}
-          </Select>
+          <SearchSelect
+            options={athletes}
+            value={athleteId}
+            onChange={setAthleteId}
+            placeholder={`${dict.common.athlete}…`}
+            searchPlaceholder={dict.common.search}
+            emptyLabel={dict.common.noResults}
+          />
           <Select value={groupId} onChange={(e) => setGroupId(e.target.value)}>
             <option value="">{dict.common.group}…</option>
             {groups.map((g) => (
