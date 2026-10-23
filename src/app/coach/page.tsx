@@ -22,7 +22,9 @@ export default async function CoachDashboard({
 
   const filled = rows.filter((r) => r.todayCheckin).length;
   const openAlerts = rows.flatMap((r) => r.openAlerts);
-  const priority = openAlerts.filter((a) => a.severity === "priority").length;
+  const priority = rows.filter((r) => r.status === "needs_check").length;
+  const declining = rows.filter((r) => r.status === "declining").length;
+  const pendingPosts = rows.filter((r) => r.pendingPostCount > 0).length;
 
   const sorted = [...rows].sort((a, b) =>
     (a.profile?.display_name ?? a.athlete.athlete_code).localeCompare(
@@ -46,7 +48,7 @@ export default async function CoachDashboard({
         <p className="text-sm text-muted">{d.dashboardHint}</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Card>
           <CardContent className="pt-4">
             <p className="text-2xl font-bold">{rows.length}</p>
@@ -62,15 +64,27 @@ export default async function CoachDashboard({
         <Card>
           <CardContent className="pt-4">
             <p className="text-2xl font-bold text-warn">{rows.length - filled}</p>
-            <p className="text-xs text-muted">{d.missingToday}</p>
+            <p className="text-xs text-muted">{d.sumNoToday}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
             <p className="text-2xl font-bold text-danger">{priority}</p>
             <p className="text-xs text-muted">
-              {d.priorityAlerts} · {d.openAlerts}: {openAlerts.length}
+              {d.sumPriority} · {d.openAlerts}: {openAlerts.length}
             </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-2xl font-bold text-warn">{declining}</p>
+            <p className="text-xs text-muted">{d.sumDeclining}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-2xl font-bold">{pendingPosts}</p>
+            <p className="text-xs text-muted">{d.sumPendingPost}</p>
           </CardContent>
         </Card>
       </div>

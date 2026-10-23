@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { addDays, dateRange, localDate, resolveRange, todayInTz, type RangeKey } from "@/lib/dates";
-import { dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
+import { conditionScore, dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
+import { loadInRange, pendingPostCheckins } from "@/lib/athlete-status";
 import { coachAthleteIds } from "@/lib/coach-data";
 import { AthleteSwitcher, type NavAthlete } from "./athlete-switcher";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -83,11 +84,15 @@ export default async function AthleteDetailPage({
     .map((x) => ({ id: x.id, name: navNameById.get(x.profile_id) ?? x.athlete_code }))
     .sort((x, y) => x.name.localeCompare(y.name));
 
-  const [{ data: checkins }, { data: sessions }, { data: postCheckins }, { data: snapshots }, { data: alerts }, { data: notes }, { data: consents }] =
+  const [{ data: checkins }, { data: sessions }, { data: postCheckins }, { data: todayCheckin }, { data: recentSessions }, { data: recentPosts }, { data: snapshots }, { data: alerts }, { data: notes }, { data: consents }] =
     await Promise.all([
       supabase.from("morning_checkins").select("*").eq("athlete_id", a.id).gte("checkin_date", addDays(range.from, -30)).order("checkin_date"),
       supabase.from("training_sessions").select("*").eq("athlete_id", a.id).gte("started_at", `${addDays(range.from, -14)}T00:00:00Z`).order("started_at"),
       supabase.from("post_training_checkins").select("*").eq("athlete_id", a.id).gte("submitted_at", `${addDays(range.from, -30)}T00:00:00Z`),
+      // "Today" block is independent of the selected range — its own window.
+      supabase.from("morning_checkins").select("*").eq("athlete_id", a.id).eq("checkin_date", today).maybeSingle(),
+      supabase.from("training_sessions").select("*").eq("athlete_id", a.id).gte("started_at", `${addDays(today, -14)}T00:00:00Z`),
+      supabase.from("post_training_checkins").select("*").eq("athlete_id", a.id).gte("submitted_at", `${addDays(today, -14)}T00:00:00Z`),
       supabase.from("readiness_snapshots").select("*").eq("athlete_id", a.id).order("snapshot_date", { ascending: false }).limit(1),
       supabase.from("alerts").select("*").eq("athlete_id", a.id).order("triggered_at", { ascending: false }).limit(50),
       supabase.from("coach_notes").select("*").eq("athlete_id", a.id).order("created_at", { ascending: false }).limit(50),
@@ -143,6 +148,40 @@ export default async function AthleteDetailPage({
   const filledDates = new Set(ck.map((c) => c.checkin_date));
   const calDays = dateRange(range.from, range.to).slice(-35);
 
+  // ---- "Today" block: independent of the selected range ----
+  const tCheckin = (todayCheckin as MorningCheckin | null) ?? null;
+  const recentSs = (recentSessions as TrainingSession[]) ?? [];
+  const recentPs = (recentPosts as PostTrainingCheckin[]) ?? [];
+  const todayPost = postsByLocalDate(recentPs, tz).find((e) => e.date === today)?.post ?? null;
+  const todayScore = tCheckin ? conditionScore(tCheckin, todayPost) : null;
+  const lastTodayCheckin =
+    [((checkins as MorningCheckin[]) ?? [])].flat()
+      .filter((c) => c.checkin_date <= today)
+      .sort((x, y) => y.checkin_date.localeCompare(x.checkin_date))[0] ?? tCheckin;
+  const openAlerts = ((alerts as Alert[]) ?? []).filter((x) => x.status === "open");
+  const sessionsTodayCount = recentSs.filter(
+    (s) => localDate(new Date(s.started_at), tz) === today,
+  ).length;
+  const pendingPosts = pendingPostCheckins(recentSs, recentPs, new Date());
+  const load7 = loadInRange(recentSs, tz, addDays(today, -6), today);
+  const loadPrev7 = loadInRange(recentSs, tz, addDays(today, -13), addDays(today, -7));
+  const normObs = latestSnap?.input_data_count ?? ck.length;
+  const normAvg = latestSnap?.baseline_avg ?? null;
+  const normReady = latestSnap?.confidence === "sufficient" && normAvg !== null;
+  const normDelta =
+    todayScore !== null && normAvg !== null
+      ? Math.round((todayScore - Number(normAvg)) * 10) / 10
+      : null;
+
+  const compMeta: { key: keyof MorningCheckin; label: string; hint: string; inverted: boolean }[] = [
+    { key: "sleep_score", label: dict.history.sleep, hint: dd.today.hints.sleep, inverted: false },
+    { key: "recovery_score", label: dict.history.recovery, hint: dd.today.hints.recovery, inverted: false },
+    { key: "fatigue_score", label: dict.history.fatigue, hint: dd.today.hints.fatigue, inverted: true },
+    { key: "muscle_soreness_score", label: dict.history.soreness, hint: dd.today.hints.soreness, inverted: true },
+    { key: "stress_score", label: dict.history.stress, hint: dd.today.hints.stress, inverted: true },
+    { key: "mood_score", label: dict.history.mood, hint: dd.today.hints.mood, inverted: false },
+  ];
+
   const painEntries = [
     ...ck.filter((c) => c.pain_status !== "none").map((c) => ({
       date: c.checkin_date,
@@ -178,6 +217,143 @@ export default async function AthleteDetailPage({
           <AthleteSwitcher athletes={navAthletes} currentId={a.id} label={dd.profile} />
         )}
       </div>
+
+      {/* Today block — independent of the selected period below */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{dd.today.title} · {today}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            <div>
+              <p className="text-xs text-muted">{dd.today.morningScore}</p>
+              <p
+                className={cn(
+                  "text-2xl font-bold tabular-nums leading-tight",
+                  todayScore === null
+                    ? "text-muted"
+                    : todayScore >= 70
+                      ? "text-ok"
+                      : todayScore >= 45
+                        ? "text-warn"
+                        : "text-danger",
+                )}
+              >
+                {todayScore !== null ? Math.round(todayScore) : "—"}
+              </p>
+              {normDelta !== null && (
+                <p className="text-[11px] text-muted">
+                  {normDelta > 0 ? "▲" : "▼"} {Math.abs(normDelta)} {dd.today.vsNorm}
+                </p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs text-muted">{dd.today.lastData}</p>
+              <p className="font-medium">
+                {lastTodayCheckin?.checkin_date ?? latestSnap?.snapshot_date ?? dict.common.noData}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted">{dd.today.observations}</p>
+              <p className="font-medium">
+                {normObs}
+                {!normReady && (
+                  <span className="ml-1 text-xs text-muted">— {dd.today.normInsufficient}</span>
+                )}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted">{dd.today.trainings}</p>
+              <p className="font-medium">
+                {sessionsTodayCount} {dd.today.sessionsCount}
+                {pendingPosts.length > 0 && (
+                  <Badge tone="warn" className="ml-2">
+                    {dd.today.postPending}: {pendingPosts.length}
+                  </Badge>
+                )}
+              </p>
+            </div>
+            <div title={dict.common.loadHint}>
+              <p className="text-xs text-muted">{dd.today.load7d}</p>
+              <p className="font-medium tabular-nums">
+                {recentSs.length ? load7 : dict.common.noData}
+                {recentSs.length > 0 && (
+                  <span className="ml-1 text-xs text-muted">
+                    / {loadPrev7} {dd.today.prev7d}
+                  </span>
+                )}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-muted">{dd.today.signals}</p>
+              <div className="flex flex-wrap gap-1">
+                {openAlerts.length === 0 ? (
+                  <span className="text-sm text-muted">{dd.today.noSignals}</span>
+                ) : (
+                  openAlerts.map((al) => (
+                    <Badge
+                      key={al.id}
+                      tone={
+                        al.severity === "priority"
+                          ? "danger"
+                          : al.severity === "review_load"
+                            ? "warn"
+                            : "accent"
+                      }
+                      title={al.recommendation}
+                    >
+                      {dict.alerts.severity[al.severity as keyof typeof dict.alerts.severity] ??
+                        al.severity}
+                    </Badge>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+
+          {!tCheckin && <p className="text-sm text-muted">{dd.today.noCheckin}</p>}
+
+          {/* Pain / red flags live outside the composite score */}
+          {tCheckin && tCheckin.pain_status !== "none" && (
+            <p className="rounded-lg bg-danger/10 px-3 py-2 text-sm text-danger">
+              {dict.history.painHistory}: {tCheckin.pain_location ?? tCheckin.pain_status}
+              {tCheckin.swelling ? ` · ${dd.today.swelling}` : ""}
+              {tCheckin.movement_limitation ? ` · ${dd.today.limitation}` : ""}
+              {tCheckin.pain_severity ? ` · ${tCheckin.pain_severity}/10` : ""}
+            </p>
+          )}
+
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            {compMeta.map((c) => {
+              const v = tCheckin ? (tCheckin[c.key] as number | null) : null;
+              const goodness = v === null ? null : c.inverted ? 6 - v : v;
+              return (
+                <div
+                  key={c.key}
+                  title={`${c.hint} · ${c.inverted ? dd.today.lowerBetter : dd.today.higherBetter}`}
+                  className="rounded-lg border border-border/60 p-2"
+                >
+                  <p className="text-[11px] text-muted">{c.label}</p>
+                  <p className="text-sm font-semibold tabular-nums">
+                    {v !== null ? `${v}/5` : dict.common.noData}
+                  </p>
+                  <div className="mt-1 h-1.5 rounded bg-foreground/10">
+                    {goodness !== null && (
+                      <div
+                        className={cn(
+                          "h-1.5 rounded",
+                          goodness >= 4 ? "bg-ok" : goodness >= 3 ? "bg-warn" : "bg-danger",
+                        )}
+                        style={{ width: `${(goodness / 5) * 100}%` }}
+                      />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="flex flex-wrap gap-1">
           {rangeKeys.map((k) => (
