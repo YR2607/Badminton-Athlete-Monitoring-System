@@ -151,10 +151,12 @@ export function CreateUserForm({
               </div>
             </>
           ) : null}
-          <div className={role === "athlete" ? "" : "sm:col-span-2"}>
-            <Label>{role === "athlete" ? d.emailOptional : d.email}</Label>
-            <Input name="email" type="email" required={role !== "athlete"} autoComplete="off" />
-          </div>
+          {role !== "athlete" ? (
+            <div className="sm:col-span-2">
+              <Label>{d.email}</Label>
+              <Input name="email" type="email" required autoComplete="off" />
+            </div>
+          ) : null}
           <div className="sm:col-span-2">
             <Label>{d.tempPassword}</Label>
             <div className="flex gap-2">

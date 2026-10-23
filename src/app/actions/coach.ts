@@ -135,7 +135,11 @@ export async function coachUpsertMorningCheckin(f: MorningFields): Promise<Actio
   await audit("checkin.coach_upsert", "morning_checkins", f.athlete_id, {
     date: f.checkin_date,
   });
-  await evaluateAthleteDay(admin, f.athlete_id, f.checkin_date, athlete.timezone);
+  try {
+    await evaluateAthleteDay(admin, f.athlete_id, f.checkin_date, athlete.timezone);
+  } catch (e) {
+    console.error("evaluate_failed", e);
+  }
   revalidatePath(`/coach/athletes/${f.athlete_id}`);
   revalidatePath("/analytics");
   return { ok: true };
@@ -183,7 +187,11 @@ export async function coachUpsertSession(f: SessionFields): Promise<ActionResult
   await audit(f.id ? "session.coach_update" : "session.coach_create", "training_sessions", f.athlete_id, {
     date,
   });
-  await evaluateAthleteDay(admin, f.athlete_id, date, athlete.timezone);
+  try {
+    await evaluateAthleteDay(admin, f.athlete_id, date, athlete.timezone);
+  } catch (e) {
+    console.error("evaluate_failed", e);
+  }
   revalidatePath(`/coach/athletes/${f.athlete_id}`);
   revalidatePath("/analytics");
   return { ok: true };
@@ -242,7 +250,11 @@ export async function coachUpsertPostCheckin(f: PostCheckinFields): Promise<Acti
     session: f.training_session_id,
   });
   const date = localDate(new Date(session.started_at), athlete.timezone);
-  await evaluateAthleteDay(admin, f.athlete_id, date, athlete.timezone);
+  try {
+    await evaluateAthleteDay(admin, f.athlete_id, date, athlete.timezone);
+  } catch (e) {
+    console.error("evaluate_failed", e);
+  }
   revalidatePath(`/coach/athletes/${f.athlete_id}`);
   revalidatePath("/analytics");
   return { ok: true };

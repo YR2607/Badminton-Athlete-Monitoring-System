@@ -112,7 +112,12 @@ export async function adminCreateUser(input: {
   if (!isValidTimeZone(parsed.data.timezone)) return { error: "validation" };
 
   const code = parsed.data.athlete_code;
-  const email = parsed.data.email?.toLowerCase() || (code ? loginToEmail(code) : "");
+  // Athletes always log in by code, so their auth email is always the derived
+  // code address — a provided email would silently break code login.
+  const email =
+    parsed.data.role === "athlete"
+      ? loginToEmail(code!)
+      : parsed.data.email!.toLowerCase();
 
   const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.createUser({
