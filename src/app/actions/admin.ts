@@ -118,6 +118,21 @@ export async function setAthleteStatus(
   const admin = createAdminClient();
   const { error } = await admin.from("athletes").update({ status }).eq("id", athleteId);
   if (error) return { error: error.message };
+
+  // Block/unblock login so "inactive" actually locks the account.
+  const { data: athlete } = await admin
+    .from("athletes")
+    .select("profile_id")
+    .eq("id", athleteId)
+    .single();
+  const { data: prof } = athlete
+    ? await admin.from("profiles").select("user_id").eq("id", athlete.profile_id).single()
+    : { data: null };
+  if (prof?.user_id) {
+    await admin.auth.admin.updateUserById(prof.user_id, {
+      ban_duration: status === "active" ? "none" : "876000h",
+    });
+  }
   await audit("athlete.status", "athletes", athleteId, { status });
   revalidatePath("/admin/users");
   return { ok: true };

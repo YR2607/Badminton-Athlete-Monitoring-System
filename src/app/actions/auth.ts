@@ -6,15 +6,31 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { homeForRole } from "@/lib/auth";
 import type { AppRole } from "@/lib/types";
 
+/** Athletes log in by their code (ATH-001 → ath-001@rally.local); coaches/admins by email. */
+function loginToEmail(login: string): string {
+  const v = login.trim().toLowerCase();
+  return v.includes("@") ? v : `${v}@rally.local`;
+}
+
+function generatePassword(): string {
+  const chars = "abcdefghjkmnpqrstuvwxyz23456789"; // no ambiguous 0/o, 1/l/i
+  const rand = crypto.getRandomValues(new Uint32Array(8));
+  const part = (off: number) =>
+    Array.from({ length: 4 }, (_, i) => chars[rand[off + i] % chars.length]).join("");
+  return `Rally-${part(0)}-${part(4)}`;
+}
+
 export async function signIn(
   _prev: { error?: string } | null,
   formData: FormData,
 ): Promise<{ error?: string }> {
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const email = loginToEmail(String(formData.get("login") ?? ""));
   const password = String(formData.get("password") ?? "");
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) return { error: "invalid_credentials" };
+  if (error) {
+    return { error: error.code === "user_banned" || /banned/i.test(error.message) ? "banned" : "invalid_credentials" };
+  }
 
   const {
     data: { user },
@@ -59,9 +75,12 @@ export async function updatePassword(
   return { ok: true };
 }
 
-/** Admin-only: provision a user and (for athletes) their athlete row. */
+/**
+ * Admin-only: provision a user and (for athletes) their athlete row.
+ * Athletes need no real email — their login is the athlete code.
+ */
 export async function adminCreateUser(input: {
-  email: string;
+  email?: string;
   password: string;
   display_name: string;
   role: AppRole;
@@ -82,9 +101,14 @@ export async function adminCreateUser(input: {
     .single();
   if (me?.role !== "admin") return { error: "forbidden" };
 
+  const code = input.athlete_code?.trim();
+  const email = input.email?.trim().toLowerCase() || (code ? loginToEmail(code) : "");
+  if (!email) return { error: "email_or_code_required" };
+  if (input.role === "athlete" && !code) return { error: "code_required" };
+
   const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.createUser({
-    email: input.email.toLowerCase().trim(),
+    email,
     password: input.password,
     email_confirm: true,
     user_metadata: {
@@ -92,7 +116,7 @@ export async function adminCreateUser(input: {
       role: input.role,
       preferred_language: input.preferred_language ?? "ru",
       timezone: input.timezone ?? "Europe/Chisinau",
-      athlete_code: input.athlete_code,
+      athlete_code: code,
       birth_year: input.birth_year,
     },
   });
@@ -103,7 +127,48 @@ export async function adminCreateUser(input: {
     action: "user.create",
     target_type: "auth.user",
     target_id: data.user.id,
-    metadata: { role: input.role, email: input.email },
+    metadata: { role: input.role, email },
   });
   return { ok: true };
+}
+
+/**
+ * Admin-only: set a new password for any user. Returns the generated
+ * password once so the admin can hand it to the athlete/parent.
+ */
+export async function adminResetUserPassword(
+  profileId: string,
+): Promise<{ ok?: boolean; error?: string; password?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "unauthenticated" };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .eq("user_id", user.id)
+    .single();
+  if (me?.role !== "admin") return { error: "forbidden" };
+
+  const admin = createAdminClient();
+  const { data: target } = await admin
+    .from("profiles")
+    .select("user_id")
+    .eq("id", profileId)
+    .single();
+  if (!target) return { error: "not_found" };
+
+  const password = generatePassword();
+  const { error } = await admin.auth.admin.updateUserById(target.user_id, { password });
+  if (error) return { error: error.message };
+
+  await admin.from("audit_logs").insert({
+    actor_profile_id: me.id,
+    action: "user.password_reset",
+    target_type: "profile",
+    target_id: profileId,
+    metadata: {},
+  });
+  return { ok: true, password };
 }

@@ -37,14 +37,29 @@ export function LoginForm({ dict }: { dict: Dictionary }) {
         ) : (
           <form action={action} className="space-y-4">
             <div>
-              <Label htmlFor="email">{d.email}</Label>
-              <Input id="email" name="email" type="email" required autoComplete="email" />
+              <Label htmlFor="login">{d.loginId}</Label>
+              <Input
+                id="login"
+                name="login"
+                type="text"
+                required
+                autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                inputMode="email"
+                placeholder="ATH-001"
+              />
+              <p className="mt-1 text-xs text-muted">{d.loginHint}</p>
             </div>
             <div>
               <Label htmlFor="password">{d.password}</Label>
               <Input id="password" name="password" type="password" required autoComplete="current-password" />
             </div>
-            {state?.error && <p className="text-sm text-danger">{d.invalidCredentials}</p>}
+            {state?.error && (
+              <p className="text-sm text-danger">
+                {state.error === "banned" ? d.banned : d.invalidCredentials}
+              </p>
+            )}
             <Button type="submit" className="w-full" disabled={pending}>
               {pending ? d.signingIn : d.signInButton}
             </Button>

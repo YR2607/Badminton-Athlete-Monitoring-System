@@ -31,7 +31,7 @@ export async function NotificationsBell() {
           {unread.length}
         </span>
       </summary>
-      <div className="absolute right-0 mt-2 w-80 rounded-xl border border-border bg-surface p-3 shadow-lg">
+      <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-1rem)] rounded-xl border border-border bg-surface p-3 shadow-lg">
         <ul className="max-h-72 space-y-2 overflow-y-auto">
           {unread.map((n) => (
             <li key={n.id} className="rounded-lg bg-foreground/5 p-2 text-sm">

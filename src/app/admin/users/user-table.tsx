@@ -1,18 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Dictionary } from "@/i18n";
 import { setAthleteStatus, recordConsent } from "@/app/actions/admin";
+import { adminResetUserPassword } from "@/app/actions/auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { CredentialsCard } from "./create-user-form";
 import type { Athlete, Profile } from "@/lib/types";
 
-type Row = Profile & { athlete: Athlete | null };
+type Row = Profile & { athlete: Athlete | null; email: string | null };
 
 export function UserTable({ dict, profiles }: { dict: Dictionary; profiles: Row[] }) {
   const router = useRouter();
   const d = dict.admin;
+  const [issued, setIssued] = useState<Record<string, string>>({});
 
   async function toggle(a: Athlete) {
     const next = a.status === "active" ? "inactive" : "active";
@@ -26,63 +31,122 @@ export function UserTable({ dict, profiles }: { dict: Dictionary; profiles: Row[
   }
 
   async function consent(a: Athlete) {
-    const type = window.prompt(`${d.consentType} (parental_data_processing)`, "parental_data_processing");
-    if (!type) return;
-    const res = await recordConsent(a.id, type, "granted");
+    const res = await recordConsent(a.id, "parental_data_processing", "granted");
     if (res.ok) {
-      toast.success(dict.common.saved);
+      toast.success(d.consentGranted);
+      router.refresh();
     } else {
       toast.error(dict.common.error);
     }
   }
 
+  async function resetPassword(p: Row) {
+    const res = await adminResetUserPassword(p.id);
+    if (res.ok && res.password) {
+      setIssued((s) => ({ ...s, [p.id]: res.password! }));
+      toast.success(dict.common.saved);
+    } else {
+      toast.error(res.error ?? dict.common.error);
+    }
+  }
+
+  const roleBadge = (p: Row) => (
+    <Badge tone={p.role === "admin" ? "danger" : p.role === "coach" ? "accent" : "neutral"}>
+      {dict.common[p.role as "athlete" | "coach" | "admin"]}
+    </Badge>
+  );
+
+  const loginLabel = (p: Row) => p.athlete?.athlete_code ?? p.email ?? "—";
+
+  const actions = (p: Row) => (
+    <span className="flex flex-wrap gap-1">
+      <Button size="sm" variant="secondary" onClick={() => resetPassword(p)}>
+        {d.newPasswordBtn}
+      </Button>
+      {p.athlete && (
+        <>
+          <Button size="sm" variant="ghost" onClick={() => toggle(p.athlete!)}>
+            {p.athlete.status === "active" ? d.deactivate : d.activate}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => consent(p.athlete!)}>
+            {d.consentStatus}
+          </Button>
+        </>
+      )}
+    </span>
+  );
+
+  const issuedCard = (p: Row) =>
+    issued[p.id] ? (
+      <div className="mt-2">
+        <CredentialsCard dict={dict} login={loginLabel(p)} password={issued[p.id]} />
+      </div>
+    ) : null;
+
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-surface">
-      <table className="w-full min-w-[640px] text-sm">
-        <thead>
-          <tr className="border-b border-border text-left text-xs text-muted">
-            <th className="px-3 py-2 font-medium">{dict.common.name}</th>
-            <th className="px-3 py-2 font-medium">{d.role}</th>
-            <th className="px-3 py-2 font-medium">{d.athleteCode}</th>
-            <th className="px-3 py-2 font-medium">TZ</th>
-            <th className="px-3 py-2 font-medium">{dict.common.status}</th>
-            <th className="px-3 py-2 font-medium">{dict.common.actions}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {profiles.map((p) => (
-            <tr key={p.id} className="border-b border-border last:border-0">
-              <td className="px-3 py-2 font-medium">{p.display_name}</td>
-              <td className="px-3 py-2">
-                <Badge tone={p.role === "admin" ? "danger" : p.role === "coach" ? "accent" : "neutral"}>
-                  {dict.common[p.role as "athlete" | "coach" | "admin"]}
-                </Badge>
-              </td>
-              <td className="px-3 py-2 text-muted">{p.athlete?.athlete_code ?? "—"}</td>
-              <td className="px-3 py-2 text-muted">{p.timezone}</td>
-              <td className="px-3 py-2">
-                {p.athlete ? (
-                  <Badge tone={p.athlete.status === "active" ? "ok" : "neutral"}>{p.athlete.status}</Badge>
-                ) : (
-                  "—"
-                )}
-              </td>
-              <td className="px-3 py-2">
+    <>
+      {/* Mobile: cards */}
+      <div className="space-y-3 md:hidden">
+        {profiles.map((p) => (
+          <Card key={p.id}>
+            <CardContent className="space-y-2 pt-4">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium">{p.display_name}</span>
+                {roleBadge(p)}
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+                <span>
+                  {d.login}: <span className="font-mono">{loginLabel(p)}</span>
+                </span>
                 {p.athlete && (
-                  <span className="flex gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => toggle(p.athlete!)}>
-                      {p.athlete.status === "active" ? d.deactivate : d.activate}
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => consent(p.athlete!)}>
-                      {d.consentStatus}
-                    </Button>
-                  </span>
+                  <Badge tone={p.athlete.status === "active" ? "ok" : "neutral"}>
+                    {p.athlete.status}
+                  </Badge>
                 )}
-              </td>
+              </div>
+              {actions(p)}
+              {issuedCard(p)}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden overflow-x-auto rounded-xl border border-border bg-surface md:block">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-xs text-muted">
+              <th className="px-3 py-2 font-medium">{dict.common.name}</th>
+              <th className="px-3 py-2 font-medium">{d.role}</th>
+              <th className="px-3 py-2 font-medium">{d.login}</th>
+              <th className="px-3 py-2 font-medium">{dict.common.status}</th>
+              <th className="px-3 py-2 font-medium">{dict.common.actions}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {profiles.map((p) => (
+              <tr key={p.id} className="border-b border-border align-top last:border-0">
+                <td className="px-3 py-2 font-medium">{p.display_name}</td>
+                <td className="px-3 py-2">{roleBadge(p)}</td>
+                <td className="px-3 py-2 font-mono text-muted">{loginLabel(p)}</td>
+                <td className="px-3 py-2">
+                  {p.athlete ? (
+                    <Badge tone={p.athlete.status === "active" ? "ok" : "neutral"}>
+                      {p.athlete.status}
+                    </Badge>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td className="px-3 py-2">
+                  {actions(p)}
+                  {issuedCard(p)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }

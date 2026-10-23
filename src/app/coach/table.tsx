@@ -93,7 +93,47 @@ export function CoachTable({
           <option value="alerts">{d.tableAlerts}</option>
         </Select>
       </div>
-      <div className="overflow-x-auto">
+      {/* Mobile: cards */}
+      <div className="divide-y divide-border md:hidden">
+        {filtered.map((r) => (
+          <Link
+            key={r.athlete.id}
+            href={`/coach/athletes/${r.athlete.id}`}
+            className="block px-3 py-3 active:bg-foreground/[0.03]"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium">{r.profile?.display_name ?? r.athlete.athlete_code}</span>
+              <span className={cn("text-lg font-bold tabular-nums", readinessTone(r.readiness))}>
+                {r.readiness !== null ? Math.round(r.readiness) : "—"}
+              </span>
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+              <span>{r.group?.name ?? "—"}</span>
+              <span>
+                {d.tableSleep} {r.todayCheckin?.sleep_score ?? "—"} · {d.tableFatigue}{" "}
+                {r.todayCheckin?.fatigue_score ?? "—"} · {d.tableLastLoad} {r.lastLoad ?? "—"}
+              </span>
+            </div>
+            <div className="mt-1.5 flex items-center gap-1.5">
+              {r.todayCheckin ? (
+                <Badge tone="ok">✓</Badge>
+              ) : (
+                <Badge tone="warn">{d.missingToday}</Badge>
+              )}
+              {r.openAlerts.some((a) => a.severity === "priority") && <Badge tone="danger">!</Badge>}
+              {r.openAlerts.some((a) => a.severity === "review_load") && <Badge tone="warn">↺</Badge>}
+              {r.openAlerts.some((a) => a.severity === "attention") && <Badge tone="accent">•</Badge>}
+              {r.hasPain && <Badge tone="danger">{d.hasPain}</Badge>}
+            </div>
+          </Link>
+        ))}
+        {filtered.length === 0 && (
+          <p className="px-3 py-8 text-center text-muted">{dict.common.noData}</p>
+        )}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden overflow-x-auto md:block">
         <table className="w-full min-w-[900px] text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted">

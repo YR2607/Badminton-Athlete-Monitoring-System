@@ -10,11 +10,13 @@ export default async function AdminUsersPage() {
   const dict = getDictionary(me.preferred_language);
   const admin = createAdminClient();
 
-  const [{ data: profiles }, { data: athletes }] = await Promise.all([
+  const [{ data: profiles }, { data: athletes }, { data: authUsers }] = await Promise.all([
     admin.from("profiles").select("*").order("created_at", { ascending: false }),
     admin.from("athletes").select("*"),
+    admin.auth.admin.listUsers({ perPage: 1000 }),
   ]);
   const athleteByProfile = new Map(((athletes as Athlete[]) ?? []).map((a) => [a.profile_id, a]));
+  const emailByUserId = new Map((authUsers?.users ?? []).map((u) => [u.id, u.email ?? ""]));
 
   return (
     <div className="space-y-6">
@@ -25,6 +27,7 @@ export default async function AdminUsersPage() {
         profiles={((profiles as Profile[]) ?? []).map((p) => ({
           ...p,
           athlete: athleteByProfile.get(p.id) ?? null,
+          email: emailByUserId.get(p.user_id) ?? null,
         }))}
       />
     </div>
