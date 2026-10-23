@@ -1,0 +1,46 @@
+# Правила предупреждений
+
+Файл: `src/lib/alerts.ts`. Срабатывание — в `src/lib/evaluate.ts` после каждой
+отправки анкеты (и вручную через `reevaluateAthlete`). Правила хранятся в
+`alert_rules` (code, severity, params, enabled, version) — параметры и
+включённость настраивает админ на `/admin/rules`.
+
+## Уровни
+
+| severity | Значение |
+|---|---|
+| `normal` | обычное состояние (информационный уровень) |
+| `attention` | обратить внимание |
+| `review_load` | пересмотреть нагрузку |
+| `priority` | приоритетное внимание — не маскируется высоким баллом готовности |
+
+## Реестр правил (seed в 0003)
+
+| code | severity | Условие | Действие |
+|---|---|---|---|
+| `acute_pain` | priority | сегодня: `acute_instability`, ИЛИ отёк, ИЛИ ограничение движения, ИЛИ боль ≥7 | не выполнять провоцирующие упражнения, медицинская оценка |
+| `illness_symptoms` | priority | непустое поле symptoms сегодня | уточнить состояние до занятия |
+| `joint_pain` | attention / review_load | joint_tendon/other; review_load если severity ≥5 | убрать провоцирующие движения, переоценка |
+| `readiness_drop` | attention | score < baseline.avg − 1·sd ИЛИ падение ≥ 10 (нужен baseline) | обсудить восстановление |
+| `sustained_decline` | review_load | все последние 3 дня ниже baseline | пересмотреть нагрузку |
+| `load_spike` | attention | сумма нагрузки за 7д ≥ 1.5× предыдущих 7д | стабилизировать объём |
+| `load_with_decline` | review_load | рост нагрузки ≥1.3× И score < baseline | пересмотреть нагрузку |
+| `repeated_fatigue` | attention | fatigue ≥ 4 три дня подряд | проверить сон, лёгкий день |
+| `missing_morning` | attention | анкета не заполнена к 12:00 лок. (внешний джоб напоминаний) | информирование тренера |
+
+## Изоляция медицинских сигналов
+
+Правила боли/симптомов оцениваются независимо от балла готовности: высокий
+score не отменяет `priority`. Тест `fires priority alert on acute pain even
+with perfect readiness` фиксирует это поведение.
+
+## Дедупликация и жизненный цикл
+
+- `dedup_key = athlete_id:rule_code:YYYY-MM-DD`, уникальный индекс → повторная
+  оценка не плодит дубликаты.
+- Статусы: `open` → `acknowledged` → `resolved` | `dismissed` с
+  `resolution_note`, `reviewed_by`, `reviewed_at`.
+- Каждый alert хранит `evidence` (какие именно данные сработали) и
+  `recommendation` — формулировки «сигнал для проверки», без диагнозов.
+- Приоритетные alert → внутреннее уведомление назначенным тренерам
+  (`notifications`, тоже дедуплицируется).

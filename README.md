@@ -1,36 +1,122 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RallyMonitor
 
-## Getting Started
+Система мониторинга физического состояния, восстановления и тренировочной
+нагрузки бадминтонистов 10–17 лет. Веб-приложение с ролями **спортсмен /
+тренер / администратор**, утренними и послетренировочными анкетами, расчётом
+готовности, rule-based предупреждениями, аналитикой и экспортом.
 
-First, run the development server:
+## Стек
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Next.js 16 (App Router) + React 19 + TypeScript
+- Tailwind CSS 4
+- Supabase (PostgreSQL + Auth + Row Level Security)
+- Recharts, React Hook Form + Zod, SheetJS (xlsx), Vitest
+
+## Структура
+
+```
+src/
+  app/            # страницы и API (athlete/, coach/, admin/, api/)
+  app/actions/    # server actions (auth, checkins, coach, admin, settings, notifications)
+  components/     # ui/, forms/, charts/, layout/
+  lib/            # supabase clients, readiness engine, alert engine, export, dates
+  i18n/           # словари ru/ro/en (Dictionary-тип гарантирует полноту)
+supabase/
+  migrations/     # 0001_schema, 0002_rls, 0003_functions_seed
+  seed.sql        # демо-группа и расписание (без auth-пользователей)
+tests/            # unit-тесты движков + RLS integration (opt-in)
+docs/             # database.md, readiness.md, alerts.md
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Настройка Supabase
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. Создайте проект на https://supabase.com (бесплатный tier подходит).
+2. Установите CLI (уже предполагается): `supabase link --project-ref <ref>`
+   либо выполняйте SQL вручную в SQL Editor.
+3. Примените миграции: `supabase db push`
+   (или выполните файлы `supabase/migrations/*.sql` по порядку в SQL Editor).
+4. Опционально: `supabase/seed.sql` для демо-группы.
+5. Скопируйте `.env.example` → `.env.local` и заполните:
+   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+     (Project Settings → API)
+   - `SUPABASE_SERVICE_ROLE_KEY` — только сервер, никогда не в клиенте
+   - `CRON_SECRET` — для `/api/cron/reminders`
+6. Создайте первого администратора: в Supabase Dashboard → Authentication →
+   Users → Add user, затем в SQL Editor:
+   ```sql
+   update public.profiles set role = 'admin'
+   where user_id = '<user-uuid>';
+   ```
+   (Профиль создаётся автоматически триггером `handle_new_user`.)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Локальный запуск
 
-## Learn More
+```bash
+npm install
+npm run dev        # http://localhost:3000
+npm run typecheck  # tsc --noEmit
+npm run lint       # eslint
+npm test           # vitest (unit)
+npm run build      # production build
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Деплой на Vercel
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Импортируйте репозиторий в Vercel.
+2. Добавьте env-переменные из `.env.example` (включая `CRON_SECRET` и
+   `NEXT_PUBLIC_SITE_URL=https://<домен>`).
+3. `vercel.json` уже содержит cron `*/15 * * * *` для `/api/cron/reminders`;
+   Vercel автоматически шлёт `Authorization: Bearer $CRON_SECRET`.
+4. В Supabase → Authentication → URL Configuration укажите Site URL и
+   redirect URL `https://<домен>/reset-password`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Роли и доступ
 
-## Deploy on Vercel
+- **Спортсмен**: свои анкеты, история, графики, настройки. Не видит чужие
+  данные, заметки тренера и alerts (политики RLS).
+- **Тренер**: dashboard группы, карточки спортсменов, предупреждения, заметки,
+  экспорт — только для назначенных ему спортсменов/групп.
+- **Администратор**: пользователи, группы, назначения, расписание, правила,
+  аудит, согласия.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Все проверки доступа выполняются на уровне БД через RLS (`supabase/migrations/
+0002_rls.sql`) и повторно — в server actions. Экспорт дополнительно пишется в
+`audit_logs`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Алгоритм готовности
+
+См. `docs/readiness.md`. Коротко: шесть шкал 1–5 нормализуются в 0..1
+(усталость/болезненность/стресс инвертируются), взвешенная сумма → 0..100.
+Базовая норма — среднее/SD по первым ≤14 дням наблюдений, минимум 8 анкет;
+иначе `confidence = insufficient`.
+
+## Предупреждения
+
+См. `docs/alerts.md`. Rule-based, 4 уровня; боль/симптомы — приоритет и не
+маскируются высоким баллом готовности. Дедупликация по `dedup_key`
+(athlete+rule+date), статусы open/acknowledged/resolved/dismissed.
+
+## Экспорт
+
+`/coach/export` → `GET /api/export` — CSV, XLSX (листы Summary / Athletes /
+Morning Check-ins / Training Sessions / Post-Training Check-ins / Alerts) и
+HTML-отчёт для печати в PDF.
+
+## Тесты
+
+- `npm test` — unit: нормализация, readiness score, baseline, правила
+  предупреждений, дедупликация, валидация, диапазоны дат.
+- RLS-интеграция (требует живой проект):
+  ```bash
+  RUN_RLS_TESTS=1 SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... \
+    SUPABASE_ANON_KEY=... npx vitest run tests/rls.integration.test.ts
+  ```
+
+## Известные ограничения
+
+- PDF-отчёт реализован как печатная HTML-страница (Print → Save as PDF), без
+  внешних зависимостей.
+- Push/email/Telegram-уведомления не реализованы — есть внутренние
+  уведомления и точка расширения в `/api/cron/reminders`.
+- Хранение данных/retention политику нужно настроить в Supabase под требования
+  вашей юрисдикции (см. `consent_records`).
