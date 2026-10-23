@@ -305,7 +305,7 @@ export default async function AthleteDetailPage({
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
             {compMeta.map((c) => {
               const v = tCheckin ? (tCheckin[c.key] as number | null) : null;
-              const goodness = v === null ? null : c.inverted ? 6 - v : v;
+              const goodness = v === null ? null : c.inverted ? 11 - v : v;
               return (
                 <div
                   key={c.key}
@@ -316,16 +316,16 @@ export default async function AthleteDetailPage({
                     {c.label}
                   </p>
                   <p className="text-sm font-semibold tabular-nums">
-                    {v !== null ? `${v}/5` : dict.common.noData}
+                    {v !== null ? `${v}/10` : dict.common.noData}
                   </p>
                   <div className="mt-1 h-1.5 rounded bg-foreground/10">
                     {goodness !== null && (
                       <div
                         className={cn(
                           "h-1.5 rounded",
-                          goodness >= 4 ? "bg-ok" : goodness >= 3 ? "bg-warn" : "bg-danger",
+                          goodness >= 7 ? "bg-ok" : goodness >= 4 ? "bg-warn" : "bg-danger",
                         )}
-                        style={{ width: `${(goodness / 5) * 100}%` }}
+                        style={{ width: `${(goodness / 10) * 100}%` }}
                       />
                     )}
                   </div>

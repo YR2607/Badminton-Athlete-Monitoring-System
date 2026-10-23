@@ -15,12 +15,12 @@ import { cn } from "@/lib/utils";
 import type { MorningCheckin } from "@/lib/types";
 
 const schema = z.object({
-  sleep_score: z.number().min(1).max(5),
-  recovery_score: z.number().min(1).max(5),
-  fatigue_score: z.number().min(1).max(5),
-  muscle_soreness_score: z.number().min(1).max(5),
-  stress_score: z.number().min(1).max(5),
-  mood_score: z.number().min(1).max(5),
+  sleep_score: z.number().min(1).max(10),
+  recovery_score: z.number().min(1).max(10),
+  fatigue_score: z.number().min(1).max(10),
+  muscle_soreness_score: z.number().min(1).max(10),
+  stress_score: z.number().min(1).max(10),
+  mood_score: z.number().min(1).max(10),
   pain_status: z.enum(["none", "muscle_soreness", "joint_tendon", "acute_instability", "other"]),
   pain_location: z.string().optional(),
   pain_side: z.enum(["left", "right", "both", "na"]).optional(),

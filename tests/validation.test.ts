@@ -21,8 +21,8 @@ describe("morningCheckinSchema", () => {
     expect(morningCheckinSchema.safeParse(validMorning).success).toBe(true);
   });
 
-  it("rejects scores outside 1..5", () => {
-    expect(morningCheckinSchema.safeParse({ ...validMorning, sleep_score: 6 }).success).toBe(false);
+  it("rejects scores outside 1..10", () => {
+    expect(morningCheckinSchema.safeParse({ ...validMorning, sleep_score: 11 }).success).toBe(false);
     expect(morningCheckinSchema.safeParse({ ...validMorning, fatigue_score: 0 }).success).toBe(false);
   });
 
@@ -55,10 +55,10 @@ describe("postTrainingSchema", () => {
     expect(ok.success).toBe(true);
   });
 
-  it("rejects scores outside 1..5 and pain without location", () => {
+  it("rejects scores outside 1..10 and pain without location", () => {
     expect(
       postTrainingSchema.safeParse({
-        overall_feeling: 6,
+        overall_feeling: 11,
         leg_fatigue: 3,
         arm_shoulder_fatigue: 2,
         pain_status: "none",

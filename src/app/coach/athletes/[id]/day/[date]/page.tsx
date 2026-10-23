@@ -60,7 +60,7 @@ function time(iso: string, tz: string): string {
   });
 }
 
-function ScoreRow({ label, value, max = 5 }: { label: string; value: number | null; max?: number }) {
+function ScoreRow({ label, value, max = 10 }: { label: string; value: number | null; max?: number }) {
   if (value === null) return null;
   return (
     <div className="flex items-center justify-between gap-3 py-1.5">

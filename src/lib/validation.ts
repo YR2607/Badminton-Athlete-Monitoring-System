@@ -1,18 +1,18 @@
 import { z } from "zod";
 
-const score15 = z.number().int().min(1).max(5);
+const score110 = z.number().int().min(1).max(10);
 const painStatus = z.enum(["none", "muscle_soreness", "joint_tendon", "acute_instability", "other"]);
 const painSide = z.enum(["left", "right", "both", "na"]);
 
 export const morningCheckinSchema = z
   .object({
     checkin_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    sleep_score: score15,
-    recovery_score: score15,
-    fatigue_score: score15,
-    muscle_soreness_score: score15,
-    stress_score: score15,
-    mood_score: score15,
+    sleep_score: score110,
+    recovery_score: score110,
+    fatigue_score: score110,
+    muscle_soreness_score: score110,
+    stress_score: score110,
+    mood_score: score110,
     pain_status: painStatus,
     pain_location: z.string().max(200).optional().or(z.literal("")),
     pain_side: painSide.optional(),
@@ -35,9 +35,9 @@ export const morningCheckinSchema = z
 
 export const postTrainingSchema = z
   .object({
-    overall_feeling: score15,
-    leg_fatigue: score15,
-    arm_shoulder_fatigue: score15,
+    overall_feeling: score110,
+    leg_fatigue: score110,
+    arm_shoulder_fatigue: score110,
     pain_status: painStatus,
     pain_location: z.string().max(200).optional().or(z.literal("")),
     pain_side: painSide.optional(),

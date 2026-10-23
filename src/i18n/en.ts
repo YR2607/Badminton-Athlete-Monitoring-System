@@ -188,7 +188,7 @@ const en: Dictionary = {
     subtitle: "What each number means and where it comes from.",
     readinessTitle: "Readiness (0–100)",
     readinessBody:
-      "Daily score from the morning check-in. Each 1–5 answer maps to 0–1 (reversed for the 'bad' scales), then weighted:",
+      "Daily score from the morning check-in. Each 1–10 answer maps to 0–1 (reversed for the 'bad' scales), then weighted:",
     readinessEvening:
       "When a post-training check-in exists for the same day, the day score = 70% morning + 30% evening wellness (overall feeling, leg and arm fatigue — equal shares). Without it — morning only.",
     compName: "Component",
@@ -398,14 +398,13 @@ const en: Dictionary = {
       days: "Days in a row",
       ratio: "Signal when load grew by",
       load_ratio: "Signal when load grew by",
-      fatigue_min: "Fatigue from (1–5 scale)",
+      fatigue_min: "Fatigue from (1–10 scale)",
       after_local_hour: "Signal if no check-in by",
     },
     units: {
       points: "points",
       times: "times",
       hour: "h",
-      of5: "of 5",
       of10: "of 10",
     },
   },

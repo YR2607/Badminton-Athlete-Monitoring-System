@@ -30,8 +30,8 @@ export const COMPONENT_WEIGHTS: Record<keyof NormalizedScores, number> = {
   mood: 0.1,
 };
 
-const norm = (v: number) => (v - 1) / 4; // 1..5 -> 0..1, higher = better
-const inv = (v: number) => (5 - v) / 4; // 1..5 -> 1..0, inverted
+const norm = (v: number) => (v - 1) / 9; // 1..10 -> 0..1, higher = better
+const inv = (v: number) => (10 - v) / 9; // 1..10 -> 1..0, inverted
 
 export function normalizeCheckin(
   c: Pick<
@@ -145,7 +145,7 @@ export function buildSnapshot(
     if (below) flags.push("below_personal_baseline");
   }
 
-  // Component-level weak signals (normalized < 0.25 means raw score 1..2 of 5)
+  // Component-level weak signals (normalized <= 0.25 means raw score 1..3 of 10)
   for (const k of Object.keys(normalized) as (keyof NormalizedScores)[]) {
     if (normalized[k] <= 0.25) flags.push(`low_${k}`);
   }

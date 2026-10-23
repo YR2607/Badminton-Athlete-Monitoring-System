@@ -188,7 +188,7 @@ const ro: Dictionary = {
     subtitle: "Ce înseamnă fiecare cifră și de unde provine.",
     readinessTitle: "Pregătirea (0–100)",
     readinessBody:
-      "Scorul zilei din chestionarul de dimineață. Fiecare răspuns 1–5 se transformă în 0–1 (inversat pentru scalele «rele»), apoi se ponderează:",
+      "Scorul zilei din chestionarul de dimineață. Fiecare răspuns 1–10 se transformă în 0–1 (inversat pentru scalele «rele»), apoi se ponderează:",
     readinessEvening:
       "Dacă în aceeași zi există chestionar post-antrenament, scorul zilei = 70% dimineața + 30% stare de seară (senzație generală, oboseală picioare și brațe — părți egale). Fără chestionar de seară — doar dimineața.",
     compName: "Componentă",
@@ -398,14 +398,13 @@ const ro: Dictionary = {
       days: "Zile la rând",
       ratio: "Semnal când încărcătura a crescut de",
       load_ratio: "Semnal când încărcătura a crescut de",
-      fatigue_min: "Oboseală de la (scara 1–5)",
+      fatigue_min: "Oboseală de la (scara 1–10)",
       after_local_hour: "Semnal dacă lipsește chestionarul până la",
     },
     units: {
       points: "puncte",
       times: "ori",
       hour: "h",
-      of5: "din 5",
       of10: "din 10",
     },
   },

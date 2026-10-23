@@ -42,29 +42,29 @@ const mkCheckin = (over: Partial<MorningCheckin> = {}): MorningCheckin => ({
 
 describe("normalizeCheckin", () => {
   it("keeps positive scales direct and inverts negative ones", () => {
-    const n = normalizeCheckin(mkCheckin({ sleep_score: 5, fatigue_score: 5 }));
+    const n = normalizeCheckin(mkCheckin({ sleep_score: 10, fatigue_score: 10 }));
     expect(n.sleep).toBe(1); // best sleep -> 1
     expect(n.fatigue).toBe(0); // worst fatigue -> 0 (inverted)
   });
 
-  it("maps middle value 3 to 0.5", () => {
-    const n = normalizeCheckin(mkCheckin({ stress_score: 3, mood_score: 3 }));
-    expect(n.stress).toBeCloseTo(0.5);
-    expect(n.mood).toBeCloseTo(0.5);
+  it("maps mid-scale answers symmetrically around 0.5", () => {
+    const n = normalizeCheckin(mkCheckin({ stress_score: 5, mood_score: 6 }));
+    expect(n.stress).toBeCloseTo(5 / 9); // inv(5) = 5/9
+    expect(n.mood).toBeCloseTo(5 / 9); // norm(6) = 5/9
   });
 });
 
 describe("readinessScore", () => {
   it("returns 100 for a perfect check-in", () => {
     const n = normalizeCheckin(
-      mkCheckin({ sleep_score: 5, recovery_score: 5, fatigue_score: 1, muscle_soreness_score: 1, stress_score: 1, mood_score: 5 }),
+      mkCheckin({ sleep_score: 10, recovery_score: 10, fatigue_score: 1, muscle_soreness_score: 1, stress_score: 1, mood_score: 10 }),
     );
     expect(readinessScore(n)).toBe(100);
   });
 
   it("returns 0 for the worst possible check-in", () => {
     const n = normalizeCheckin(
-      mkCheckin({ sleep_score: 1, recovery_score: 1, fatigue_score: 5, muscle_soreness_score: 5, stress_score: 5, mood_score: 1 }),
+      mkCheckin({ sleep_score: 1, recovery_score: 1, fatigue_score: 10, muscle_soreness_score: 10, stress_score: 10, mood_score: 1 }),
     );
     expect(readinessScore(n)).toBe(0);
   });
@@ -94,7 +94,7 @@ describe("confidenceFor", () => {
 describe("buildSnapshot", () => {
   it("flags scores far below baseline", () => {
     const history = Array(10).fill(80);
-    const bad = mkCheckin({ sleep_score: 1, recovery_score: 1, fatigue_score: 5, muscle_soreness_score: 5, stress_score: 5, mood_score: 1 });
+    const bad = mkCheckin({ sleep_score: 1, recovery_score: 1, fatigue_score: 10, muscle_soreness_score: 10, stress_score: 10, mood_score: 1 });
     const snap = buildSnapshot(bad, history);
     expect(snap.explanation.flags).toContain("below_personal_baseline");
     expect(snap.readiness_score).toBe(0);
@@ -102,7 +102,10 @@ describe("buildSnapshot", () => {
 
   it("does not flag normal variation", () => {
     const history = [70, 72, 68, 71, 69, 73, 70, 72];
-    const ok = mkCheckin();
+    const ok = mkCheckin({
+      sleep_score: 8, recovery_score: 8, fatigue_score: 3,
+      muscle_soreness_score: 2, stress_score: 3, mood_score: 8,
+    });
     const snap = buildSnapshot(ok, history);
     expect(snap.explanation.flags).not.toContain("below_personal_baseline");
     expect(snap.confidence).toBe("sufficient");
@@ -137,12 +140,13 @@ const mkPost = (
 
 describe("postWellnessScore", () => {
   it("returns 100 for a perfect evening check-in and 0 for the worst", () => {
-    expect(postWellnessScore(mkPost({ overall_feeling: 5, leg_fatigue: 1, arm_shoulder_fatigue: 1 }))).toBe(100);
-    expect(postWellnessScore(mkPost({ overall_feeling: 1, leg_fatigue: 5, arm_shoulder_fatigue: 5 }))).toBe(0);
+    expect(postWellnessScore(mkPost({ overall_feeling: 10, leg_fatigue: 1, arm_shoulder_fatigue: 1 }))).toBe(100);
+    expect(postWellnessScore(mkPost({ overall_feeling: 1, leg_fatigue: 10, arm_shoulder_fatigue: 10 }))).toBe(0);
   });
 
-  it("maps neutral answers to 50", () => {
-    expect(postWellnessScore(mkPost({ overall_feeling: 3, leg_fatigue: 3, arm_shoulder_fatigue: 3 }))).toBe(50);
+  it("maps mid-scale answers to ~56", () => {
+    // norm(6) = inv(5) = 5/9 -> 55.6
+    expect(postWellnessScore(mkPost({ overall_feeling: 6, leg_fatigue: 5, arm_shoulder_fatigue: 5 }))).toBeCloseTo(55.56);
   });
 });
 
@@ -154,10 +158,10 @@ describe("conditionScore", () => {
 
   it("blends 70/30 morning/evening", () => {
     const morning = mkCheckin({
-      sleep_score: 5, recovery_score: 5, fatigue_score: 1,
-      muscle_soreness_score: 1, stress_score: 1, mood_score: 5,
+      sleep_score: 10, recovery_score: 10, fatigue_score: 1,
+      muscle_soreness_score: 1, stress_score: 1, mood_score: 10,
     }); // morning = 100
-    const post = mkPost({ overall_feeling: 1, leg_fatigue: 5, arm_shoulder_fatigue: 5 }); // evening = 0
+    const post = mkPost({ overall_feeling: 1, leg_fatigue: 10, arm_shoulder_fatigue: 10 }); // evening = 0
     expect(conditionScore(morning, post)).toBe(100 * MORNING_WEIGHT);
   });
 });
@@ -179,12 +183,12 @@ describe("postsByLocalDate", () => {
     const entries = postsByLocalDate(
       [
         mkPost({ submitted_at: "2026-10-20T08:00:00Z", overall_feeling: 1 }),
-        mkPost({ submitted_at: "2026-10-20T10:00:00Z", overall_feeling: 5 }),
+        mkPost({ submitted_at: "2026-10-20T10:00:00Z", overall_feeling: 10 }),
         mkPost({ submitted_at: "2026-10-21T08:00:00Z" }),
       ],
       "Europe/Chisinau",
     );
     expect(entries).toHaveLength(2);
-    expect(entries.find((e) => e.date === "2026-10-20")!.post.overall_feeling).toBe(5);
+    expect(entries.find((e) => e.date === "2026-10-20")!.post.overall_feeling).toBe(10);
   });
 });

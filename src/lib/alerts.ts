@@ -255,7 +255,7 @@ export function evaluateAlerts(ctx: EvalContext): AlertCandidate[] {
   const fatigueRule = rule(ctx, "repeated_fatigue");
   if (fatigueRule) {
     const days = num(fatigueRule.params.days, 3);
-    const min = num(fatigueRule.params.fatigue_min, 4);
+    const min = num(fatigueRule.params.fatigue_min, 7); // 1..10 scale: 7+ ≈ old 4/5
     const window = dateWindow(ctx.today, days);
     const fatigues = ctx.recentCheckins.filter((c) => window.includes(c.checkin_date));
     if (fatigues.length >= days && fatigues.every((c) => c.fatigue_score >= min)) {

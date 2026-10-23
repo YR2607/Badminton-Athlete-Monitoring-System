@@ -7,7 +7,7 @@ export function ScaleInput({
   value,
   onChange,
   min = 1,
-  max = 5,
+  max = 10,
   lowLabel,
   highLabel,
 }: {

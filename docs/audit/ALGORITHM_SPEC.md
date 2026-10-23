@@ -6,7 +6,7 @@ Sources: `src/lib/readiness.ts`, `src/lib/alerts.ts`, `src/lib/evaluate.ts`, `sr
 
 ## 1. Readiness score (0–100)
 
-Six morning answers, each on a 1–5 scale, are normalized to 0–1 with **higher = better**:
+Six morning answers, each on a 1–10 scale, are normalized to 0–1 with **higher = better**:
 
 | Component | Raw field | Transform | Weight |
 |---|---|---|---|
@@ -18,9 +18,9 @@ Six morning answers, each on a 1–5 scale, are normalized to 0–1 with **highe
 | mood | `mood_score` | `(v−1)/4` | 0.10 |
 
 `readiness = round(Σ(component·weight)/Σweights · 10000)/100` → 0–100.
-All-5/1-5 answers ⇒ 100; all worst ⇒ 0; mid answers (3) ⇒ 50 ± weights.
+All-10/1-10 answers ⇒ 100; all worst ⇒ 0.
 
-- **Missing/invalid input:** impossible at rest — every field is `NOT NULL` with DB `CHECK 1–5` and zod `int 1–5` on all write paths.
+- **Missing/invalid input:** impossible at rest — every field is `NOT NULL` with DB `CHECK 1–10` and zod `int 1–10` on all write paths.
 - **Pain/illness never reduces the score.** Pain is evaluated by alert rules independently — a 100-readiness day with acute pain still produces a `priority` alert (test `alerts.test.ts` proves isolation).
 - **Bands** (`bandForScore`/`bandAdviceKey`): ≥70 good · 45–69 moderate · <45 low.
 - **Rounding:** 2 decimals, `Math.round` — no clamping needed (inputs bounded).
@@ -67,7 +67,7 @@ Dedup key = `athleteId:rule:today(local)`; `record_alert` upserts `on conflict (
 | 5 | `sustained_decline` | review_load | `baseline` exists **and** each of last `days`(3) calendar days has a score **and** all `< avg` | 3d | a missing day breaks the streak (conservative) |
 | 6 | `load_spike` | attention | `chronic > 0` **and** `acute/chronic ≥ ratio(1.5)` | 8d vs 7d | chronic = 0 → silent (documented gap) |
 | 7 | `load_with_decline` | review_load | `chronic > 0` **and** `ratio ≥ 1.3` **and** `today_score < baseline.avg` | same | no baseline / no chronic → silent |
-| 8 | `repeated_fatigue` | attention | each of last `days`(3) has a check-in **and** all `fatigue_score ≥ fatigue_min(4)` | 3d | missing day breaks streak |
+| 8 | `repeated_fatigue` | attention | each of last `days`(3) has a check-in **and** all `fatigue_score ≥ fatigue_min(7)` | 3d | missing day breaks streak |
 | 9 | `missing_morning` | attention | evaluated **in the cron**: no check-in after `after_local_hour(12)` local | today | n/a |
 
 Every alert stores `evidence` (exact triggering values) + a `recommendation` (non-diagnostic, Russian today). Admin rule editor can change `params`, `severity`, `enabled` — engine reads them live.

@@ -50,23 +50,23 @@ const weekdayOf = d => new Date(`${d}T12:00:00Z`).getUTCDay();
 const jitter = (v, lo, hi) => Math.max(lo, Math.min(hi, v + (Math.random() < 0.3 ? (Math.random() < 0.5 ? -1 : 1) : 0)));
 
 function checkinScores(kind, daysAgo) {
-  const base = { sleep: 4, recovery: 4, fatigue: 2, soreness: 2, stress: 2, mood: 4 };
+  const base = { sleep: 8, recovery: 8, fatigue: 4, soreness: 3, stress: 4, mood: 8 };
   if (kind === "inconsistent") {
-    base.sleep = 3; base.recovery = 3; base.fatigue = 3; base.stress = 3; base.mood = 3;
+    base.sleep = 6; base.recovery = 6; base.fatigue = 6; base.stress = 6; base.mood = 6;
   }
   if (kind === "declining" && daysAgo <= 4) {
-    base.sleep = 2; base.recovery = 2; base.fatigue = 4; base.soreness = 4; base.stress = 4; base.mood = 2;
+    base.sleep = 4; base.recovery = 4; base.fatigue = 8; base.soreness = 8; base.stress = 8; base.mood = 4;
   }
   if (kind === "sick" && daysAgo <= 1) {
-    base.sleep = 3; base.recovery = 2; base.fatigue = 4; base.soreness = 3; base.stress = 3; base.mood = 2;
+    base.sleep = 6; base.recovery = 4; base.fatigue = 8; base.soreness = 6; base.stress = 6; base.mood = 4;
   }
   return {
-    sleep_score: jitter(base.sleep, 1, 5),
-    recovery_score: jitter(base.recovery, 1, 5),
-    fatigue_score: jitter(base.fatigue, 1, 5),
-    muscle_soreness_score: jitter(base.soreness, 1, 5),
-    stress_score: jitter(base.stress, 1, 5),
-    mood_score: jitter(base.mood, 1, 5),
+    sleep_score: jitter(base.sleep, 1, 10),
+    recovery_score: jitter(base.recovery, 1, 10),
+    fatigue_score: jitter(base.fatigue, 1, 10),
+    muscle_soreness_score: jitter(base.soreness, 1, 10),
+    stress_score: jitter(base.stress, 1, 10),
+    mood_score: jitter(base.mood, 1, 10),
   };
 }
 
@@ -198,8 +198,8 @@ async function main() {
     .map(s => ({
       training_session_id: s.id, athlete_id: s.athlete_id,
       submitted_at: s.started_at, client_uuid: crypto.randomUUID(),
-      overall_feeling: 3 + (s.id.charCodeAt(0) % 2), leg_fatigue: 2 + (s.id.charCodeAt(1) % 3),
-      arm_shoulder_fatigue: 2 + (s.id.charCodeAt(2) % 2), pain_status: "none",
+      overall_feeling: 6 + (s.id.charCodeAt(0) % 3), leg_fatigue: 4 + (s.id.charCodeAt(1) % 3),
+      arm_shoulder_fatigue: 3 + (s.id.charCodeAt(2) % 3), pain_status: "none",
     }));
   const { error: pErr } = await sb.from("post_training_checkins").insert(posts);
   if (pErr) throw pErr;

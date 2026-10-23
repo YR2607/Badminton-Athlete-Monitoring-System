@@ -15,7 +15,7 @@ PostgreSQL (Supabase). Миграции: `supabase/migrations/0001..0003`.
 - **training_schedules** — недельное расписание группы (weekday, start_time)
   для напоминаний и «пропущенных анкет».
 - **morning_checkins** — одна анкета на (athlete_id, checkin_date); шесть
-  шкал 1–5, блок боли (status/location/side/severity/onset/triggers/
+  шкал 1–10, блок боли (status/location/side/severity/onset/triggers/
   swelling/limitation), symptoms, client_uuid — идемпотентность.
 - **training_sessions** — started_at; с миграции 0006 duration_minutes,
   session_rpe nullable (параметры не собираются — запись это

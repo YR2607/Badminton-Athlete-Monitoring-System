@@ -42,7 +42,7 @@ const FIELDS: Record<string, FieldDef[]> = {
   load_with_decline: [{ key: "load_ratio", min: 1.1, max: 2.5, step: 0.1, unit: "times" }],
   repeated_fatigue: [
     { key: "days", min: 2, max: 7, step: 1 },
-    { key: "fatigue_min", min: 1, max: 5, step: 1, unit: "of5" },
+    { key: "fatigue_min", min: 1, max: 10, step: 1, unit: "of10" },
   ],
   missing_morning: [{ key: "after_local_hour", min: 8, max: 18, step: 1, unit: "hour" }],
 };

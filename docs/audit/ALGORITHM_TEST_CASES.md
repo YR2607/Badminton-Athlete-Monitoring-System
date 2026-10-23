@@ -53,7 +53,7 @@ All cases below are executable: `tests/readiness.test.ts`, `tests/alerts.test.ts
 
 | # | Scenario | Expected | Actual |
 |---|---|---|---|
-| V1 | score outside 1–5 | zod + DB CHECK reject | covered by schema tests |
+| V1 | score outside 1–10 | zod + DB CHECK reject | covered by schema tests |
 | V2 | `client_uuid` re-submit | unique(athlete,client_uuid) → `duplicate` | covered |
 | V3 | pain ≠ none without location | zod superRefine `required_if_pain` | PASS |
 | V4 | past-date check-in via API | RLS denies (fixed F-03) | PASS live + test |

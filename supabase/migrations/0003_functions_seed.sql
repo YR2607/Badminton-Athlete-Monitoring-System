@@ -67,7 +67,7 @@ insert into public.alert_rules (code, severity, params, description) values
     '{"load_ratio":1.3,"readiness_below_baseline":true}',
     'Рост нагрузки на фоне ухудшения самочувствия'),
   ('repeated_fatigue',      'attention',
-    '{"days":3,"fatigue_min":4}',
+    '{"days":3,"fatigue_min":7}',
     'Высокая субъективная усталость несколько дней подряд'),
   ('missing_morning',       'attention',
     '{"after_local_hour":12}',

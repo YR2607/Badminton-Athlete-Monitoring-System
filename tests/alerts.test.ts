@@ -9,7 +9,7 @@ const RULES: AlertRule[] = [
   { id: "3", code: "joint_pain", severity: "review_load", enabled: true, params: { pain_statuses: ["joint_tendon"], min_severity: 5 }, description: "", version: 1 },
   { id: "4", code: "readiness_drop", severity: "attention", enabled: true, params: { sd_below: 1.0, min_abs_drop: 10 }, description: "", version: 1 },
   { id: "5", code: "sustained_decline", severity: "review_load", enabled: true, params: { days: 3, below_baseline: true }, description: "", version: 1 },
-  { id: "8", code: "repeated_fatigue", severity: "attention", enabled: true, params: { days: 3, fatigue_min: 4 }, description: "", version: 1 },
+  { id: "8", code: "repeated_fatigue", severity: "attention", enabled: true, params: { days: 3, fatigue_min: 7 }, description: "", version: 1 },
 ];
 
 const TODAY = "2026-10-23";
@@ -156,12 +156,12 @@ describe("evaluateAlerts — load rules removed", () => {
 });
 
 describe("evaluateAlerts — fatigue streak", () => {
-  it("repeated_fatigue after 3 days of fatigue >= 4", () => {
+  it("repeated_fatigue after 3 days of fatigue >= 7", () => {
     const days = ["2026-10-21", "2026-10-22", "2026-10-23"];
     const res = evaluateAlerts(
       ctx({
-        checkin: mkCheckin(TODAY, { fatigue_score: 4 }),
-        recentCheckins: days.map((d) => mkCheckin(d, { fatigue_score: 4 })),
+        checkin: mkCheckin(TODAY, { fatigue_score: 8 }),
+        recentCheckins: days.map((d) => mkCheckin(d, { fatigue_score: 8 })),
       }),
     );
     expect(res.some((r) => r.rule_code === "repeated_fatigue")).toBe(true);

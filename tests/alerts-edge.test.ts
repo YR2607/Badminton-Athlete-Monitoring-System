@@ -9,7 +9,7 @@ const RULES: AlertRule[] = [
   { id: "3", code: "joint_pain", severity: "review_load", enabled: true, params: { pain_statuses: ["joint_tendon"], min_severity: 5 }, description: "", version: 1 },
   { id: "4", code: "readiness_drop", severity: "attention", enabled: true, params: { sd_below: 1.0, min_abs_drop: 10 }, description: "", version: 1 },
   { id: "5", code: "sustained_decline", severity: "review_load", enabled: true, params: { days: 3, below_baseline: true }, description: "", version: 1 },
-  { id: "8", code: "repeated_fatigue", severity: "attention", enabled: true, params: { days: 3, fatigue_min: 4 }, description: "", version: 1 },
+  { id: "8", code: "repeated_fatigue", severity: "attention", enabled: true, params: { days: 3, fatigue_min: 7 }, description: "", version: 1 },
 ];
 
 const TODAY = "2026-10-23";
@@ -155,10 +155,10 @@ describe("repeated_fatigue", () => {
   it("a check-in-free day resets the streak", () => {
     const res = evaluateAlerts(
       ctx({
-        checkin: mkCheckin(TODAY, { fatigue_score: 5 }),
+        checkin: mkCheckin(TODAY, { fatigue_score: 8 }),
         recentCheckins: [
-          mkCheckin("2026-10-21", { fatigue_score: 5 }),
-          mkCheckin("2026-10-23", { fatigue_score: 5 }), // 22nd missing
+          mkCheckin("2026-10-21", { fatigue_score: 8 }),
+          mkCheckin("2026-10-23", { fatigue_score: 8 }), // 22nd missing
         ],
       }),
     );

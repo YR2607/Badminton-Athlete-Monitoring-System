@@ -14,9 +14,9 @@ import { Input, Label, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const schema = z.object({
-  overall_feeling: z.number().min(1).max(5),
-  leg_fatigue: z.number().min(1).max(5),
-  arm_shoulder_fatigue: z.number().min(1).max(5),
+  overall_feeling: z.number().min(1).max(10),
+  leg_fatigue: z.number().min(1).max(10),
+  arm_shoulder_fatigue: z.number().min(1).max(10),
   pain_status: z.enum(["none", "muscle_soreness", "joint_tendon", "acute_instability", "other"]),
   pain_location: z.string().optional(),
   pain_side: z.enum(["left", "right", "both", "na"]).optional(),
