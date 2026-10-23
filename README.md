@@ -66,11 +66,11 @@ npm run build      # production build
 1. Импортируйте репозиторий в Vercel.
 2. Добавьте env-переменные из `.env.example` (включая `CRON_SECRET` и
    `NEXT_PUBLIC_SITE_URL=https://<домен>`).
-3. Напоминания: на Hobby-плане Vercel Cron недоступен чаще раза в день, поэтому
-   используется внешний планировщик — GitHub Actions
-   `.github/workflows/cron-reminders.yml` (нужны repo `secrets.CRON_SECRET` и
-   `vars.APP_URL`) или cron-job.org; оба ходят на `/api/cron/reminders` с
-   `Authorization: Bearer $CRON_SECRET` каждые ~15 мин.
+3. Напоминания: на пилоте отключены (спортсмены заполняют анкеты сами;
+   вернутся в мобильном приложении). Инфраструктура готова: эндпоинт
+   `/api/cron/reminders` под Bearer-защитой + workflow
+   `.github/workflows/cron-reminders.yml` (раскомментировать `schedule:` и
+   задать repo `secrets.CRON_SECRET` / `vars.APP_URL`).
 4. В Supabase → Authentication → URL Configuration укажите Site URL и
    redirect URL `https://<домен>/reset-password`.
 

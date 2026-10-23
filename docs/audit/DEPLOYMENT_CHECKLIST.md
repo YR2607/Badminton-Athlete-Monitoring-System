@@ -24,14 +24,11 @@
 - [ ] After applying, run `RUN_RLS_TESTS=1 npx vitest run tests/rls.integration.test.ts` against the project (creates temp users, cleans up).
 - [ ] Verify seed rows: 9 `alert_rules`, 3 `recommendation_texts`.
 
-## Cron
+## Cron — DEFERRED to the mobile-app phase
 
-- **Decision: Hobby plan → external scheduler.** Vercel Cron on Hobby allows only one run/day, which cannot deliver 10:00 reminders / 12:00 missing-checkin alerts / post-training reminders across timezones — so `vercel.json` carries **no** `crons` section (empty `{}`).
-- **Scheduler:** `.github/workflows/cron-reminders.yml` calls `GET <APP_URL>/api/cron/reminders` with `Authorization: Bearer $CRON_SECRET` every 15 min (UTC; GitHub scheduled runs may lag a few minutes — acceptable for reminders). cron-job.org is an equivalent alternative.
-- **Setup:** GitHub repo → Secrets and variables → Actions:
-  - `secrets.CRON_SECRET` = same value as `CRON_SECRET` in Vercel env vars
-  - `vars.APP_URL` = production origin (no trailing slash)
-- [ ] Verify with `APP_URL=<deploy> ./scripts/smoke-staging.sh` — 403 without/with wrong token, 200 with `CRON_SECRET`; real `notifications`/`alerts` rows after threshold hours. Trigger the workflow manually once (`workflow_dispatch`) to confirm end-to-end.
+- **Pilot decision:** reminders are OFF — athletes fill in check-ins themselves. `vercel.json` is removed; the scheduled trigger in `.github/workflows/cron-reminders.yml` is commented out (`workflow_dispatch` manual run still available).
+- **Consequence (accepted):** `missing_morning` alerts and morning/post-training notifications are not generated; other alerts (pain, readiness, load) work — they're computed on check-in submission, not by cron.
+- **To enable later:** endpoint `/api/cron/reminders` is live and Bearer-protected (verified: 403 without/with wrong token). Either uncomment the `schedule:` block in the workflow (+ set repo `secrets.CRON_SECRET`, `vars.APP_URL`), or restore `vercel.json` crons on a Pro+ plan. Smoke-verify with `scripts/smoke-staging.sh`.
 
 ## Backups & restore (Phase F)
 
