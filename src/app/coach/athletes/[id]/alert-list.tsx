@@ -22,6 +22,70 @@ const SEVERITIES = ["priority", "review_load", "attention", "normal"] as const;
 const STATUSES = ["open", "acknowledged", "resolved", "dismissed"] as const;
 const SEV_RANK: Record<string, number> = { priority: 0, review_load: 1, attention: 2, normal: 3 };
 
+/** Render alert evidence as readable "Label: value" lines instead of raw JSON. */
+function evidenceLines(dict: Dictionary, ev: Record<string, unknown>): string[] {
+  const L = dict.alerts.ev;
+  const m = dict.morning;
+  const painStatusLabel = (s: unknown) =>
+    (
+      ({
+        none: m.painNone,
+        muscle_soreness: m.painMuscle,
+        joint_tendon: m.painJoint,
+        acute_instability: m.painAcute,
+        other: m.painOther,
+      }) as Record<string, string>
+    )[String(s)] ?? String(s);
+  const triggerLabel = (t: unknown) =>
+    (
+      ({
+        walking: m.triggerWalking,
+        jumping: m.triggerJumping,
+        lunges: m.triggerLunges,
+        rest: m.triggerRest,
+      }) as Record<string, string>
+    )[String(t)] ?? String(t);
+  const dayScores = (arr: unknown, key: string) =>
+    Array.isArray(arr)
+      ? arr.map((x) => `${(x as Record<string, unknown>).date}: ${(x as Record<string, unknown>)[key]}`).join(" · ")
+      : null;
+
+  const lines: string[] = [];
+  const push = (label: string, value: unknown) => {
+    if (value === null || value === undefined || value === "") return;
+    lines.push(`${label}: ${value}`);
+  };
+
+  push(L.painStatus, ev.pain_status ? painStatusLabel(ev.pain_status) : null);
+  push(L.painLocation, ev.pain_location);
+  push(L.painSeverity, ev.pain_severity != null ? `${ev.pain_severity}/10` : null);
+  if (ev.swelling !== undefined) push(L.swelling, ev.swelling ? dict.common.yes : dict.common.no);
+  if (ev.movement_limitation !== undefined)
+    push(L.limitation, ev.movement_limitation ? dict.common.yes : dict.common.no);
+  push(
+    L.triggers,
+    Array.isArray(ev.triggers) && ev.triggers.length > 0
+      ? (ev.triggers as unknown[]).map(triggerLabel).join(", ")
+      : null,
+  );
+  push(L.source, ev.source === "morning" ? L.sourceMorning : ev.source ? L.sourcePost : null);
+  push(L.symptoms, ev.symptoms);
+  push(L.todayScore, ev.today_score);
+  push(L.baselineAvg, ev.baseline_avg != null ? Math.round(Number(ev.baseline_avg)) : null);
+  push(L.delta, ev.delta);
+  push(L.daysBelow, ev.days_below_baseline);
+  push(L.days, ev.days);
+  push(L.scores, dayScores(ev.recent_scores, "score"));
+  push(L.fatigueScores, dayScores(ev.fatigue_scores, "fatigue"));
+  push(L.date, ev.date ?? ev.checkin_date);
+  if (typeof ev.local_minutes === "number") {
+    const hh = String(Math.floor(ev.local_minutes / 60)).padStart(2, "0");
+    const mm = String(ev.local_minutes % 60).padStart(2, "0");
+    push(L.hour, `${hh}:${mm}`);
+  }
+  return lines;
+}
+
 export function AlertList({
   alerts,
   dict,
@@ -158,7 +222,9 @@ export function AlertList({
                     {d.severity[a.severity as keyof typeof d.severity]}
                   </Badge>
                   <span className="text-xs text-muted">
-                    {a.rule_code} · {a.triggered_at.slice(0, 16).replace("T", " ")}
+                    {dict.rules.items[a.rule_code as keyof typeof dict.rules.items]?.name ?? a.rule_code}
+                    {" · "}
+                    {a.triggered_at.slice(0, 16).replace("T", " ")}
                   </span>
                   {nameOf.has(a.athlete_id) && (
                     <span className="text-xs font-medium">{nameOf.get(a.athlete_id)}</span>
@@ -168,9 +234,13 @@ export function AlertList({
                   </Badge>
                 </div>
                 <p className="mt-2 text-sm">{a.recommendation}</p>
-                <pre className="mt-1 max-h-32 overflow-auto rounded bg-foreground/5 p-2 text-xs text-muted">
-                  {JSON.stringify(a.evidence, null, 1)}
-                </pre>
+                {Object.keys(a.evidence).length > 0 && (
+                  <ul className="mt-2 space-y-0.5 rounded-lg bg-foreground/5 px-3 py-2 text-xs text-muted">
+                    {evidenceLines(dict, a.evidence).map((l, i) => (
+                      <li key={i}>{l}</li>
+                    ))}
+                  </ul>
+                )}
                 {a.resolution_note && (
                   <p className="mt-1 text-xs text-muted">
                     {d.resolutionNote}: {a.resolution_note}
