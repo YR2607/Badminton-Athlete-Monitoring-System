@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
@@ -212,11 +213,12 @@ export default async function AthleteDetailPage({
         <CardContent>
           <div className="flex flex-wrap gap-1">
             {calDays.map((day) => (
-              <span
+              <Link
                 key={day}
+                href={`/coach/athletes/${a.id}/day/${day}`}
                 title={day}
                 className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded text-[10px]",
+                  "flex h-8 w-8 items-center justify-center rounded text-[10px]",
                   filledDates.has(day)
                     ? "bg-ok/15 text-ok"
                     : day < today
@@ -225,7 +227,7 @@ export default async function AthleteDetailPage({
                 )}
               >
                 {day.slice(8)}
-              </span>
+              </Link>
             ))}
           </div>
         </CardContent>

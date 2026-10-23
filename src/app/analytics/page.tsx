@@ -199,7 +199,8 @@ export default async function AnalyticsPage({
                           </td>
                           {s.cells.map((c) => (
                             <td key={c.date} className="py-1.5 text-center">
-                              <span
+                              <Link
+                                href={`/coach/athletes/${s.athleteId}/day/${c.date}`}
                                 className={cn(
                                   "inline-block h-3 w-3 rounded-full",
                                   c.hasPain
@@ -286,7 +287,11 @@ export default async function AnalyticsPage({
                       (s) => s.athlete_id === single.athleteId && s.started_at.slice(0, 10) === c.date,
                     );
                     return (
-                      <div key={c.date} className="flex items-center gap-3 py-2 text-sm">
+                      <Link
+                        key={c.date}
+                        href={`/coach/athletes/${single.athleteId}/day/${c.date}`}
+                        className="flex items-center gap-3 py-2 text-sm active:bg-foreground/[0.03]"
+                      >
                         <span className="w-20 shrink-0 font-medium">{c.date}</span>
                         <span
                           className={cn(
@@ -311,7 +316,7 @@ export default async function AnalyticsPage({
                             {daySessions.reduce((a, s) => a + s.session_load, 0)}
                           </span>
                         )}
-                      </div>
+                      </Link>
                     );
                   })}
                 </div>
