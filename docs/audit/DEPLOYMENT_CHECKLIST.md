@@ -26,14 +26,12 @@
 
 ## Cron
 
-- `vercel.json` ships `*/15 * * * *` → `/api/cron/reminders`.
-- **Auth:** Vercel Cron automatically sends `Authorization: Bearer $CRON_SECRET` when `CRON_SECRET` is set in project env vars — the existing header check works with no code change. (Earlier audit note claiming Vercel would get `403` was wrong.)
-- **Plan compatibility:** Vercel **Hobby** permits only **once-daily** cron execution — a 15-minute cadence is silently degraded there and cannot deliver reminders at ~10:00 / missing-checkin alerts at ~12:00 / post-training reminders across timezones.
-  - If deploying on **Hobby**: use an external scheduler hitting the endpoint every ~15 min with the bearer header — cron-job.org (free) or the ready-made `.github/workflows/cron-reminders.yml` (needs repo `secrets.CRON_SECRET` + `vars.APP_URL`; note GitHub scheduled runs may lag a few minutes).
-  - If on **Pro or higher**: keep `*/15 * * * *` — no action needed.
-- [ ] Decide the hosting plan and scheduler accordingly.
-- [ ] Verify with `APP_URL=<deploy> ./scripts/smoke-staging.sh` — 403 without/with wrong token, 200 with `CRON_SECRET`; real `notifications`/`alerts` rows after threshold hours.
-- [ ] Cron should only run on the production deployment (Vercel runs cron only in production by default).
+- **Decision: Hobby plan → external scheduler.** Vercel Cron on Hobby allows only one run/day, which cannot deliver 10:00 reminders / 12:00 missing-checkin alerts / post-training reminders across timezones — so `vercel.json` carries **no** `crons` section (empty `{}`).
+- **Scheduler:** `.github/workflows/cron-reminders.yml` calls `GET <APP_URL>/api/cron/reminders` with `Authorization: Bearer $CRON_SECRET` every 15 min (UTC; GitHub scheduled runs may lag a few minutes — acceptable for reminders). cron-job.org is an equivalent alternative.
+- **Setup:** GitHub repo → Secrets and variables → Actions:
+  - `secrets.CRON_SECRET` = same value as `CRON_SECRET` in Vercel env vars
+  - `vars.APP_URL` = production origin (no trailing slash)
+- [ ] Verify with `APP_URL=<deploy> ./scripts/smoke-staging.sh` — 403 without/with wrong token, 200 with `CRON_SECRET`; real `notifications`/`alerts` rows after threshold hours. Trigger the workflow manually once (`workflow_dispatch`) to confirm end-to-end.
 
 ## Backups & restore (Phase F)
 

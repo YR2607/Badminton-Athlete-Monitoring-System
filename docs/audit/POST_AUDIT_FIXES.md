@@ -55,7 +55,7 @@ Scope: unify athlete-local date semantics across alerts, load windows, cron and 
 ## Vercel Cron — corrected facts
 
 - `CRON_SECRET` env var → Vercel **does** send `Authorization: Bearer <secret>` automatically. The earlier "will 403" claim was wrong and is corrected in `DEPLOYMENT_CHECKLIST.md`.
-- **Hobby plan = daily cron only.** `*/15 * * * *` is kept in `vercel.json` (correct on Pro+). On Hobby, use an external scheduler: `.github/workflows/cron-reminders.yml` ships ready (needs repo `secrets.CRON_SECRET` + `vars.APP_URL`) or cron-job.org. Smoke-verify any deployment with `scripts/smoke-staging.sh`; restore drill scripted in `scripts/restore-drill.sh`.
+- **Hobby plan confirmed → Vercel Cron removed.** `vercel.json` carries no `crons` section (daily-only on Hobby can't serve a 15-min reminder cadence). External scheduler: `.github/workflows/cron-reminders.yml` (needs repo `secrets.CRON_SECRET` + `vars.APP_URL`) or cron-job.org. Smoke-verify any deployment with `scripts/smoke-staging.sh`; restore drill scripted in `scripts/restore-drill.sh`.
 
 ## Verification executed
 
