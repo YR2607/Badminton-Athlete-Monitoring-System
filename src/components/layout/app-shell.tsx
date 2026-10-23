@@ -51,12 +51,14 @@ export function navItems(role: AppRole, d: Dictionary): { href: string; label: s
       { href: "/analytics", label: d.analytics.title },
       { href: "/coach/alerts", label: d.nav.alerts },
       { href: "/coach/export", label: d.export.title },
+      { href: "/coach/guide", label: d.nav.guide },
     ];
   }
   return [
     { href: "/admin", label: d.nav.home },
     { href: "/coach", label: d.nav.athletes },
     { href: "/analytics", label: d.analytics.title },
+    { href: "/coach/guide", label: d.nav.guide },
     { href: "/admin/users", label: d.nav.users },
     { href: "/admin/groups", label: d.nav.groups },
     { href: "/admin/rules", label: d.nav.rules },

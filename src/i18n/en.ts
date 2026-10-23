@@ -70,6 +70,7 @@ const en: Dictionary = {
     settings: "Settings",
     report: "Report",
     notifications: "Notifications",
+    guide: "Guide",
   },
   athleteHome: {
     greeting: "Hi",
@@ -204,6 +205,44 @@ const en: Dictionary = {
     rpe: "RPE",
     load: "Load",
     missed: "Missed",
+  },
+  guide: {
+    title: "How the metrics work",
+    subtitle: "What each number means and where it comes from.",
+    readinessTitle: "Readiness (0–100)",
+    readinessBody:
+      "Daily score from the morning check-in. Each 1–5 answer maps to 0–1 (reversed for the 'bad' scales), then weighted:",
+    readinessEvening:
+      "When a post-training check-in exists for the same day, the day score = 70% morning + 30% evening wellness (overall feeling, leg and arm fatigue — equal shares). Without it — morning only.",
+    compName: "Component",
+    compWeight: "Weight",
+    compDir: "Direction",
+    higher: "higher is better",
+    lower: "lower is better",
+    normTitle: "Personal baseline",
+    normBody:
+      "Mean and spread over the first ≤14 days that have check-ins. At least 8 days of data are required — until then no 'vs baseline' comparisons or decline conclusions are shown. The card delta = today's score minus the baseline.",
+    loadTitle: "Load",
+    loadBody:
+      "Session load = RPE (perceived effort 1–10) × duration in minutes — entered by the athlete in the post-training check-in. '7-day load' sums the last 7 days, with the previous 7 days shown for comparison. A rise alone is context for review, not a diagnosis.",
+    statusTitle: "Dashboard statuses",
+    statusBody:
+      "One status per athlete, in priority order. A red flag is never hidden behind a high score.",
+    statusDesc: {
+      needs_check: "open priority signal or today's red flags (acute pain, swelling, hard to move, symptoms)",
+      declining: "today's score is clearly below the personal baseline, or a decline alert is open",
+      no_today: "no morning check-in today — state unknown, an old score never poses as current",
+      insufficient: "check-in exists but < 8 days of data — no baseline or comparisons yet",
+      ok: "fresh data exists and no active rule produced a signal",
+    },
+    alertsTitle: "Signals (rules)",
+    alertsBody:
+      "A triggered rule creates an open signal — a reason to talk to the athlete, not a diagnosis. Rules are configured under 'Rules'.",
+    dataTitle: "Data quality",
+    dataBody:
+      "Completeness is shown separately from state: last check-in date and age, observation count for the baseline, registered sessions and their missing post check-ins. A 'likely missed session' is only inferred when the group has a schedule; without one, a missing record is just a missing record.",
+    disclaimer:
+      "All metrics are working heuristics for talking to the athlete and planning load — not a medical assessment or an injury prediction.",
   },
   coach: {
     dashboard: "Group overview",

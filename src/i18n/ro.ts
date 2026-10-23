@@ -70,6 +70,7 @@ const ro: Dictionary = {
     settings: "Setări",
     report: "Raport",
     notifications: "Notificări",
+    guide: "Ghid",
   },
   athleteHome: {
     greeting: "Salut",
@@ -204,6 +205,44 @@ const ro: Dictionary = {
     rpe: "RPE",
     load: "Sarcină",
     missed: "Lipsă",
+  },
+  guide: {
+    title: "Cum se calculează indicatorii",
+    subtitle: "Ce înseamnă fiecare cifră și de unde provine.",
+    readinessTitle: "Pregătirea (0–100)",
+    readinessBody:
+      "Scorul zilei din chestionarul de dimineață. Fiecare răspuns 1–5 se transformă în 0–1 (inversat pentru scalele «rele»), apoi se ponderează:",
+    readinessEvening:
+      "Dacă în aceeași zi există chestionar post-antrenament, scorul zilei = 70% dimineața + 30% stare de seară (senzație generală, oboseală picioare și brațe — părți egale). Fără chestionar de seară — doar dimineața.",
+    compName: "Componentă",
+    compWeight: "Pondere",
+    compDir: "Direcție",
+    higher: "mai sus — mai bine",
+    lower: "mai jos — mai bine",
+    normTitle: "Norma personală",
+    normBody:
+      "Media și abaterea pe primele ≤14 zile cu chestionare. Sunt necesare minimum 8 zile de date — până atunci nu apar comparații «față de normă» și concluzii de înrăutățire. Delta de pe card = scorul de azi minus norma.",
+    loadTitle: "Încărcătura",
+    loadBody:
+      "Încărcătura antrenamentului = RPE (efort perceput 1–10) × durata în minute — introdusă de sportiv în chestionarul post-antrenament. «Încărcătura 7 zile» — suma ultimelor 7 zile, alături precedentele 7 zile. Creșterea singură e context pentru verificare, nu diagnostic.",
+    statusTitle: "Stările din panou",
+    statusBody:
+      "O stare per sportiv, în ordinea priorității. Un semnal alarmant nu se ascunde niciodată în spatele unui scor mare.",
+    statusDesc: {
+      needs_check: "semnal prioritar deschis sau steaguri de alarmă azi (durere acută, edem, greu de mișcat, simptome)",
+      declining: "scorul de azi e clar sub norma personală sau e deschis un semnal de înrăutățire",
+      no_today: "fără chestionar de dimineață azi — starea e necunoscută, un scor vechi nu e prezentat drept actual",
+      insufficient: "chestionarul există, dar < 8 zile de date — norma și comparațiile nu se calculează încă",
+      ok: "date proaspete există și nicio regulă activă nu a produs semnal",
+    },
+    alertsTitle: "Semnale (reguli)",
+    alertsBody:
+      "O regulă declanșată creează un semnal deschis — un motiv de a vorbi cu sportivul, nu un diagnostic. Regulile se configurează în secțiunea «Reguli».",
+    dataTitle: "Calitatea datelor",
+    dataBody:
+      "Completitudinea datelor se arată separat de stare: data și vârsta ultimului chestionar, numărul de observații pentru normă, antrenamentele înregistrate și chestionarele post lipsă. «Probabil antrenament ratat» apare doar dacă grupa are orar; fără orar, lipsa înregistrării e doar lipsa înregistrării.",
+    disclaimer:
+      "Toți indicatorii sunt euristici de lucru pentru discuția cu sportivul și planificarea încărcăturii — nu evaluare medicală și nu predicție de accidentare.",
   },
   coach: {
     dashboard: "Prezentare generală a grupei",
