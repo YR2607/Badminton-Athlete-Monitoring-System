@@ -52,12 +52,25 @@ export async function coachAthleteIds(
   return [...ids];
 }
 
+/** Athlete ids visible to a staff profile: all athletes for admin, assigned ones for coach. */
+export async function scopedAthleteIds(
+  supabase: SupabaseClient,
+  profile: { id: string; role: string },
+): Promise<string[]> {
+  if (profile.role === "admin") {
+    const { data } = await supabase.from("athletes").select("id").neq("status", "archived");
+    return ((data as { id: string }[] | null) ?? []).map((a) => a.id);
+  }
+  return coachAthleteIds(supabase, profile.id);
+}
+
 export async function coachDashboard(
   supabase: SupabaseClient,
   coachProfileId: string,
   tz: string,
+  role = "coach",
 ): Promise<{ rows: CoachAthleteRow[]; groups: Group[] }> {
-  const ids = await coachAthleteIds(supabase, coachProfileId);
+  const ids = await scopedAthleteIds(supabase, { id: coachProfileId, role });
   if (ids.length === 0) return { rows: [], groups: [] };
   const today = todayInTz(tz);
   const yesterday = addDays(today, -1);

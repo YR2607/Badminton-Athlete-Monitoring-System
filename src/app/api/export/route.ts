@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/auth";
-import { coachAthleteIds } from "@/lib/coach-data";
+import { scopedAthleteIds } from "@/lib/coach-data";
 import { todayInTz } from "@/lib/dates";
 import { buildCsv, buildXlsx, buildHtmlReport, type ExportBundle } from "@/lib/export";
 import type { Athlete, Profile } from "@/lib/types";
@@ -28,13 +28,7 @@ export async function GET(req: NextRequest) {
   const includeNotes = url.get("notes") === "1";
 
   const supabase = await createClient();
-  let athleteIds: string[] = [];
-  if (profile.role === "admin") {
-    const { data } = await supabase.from("athletes").select("id").neq("status", "archived");
-    athleteIds = (data ?? []).map((a: { id: string }) => a.id);
-  } else {
-    athleteIds = await coachAthleteIds(supabase, profile.id);
-  }
+  let athleteIds = await scopedAthleteIds(supabase, profile);
 
   if (scope === "athlete" && url.get("athlete_id")) {
     const target = url.get("athlete_id")!;

@@ -88,7 +88,7 @@ export async function adminCreateUser(input: {
   timezone?: string;
   athlete_code?: string;
   birth_year?: number;
-}): Promise<{ ok?: boolean; error?: string }> {
+}): Promise<{ ok?: boolean; error?: string; athleteId?: string }> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -129,7 +129,20 @@ export async function adminCreateUser(input: {
     target_id: data.user.id,
     metadata: { role: input.role, email },
   });
-  return { ok: true };
+
+  let athleteId: string | undefined;
+  if (input.role === "athlete") {
+    const { data: prof } = await admin
+      .from("profiles")
+      .select("id")
+      .eq("user_id", data.user.id)
+      .single();
+    const { data: athlete } = prof
+      ? await admin.from("athletes").select("id").eq("profile_id", prof.id).single()
+      : { data: null };
+    athleteId = athlete?.id;
+  }
+  return { ok: true, athleteId };
 }
 
 /**

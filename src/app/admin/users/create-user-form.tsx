@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Dictionary } from "@/i18n";
 import { adminCreateUser } from "@/app/actions/auth";
+import { addAthleteToGroup } from "@/app/actions/admin";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
@@ -59,7 +60,13 @@ export function CredentialsCard({
   );
 }
 
-export function CreateUserForm({ dict }: { dict: Dictionary }) {
+export function CreateUserForm({
+  dict,
+  groups,
+}: {
+  dict: Dictionary;
+  groups: { id: string; name: string }[];
+}) {
   const d = dict.admin;
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -84,6 +91,10 @@ export function CreateUserForm({ dict }: { dict: Dictionary }) {
     });
     setBusy(false);
     if (res.ok) {
+      const groupId = String(fd.get("group_id") || "");
+      if (role === "athlete" && groupId && res.athleteId) {
+        await addAthleteToGroup(res.athleteId, groupId);
+      }
       toast.success(d.userCreated);
       const email = String(fd.get("email") || "").trim();
       setIssued({ login: role === "athlete" ? code : email, password });
@@ -126,6 +137,17 @@ export function CreateUserForm({ dict }: { dict: Dictionary }) {
               <div>
                 <Label>{d.birthYear}</Label>
                 <Input name="birth_year" type="number" min={1990} max={new Date().getFullYear()} inputMode="numeric" />
+              </div>
+              <div className="sm:col-span-2">
+                <Label>{dict.common.group}</Label>
+                <Select name="group_id" defaultValue="">
+                  <option value="">—</option>
+                  {groups.map((g) => (
+                    <option key={g.id} value={g.id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </Select>
               </div>
             </>
           ) : null}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Dictionary } from "@/i18n";
@@ -58,6 +59,15 @@ export function UserTable({ dict, profiles }: { dict: Dictionary; profiles: Row[
 
   const loginLabel = (p: Row) => p.athlete?.athlete_code ?? p.email ?? "—";
 
+  const nameCell = (p: Row) =>
+    p.athlete ? (
+      <Link href={`/coach/athletes/${p.athlete.id}`} className="font-medium text-accent hover:underline">
+        {p.display_name}
+      </Link>
+    ) : (
+      <span className="font-medium">{p.display_name}</span>
+    );
+
   const actions = (p: Row) => (
     <span className="flex flex-wrap gap-1">
       <Button size="sm" variant="secondary" onClick={() => resetPassword(p)}>
@@ -91,7 +101,7 @@ export function UserTable({ dict, profiles }: { dict: Dictionary; profiles: Row[
           <Card key={p.id}>
             <CardContent className="space-y-2 pt-4">
               <div className="flex items-center justify-between gap-2">
-                <span className="font-medium">{p.display_name}</span>
+                {nameCell(p)}
                 {roleBadge(p)}
               </div>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
@@ -126,7 +136,7 @@ export function UserTable({ dict, profiles }: { dict: Dictionary; profiles: Row[
           <tbody>
             {profiles.map((p) => (
               <tr key={p.id} className="border-b border-border align-top last:border-0">
-                <td className="px-3 py-2 font-medium">{p.display_name}</td>
+                <td className="px-3 py-2">{nameCell(p)}</td>
                 <td className="px-3 py-2">{roleBadge(p)}</td>
                 <td className="px-3 py-2 font-mono text-muted">{loginLabel(p)}</td>
                 <td className="px-3 py-2">

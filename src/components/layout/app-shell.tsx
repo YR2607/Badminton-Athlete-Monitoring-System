@@ -55,6 +55,7 @@ export function navItems(role: AppRole, d: Dictionary): { href: string; label: s
   }
   return [
     { href: "/admin", label: d.nav.home },
+    { href: "/coach", label: d.nav.athletes },
     { href: "/analytics", label: d.analytics.title },
     { href: "/admin/users", label: d.nav.users },
     { href: "/admin/groups", label: d.nav.groups },

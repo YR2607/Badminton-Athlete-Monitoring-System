@@ -19,7 +19,7 @@ export default async function AdminHome() {
 
   const tiles = [
     [dict.admin.users, users ?? 0, "/admin/users"],
-    [dict.nav.athletes, athletes ?? 0, "/admin/users"],
+    [dict.nav.athletes, athletes ?? 0, "/coach"],
     [dict.nav.groups, groups ?? 0, "/admin/groups"],
     [dict.alerts.open, openAlerts ?? 0, "/coach/alerts"],
   ];

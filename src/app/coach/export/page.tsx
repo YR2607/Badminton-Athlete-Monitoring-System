@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
-import { coachAthleteIds } from "@/lib/coach-data";
+import { scopedAthleteIds } from "@/lib/coach-data";
 import { ExportForm } from "./export-form";
 import type { Athlete, Group, Profile } from "@/lib/types";
 
@@ -9,7 +9,7 @@ export default async function ExportPage() {
   const profile = (await getCurrentProfile())!;
   const dict = getDictionary(profile.preferred_language);
   const supabase = await createClient();
-  const ids = await coachAthleteIds(supabase, profile.id);
+  const ids = await scopedAthleteIds(supabase, profile);
 
   const [{ data: athletes }, { data: memberships }, { data: groups }] = ids.length
     ? await Promise.all([

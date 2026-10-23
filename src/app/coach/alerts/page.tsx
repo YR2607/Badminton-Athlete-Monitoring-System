@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
-import { coachAthleteIds } from "@/lib/coach-data";
+import { scopedAthleteIds } from "@/lib/coach-data";
 import { AlertList } from "@/app/coach/athletes/[id]/alert-list";
 import type { Alert } from "@/lib/types";
 
@@ -9,7 +9,7 @@ export default async function CoachAlertsPage() {
   const profile = (await getCurrentProfile())!;
   const dict = getDictionary(profile.preferred_language);
   const supabase = await createClient();
-  const ids = await coachAthleteIds(supabase, profile.id);
+  const ids = await scopedAthleteIds(supabase, profile);
 
   const { data: alerts } = ids.length
     ? await supabase

@@ -10,9 +10,10 @@ export default async function AdminUsersPage() {
   const dict = getDictionary(me.preferred_language);
   const admin = createAdminClient();
 
-  const [{ data: profiles }, { data: athletes }, { data: authUsers }] = await Promise.all([
+  const [{ data: profiles }, { data: athletes }, { data: groups }, { data: authUsers }] = await Promise.all([
     admin.from("profiles").select("*").order("created_at", { ascending: false }),
     admin.from("athletes").select("*"),
+    admin.from("groups").select("*").order("name"),
     admin.auth.admin.listUsers({ perPage: 1000 }),
   ]);
   const athleteByProfile = new Map(((athletes as Athlete[]) ?? []).map((a) => [a.profile_id, a]));
@@ -21,7 +22,7 @@ export default async function AdminUsersPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-bold">{dict.admin.users}</h1>
-      <CreateUserForm dict={dict} />
+      <CreateUserForm dict={dict} groups={(groups as { id: string; name: string }[]) ?? []} />
       <UserTable
         dict={dict}
         profiles={((profiles as Profile[]) ?? []).map((p) => ({
