@@ -201,6 +201,59 @@ export async function adminResetUserPassword(
 }
 
 /**
+ * Admin-only: sign in as another user. Generates a one-time magic link whose
+ * action_link lands on /auth/callback and establishes the target's session —
+ * the admin's own session is replaced, so getting back means signing in again.
+ */
+export async function adminImpersonate(
+  profileId: string,
+): Promise<{ ok?: boolean; error?: string; url?: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "unauthenticated" };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .eq("user_id", user.id)
+    .single();
+  if (me?.role !== "admin") return { error: "forbidden" };
+  if (me.id === profileId) return { error: "self" };
+
+  const admin = createAdminClient();
+  const { data: target } = await admin
+    .from("profiles")
+    .select("user_id, role")
+    .eq("id", profileId)
+    .single();
+  if (!target) return { error: "not_found" };
+  if (target.role === "admin") return { error: "forbidden" };
+
+  const { data: targetUser } = await admin.auth.admin.getUserById(target.user_id);
+  const email = targetUser?.user?.email;
+  if (!email) return { error: "not_found" };
+
+  const origin = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "magiclink",
+    email,
+    options: { redirectTo: `${origin}/auth/callback` },
+  });
+  const url = data?.properties?.action_link;
+  if (error || !url) return { error: error?.message ?? "failed" };
+
+  await admin.from("audit_logs").insert({
+    actor_profile_id: me.id,
+    action: "user.impersonate",
+    target_type: "profile",
+    target_id: profileId,
+    metadata: {},
+  });
+  return { ok: true, url };
+}
+
+/**
  * Admin-only: permanently delete a user. The auth.users row is removed,
  * which cascades to profiles → athletes → check-ins/sessions/alerts.
  * Guards: cannot delete yourself or any admin-role profile (prevents

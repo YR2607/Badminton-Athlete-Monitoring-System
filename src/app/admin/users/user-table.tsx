@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Dictionary } from "@/i18n";
 import { setAthleteStatus, recordConsent } from "@/app/actions/admin";
-import { adminDeleteUser, adminResetUserPassword } from "@/app/actions/auth";
+import { adminDeleteUser, adminImpersonate, adminResetUserPassword } from "@/app/actions/auth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,10 +20,12 @@ export function UserTable({
   dict,
   profiles,
   groups,
+  selfId,
 }: {
   dict: Dictionary;
   profiles: Row[];
   groups: Pick<Group, "id" | "name">[];
+  selfId: string;
 }) {
   const router = useRouter();
   const d = dict.admin;
@@ -93,6 +95,16 @@ export function UserTable({
     }
   }
 
+  async function impersonate(p: Row) {
+    if (!window.confirm(d.loginAsConfirm.replace("{name}", p.display_name))) return;
+    const res = await adminImpersonate(p.id);
+    if (res.ok && res.url) {
+      window.location.href = res.url;
+    } else {
+      toast.error(res.error ?? dict.common.error);
+    }
+  }
+
   async function removeUser(p: Row) {
     if (!window.confirm(d.deleteUserConfirm)) return;
     const res = await adminDeleteUser(p.id);
@@ -126,6 +138,11 @@ export function UserTable({
       <Button size="sm" variant="secondary" onClick={() => resetPassword(p)}>
         {d.newPasswordBtn}
       </Button>
+      {p.role !== "admin" && p.id !== selfId && (
+        <Button size="sm" variant="secondary" onClick={() => impersonate(p)}>
+          {d.loginAs}
+        </Button>
+      )}
       {p.athlete && (
         <>
           <Button size="sm" variant="ghost" onClick={() => toggle(p.athlete!)}>

@@ -438,6 +438,9 @@ const ro: Dictionary = {
     login: "Login",
     generate: "Generează",
     newPasswordBtn: "Parolă nouă",
+    loginAs: "Intră ca",
+    loginAsConfirm:
+      "Vei fi autentificat ca {name}. Sesiunea de administrator va fi înlocuită — pentru a reveni, deconectează-te și autentifică-te cu contul tău.",
     credentialsTitle: "Date de autentificare",
     credentialsHint: "Parola se afișează o singură dată — transmite-o sportivului sau părintelui.",
     copy: "Copiază",

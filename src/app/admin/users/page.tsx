@@ -30,6 +30,7 @@ export default async function AdminUsersPage() {
       <CreateUserForm dict={dict} groups={(groups as { id: string; name: string }[]) ?? []} />
       <UserTable
         dict={dict}
+        selfId={me.id}
         groups={(groups as { id: string; name: string }[]) ?? []}
         profiles={((profiles as Profile[]) ?? []).map((p) => {
           const athlete = athleteByProfile.get(p.id) ?? null;

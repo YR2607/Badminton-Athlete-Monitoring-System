@@ -438,6 +438,9 @@ const en: Dictionary = {
     login: "Login",
     generate: "Generate",
     newPasswordBtn: "New password",
+    loginAs: "Sign in as",
+    loginAsConfirm:
+      "You will be signed in as {name}. Your admin session will be replaced — to get back, sign out and sign in with your own account.",
     credentialsTitle: "Sign-in credentials",
     credentialsHint: "Password is shown once — pass it to the athlete or parent.",
     copy: "Copy",
