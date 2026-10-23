@@ -286,6 +286,8 @@ const ru = {
     statusFilter: "По статусу",
     statusAll: "Все статусы",
     sortPriority: "По важности",
+    sortScoreDesc: "Балл: от высокого",
+    sortScoreAsc: "Балл: от низкого",
     sumPriority: "Приоритетные сигналы",
     sumDeclining: "Ухудшение к норме",
     sumNoToday: "Без анкеты сегодня",

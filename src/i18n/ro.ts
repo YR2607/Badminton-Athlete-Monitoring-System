@@ -284,6 +284,8 @@ const ro: Dictionary = {
     statusFilter: "După stare",
     statusAll: "Toate stările",
     sortPriority: "După prioritate",
+    sortScoreDesc: "Scor: de la mare",
+    sortScoreAsc: "Scor: de la mic",
     sumPriority: "Semnale prioritare",
     sumDeclining: "Sub norma personală",
     sumNoToday: "Fără chestionar azi",

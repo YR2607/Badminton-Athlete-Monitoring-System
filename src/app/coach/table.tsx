@@ -11,7 +11,7 @@ import { Sparkline } from "@/components/charts/sparkline";
 import { cn } from "@/lib/utils";
 import type { Group } from "@/lib/types";
 
-type SortKey = "priority" | "name" | "readiness";
+type SortKey = "priority" | "name" | "scoreDesc" | "scoreAsc";
 
 const ALL_STATUSES: AthleteStatus[] = ["needs_check", "declining", "no_today", "insufficient", "ok"];
 
@@ -75,8 +75,12 @@ export function CoachTable({
             STATUS_ORDER[a.status] - STATUS_ORDER[b.status] ||
             (a.todayScore ?? 101) - (b.todayScore ?? 101)
           );
-        case "readiness":
-          return (a.todayScore ?? -1) - (b.todayScore ?? -1);
+        case "scoreDesc":
+          return (b.todayScore ?? -1) - (a.todayScore ?? -1);
+        case "scoreAsc":
+          return (
+            (a.todayScore ?? Infinity) - (b.todayScore ?? Infinity)
+          );
         default:
           return (a.profile?.display_name ?? "").localeCompare(b.profile?.display_name ?? "");
       }
@@ -123,7 +127,8 @@ export function CoachTable({
         <Select className="w-36" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
           <option value="priority">{d.sortPriority}</option>
           <option value="name">{d.tableAthlete}</option>
-          <option value="readiness">{d.tableReadiness}</option>
+          <option value="scoreDesc">{d.sortScoreDesc}</option>
+          <option value="scoreAsc">{d.sortScoreAsc}</option>
         </Select>
       </div>
 

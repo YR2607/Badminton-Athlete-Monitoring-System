@@ -284,6 +284,8 @@ const en: Dictionary = {
     statusFilter: "By status",
     statusAll: "All statuses",
     sortPriority: "By priority",
+    sortScoreDesc: "Score: high to low",
+    sortScoreAsc: "Score: low to high",
     sumPriority: "Priority signals",
     sumDeclining: "Below personal norm",
     sumNoToday: "No check-in today",
