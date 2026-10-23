@@ -369,6 +369,9 @@ const ro: Dictionary = {
     all: "Toate",
     allSeverities: "Toate nivelurile",
     allStatuses: "Toate stările",
+    sortNewest: "Mai întâi noile",
+    sortOldest: "Mai întâi vechile",
+    sortSeverity: "După severitate",
   },
   rules: {
     subtitle: "Când aplicația trimite un semnal antrenorului. Doar comutați și mișcați cursoarele.",
@@ -475,6 +478,8 @@ const ro: Dictionary = {
     allRoles: "Toate rolurile",
     allStatuses: "Toate stările",
     allActions: "Toate acțiunile",
+    sortNewest: "Mai întâi noile",
+    sortOldest: "Mai întâi vechile",
   },
   export: {
     title: "Export de date",

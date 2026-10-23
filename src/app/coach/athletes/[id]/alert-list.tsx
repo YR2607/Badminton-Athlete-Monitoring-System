@@ -20,6 +20,7 @@ const sevTone: Record<string, "danger" | "warn" | "accent" | "neutral"> = {
 
 const SEVERITIES = ["priority", "review_load", "attention", "normal"] as const;
 const STATUSES = ["open", "acknowledged", "resolved", "dismissed"] as const;
+const SEV_RANK: Record<string, number> = { priority: 0, review_load: 1, attention: 2, normal: 3 };
 
 export function AlertList({
   alerts,
@@ -38,6 +39,7 @@ export function AlertList({
   const [severity, setSeverity] = useState("");
   const [athleteId, setAthleteId] = useState("");
   const [q, setQ] = useState("");
+  const [sort, setSort] = useState<string>("newest");
 
   const nameOf = useMemo(
     () => new Map((athletes ?? []).map((a) => [a.id, a.name])),
@@ -57,8 +59,22 @@ export function AlertList({
           a.recommendation.toLowerCase().includes(needle),
       );
     }
-    return out;
-  }, [alerts, status, severity, athleteId, q]);
+    return [...out].sort((a, b) => {
+      switch (sort) {
+        case "severity":
+          return (
+            (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9) ||
+            b.triggered_at.localeCompare(a.triggered_at)
+          );
+        case "athlete":
+          return (nameOf.get(a.athlete_id) ?? "").localeCompare(nameOf.get(b.athlete_id) ?? "");
+        case "oldest":
+          return a.triggered_at.localeCompare(b.triggered_at);
+        default:
+          return b.triggered_at.localeCompare(a.triggered_at);
+      }
+    });
+  }, [alerts, status, severity, athleteId, q, sort, nameOf]);
 
   async function act(id: string, status: AlertStatus) {
     setBusy(id);
@@ -122,6 +138,12 @@ export function AlertList({
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
+          <Select className="w-36" value={sort} onChange={(e) => setSort(e.target.value)}>
+            <option value="newest">{d.sortNewest}</option>
+            <option value="oldest">{d.sortOldest}</option>
+            <option value="severity">{d.sortSeverity}</option>
+            {athletes && <option value="athlete">{dict.common.athlete}</option>}
+          </Select>
         </div>
       </CardHeader>
       <CardContent>

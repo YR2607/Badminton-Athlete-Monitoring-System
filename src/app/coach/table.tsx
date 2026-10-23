@@ -140,7 +140,7 @@ export function CoachTable({
               href={`/coach/athletes/${r.athlete.id}`}
               className="rounded-xl border border-border bg-surface p-3 transition-colors hover:border-accent/40 active:bg-foreground/[0.03]"
             >
-              <div className="mb-2 flex items-center gap-1.5">
+              <div className="mb-2 flex flex-wrap items-center gap-1.5">
                 <Badge tone={statusTone(r.status)}>{d.status[r.status]}</Badge>
                 {r.openAlerts.some((a) => a.severity === "priority") && <Badge tone="danger">!</Badge>}
                 {r.openAlerts.some((a) => a.severity === "review_load") && <Badge tone="warn">↺</Badge>}

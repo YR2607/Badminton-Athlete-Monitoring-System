@@ -371,6 +371,9 @@ const ru = {
     all: "Все",
     allSeverities: "Все уровни",
     allStatuses: "Все статусы",
+    sortNewest: "Сначала новые",
+    sortOldest: "Сначала старые",
+    sortSeverity: "По важности",
   },
   rules: {
     subtitle: "Когда приложение присылает сигнал тренеру. Просто включите нужное и подвигайте ползунки.",
@@ -477,6 +480,8 @@ const ru = {
     allRoles: "Все роли",
     allStatuses: "Все статусы",
     allActions: "Все действия",
+    sortNewest: "Сначала новые",
+    sortOldest: "Сначала старые",
   },
   export: {
     title: "Экспорт данных",

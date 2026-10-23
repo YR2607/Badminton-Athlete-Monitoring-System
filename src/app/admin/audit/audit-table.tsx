@@ -19,6 +19,7 @@ export function AuditTable({ rows, dict }: { rows: AuditRow[]; dict: Dictionary 
   const d = dict.admin;
   const [q, setQ] = useState("");
   const [action, setAction] = useState("");
+  const [sort, setSort] = useState<string>("newest");
 
   const actions = useMemo(
     () => [...new Set(rows.map((r) => r.action))].sort(),
@@ -34,7 +35,11 @@ export function AuditTable({ rows, dict }: { rows: AuditRow[]; dict: Dictionary 
       if (!hay.includes(needle)) return false;
     }
     return true;
-  });
+  }).sort((a, b) =>
+    sort === "oldest"
+      ? a.created_at.localeCompare(b.created_at)
+      : b.created_at.localeCompare(a.created_at),
+  );
 
   return (
     <>
@@ -52,6 +57,10 @@ export function AuditTable({ rows, dict }: { rows: AuditRow[]; dict: Dictionary 
               {a}
             </option>
           ))}
+        </Select>
+        <Select className="w-32" value={sort} onChange={(e) => setSort(e.target.value)}>
+          <option value="newest">{d.sortNewest}</option>
+          <option value="oldest">{d.sortOldest}</option>
         </Select>
       </div>
       <div className="overflow-x-auto rounded-xl border border-border bg-surface">

@@ -32,18 +32,35 @@ export function UserTable({
   const [role, setRole] = useState("");
   const [status, setStatus] = useState("");
   const [groupId, setGroupId] = useState("");
+  const [sort, setSort] = useState<string>("name");
 
-  const visible = profiles.filter((p) => {
-    if (role && p.role !== role) return false;
-    if (status && (p.athlete?.status ?? "none") !== status) return false;
-    if (groupId && p.groupId !== groupId) return false;
-    if (q) {
-      const needle = q.toLowerCase();
-      const hay = `${p.display_name} ${p.email ?? ""} ${p.athlete?.athlete_code ?? ""}`.toLowerCase();
-      if (!hay.includes(needle)) return false;
-    }
-    return true;
-  });
+  const ROLE_RANK: Record<string, number> = { admin: 0, coach: 1, athlete: 2 };
+
+  const visible = profiles
+    .filter((p) => {
+      if (role && p.role !== role) return false;
+      if (status && (p.athlete?.status ?? "none") !== status) return false;
+      if (groupId && p.groupId !== groupId) return false;
+      if (q) {
+        const needle = q.toLowerCase();
+        const hay =
+          `${p.display_name} ${p.email ?? ""} ${p.athlete?.athlete_code ?? ""}`.toLowerCase();
+        if (!hay.includes(needle)) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      switch (sort) {
+        case "role":
+          return (ROLE_RANK[a.role] ?? 9) - (ROLE_RANK[b.role] ?? 9);
+        case "status":
+          return (a.athlete?.status ?? "z").localeCompare(b.athlete?.status ?? "z");
+        case "newest":
+          return b.created_at.localeCompare(a.created_at);
+        default:
+          return a.display_name.localeCompare(b.display_name);
+      }
+    });
 
   async function toggle(a: Athlete) {
     const next = a.status === "active" ? "inactive" : "active";
@@ -162,6 +179,12 @@ export function UserTable({
               {g.name}
             </option>
           ))}
+        </Select>
+        <Select className="w-32" value={sort} onChange={(e) => setSort(e.target.value)}>
+          <option value="name">{dict.common.name}</option>
+          <option value="role">{d.role}</option>
+          <option value="status">{dict.common.status}</option>
+          <option value="newest">{d.sortNewest}</option>
         </Select>
       </div>
 

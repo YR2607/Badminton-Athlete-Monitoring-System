@@ -369,6 +369,9 @@ const en: Dictionary = {
     all: "All",
     allSeverities: "All severities",
     allStatuses: "All statuses",
+    sortNewest: "Newest first",
+    sortOldest: "Oldest first",
+    sortSeverity: "By severity",
   },
   rules: {
     subtitle: "When the app sends a signal to the coach. Just toggle and move the sliders.",
@@ -475,6 +478,8 @@ const en: Dictionary = {
     allRoles: "All roles",
     allStatuses: "All statuses",
     allActions: "All actions",
+    sortNewest: "Newest first",
+    sortOldest: "Oldest first",
   },
   export: {
     title: "Data export",

@@ -333,7 +333,9 @@ export default async function AthleteDetailPage({
                   title={`${c.hint} · ${c.inverted ? dd.today.lowerBetter : dd.today.higherBetter}`}
                   className="rounded-lg border border-border/60 p-2"
                 >
-                  <p className="text-[11px] text-muted">{c.label}</p>
+                  <p className="truncate text-[11px] text-muted" title={c.label}>
+                    {c.label}
+                  </p>
                   <p className="text-sm font-semibold tabular-nums">
                     {v !== null ? `${v}/5` : dict.common.noData}
                   </p>
