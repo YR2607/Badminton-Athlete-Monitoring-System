@@ -138,6 +138,9 @@ function painSignals(ctx: EvalContext): PainSignal[] {
 export function evaluateAlerts(ctx: EvalContext): AlertCandidate[] {
   const out: AlertCandidate[] = [];
   const pain = painSignals(ctx);
+  // Single authoritative rule: every timestamp is assigned to a calendar day
+  // in the athlete's timezone. Fallback without a timezone is explicit UTC.
+  const tz = ctx.timezone ?? "UTC";
   const todayPain = pain.filter((p) => {
     // only signals reported today trigger new alerts
     if (p.source === "morning") {
@@ -146,11 +149,7 @@ export function evaluateAlerts(ctx: EvalContext): AlertCandidate[] {
     }
     const pc = ctx.postCheckins.find((x) => x.id === p.sourceId);
     if (!pc) return false;
-    // Assign the submission to an athlete-local day — a UTC slice can shift a
-    // near-midnight check-in into the wrong day and silently drop the alert.
-    return pc.submitted_at.slice(0, 10) === ctx.today ||
-      (ctx.timezone !== undefined &&
-        localDate(new Date(pc.submitted_at), ctx.timezone) === ctx.today);
+    return localDate(new Date(pc.submitted_at), tz) === ctx.today;
   });
 
   // ---- priority: acute pain / red flags (independent of readiness score) ----
@@ -262,9 +261,13 @@ export function evaluateAlerts(ctx: EvalContext): AlertCandidate[] {
   const prevFrom = addDays(ctx.today, -14);
   const prevTo = addDays(ctx.today, -8);
   const acuteFrom = addDays(ctx.today, -7);
+  // Sessions are bucketed by athlete-local day — not by their UTC timestamp.
   const loadIn = (from: string, to: string) =>
     ctx.sessions
-      .filter((s) => s.started_at.slice(0, 10) >= from && s.started_at.slice(0, 10) <= to)
+      .filter((s) => {
+        const d = localDate(new Date(s.started_at), tz);
+        return d >= from && d <= to;
+      })
       .reduce((a, s) => a + s.session_load, 0);
   const acuteLoad = loadIn(acuteFrom, ctx.today);
   const chronicLoad = loadIn(prevFrom, prevTo);

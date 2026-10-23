@@ -1,10 +1,21 @@
 # RallyMonitor — Test Results (2026-10-23)
 
-All commands run on `main` @ c98aaef, macOS, Node per project.
+## Latest run — post-fix sprint (branch `fix/timezone-consistency`)
 
 | Command | Result |
 |---|---|
-| `npx vitest run` | **50 passed, 9 skipped** (RLS suite skips without env) — 6 files |
+| `npx vitest run` | **60 passed, 9 skipped** (RLS suite skips without env) — 6 files |
+| `npx tsc --noEmit` | clean |
+| `npm run lint` | clean |
+| `npm run build` | clean |
+
+New tests: +10 — `localDayUtcBounds`/`localRangeUtcBounds` (Chisinau, New York, 23h & 25h DST days), `isValidTimeZone`, post-training pain local-day rules (3 cases), load-window local-day edges (2 cases).
+
+## Audit run — `main` @ c98aaef
+
+| Command | Result |
+|---|---|
+| `npx vitest run` | **50 passed, 9 skipped** — 6 files |
 | `RUN_RLS_TESTS=1 npx vitest run tests/rls.integration.test.ts` | **9/9 passed** against the live project (fixtures created + cleaned up) |
 | `npx tsc --noEmit` | clean |
 | `npm run lint` | 0 errors, 2 pre-existing "Compilation Skipped" warnings (React Compiler) |

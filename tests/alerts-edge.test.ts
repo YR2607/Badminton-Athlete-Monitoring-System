@@ -119,6 +119,29 @@ describe("load_spike with no previous-week data", () => {
   });
 });
 
+describe("load windows bucket sessions by athlete-local day", () => {
+  it("a session in the first local hours (previous UTC day) still counts", () => {
+    // 2026-10-16 00:30 local in Chisinau = 2026-10-15T21:30Z — the UTC slice
+    // would wrongly exclude it from the acute window (local 10-16..10-23).
+    const chronic = [mkSession("2026-10-10", 600)];
+    const acuteLocal = { ...mkSession("2026-10-16", 1000), started_at: "2026-10-15T21:30:00Z" };
+    const res = evaluateAlerts(ctx({ sessions: [...chronic, acuteLocal], timezone: "Europe/Chisinau" }));
+    // local 10-16 is inside the acute window: 1000/600 = 1.67 >= 1.5 → fires
+    expect(res.some((r) => r.rule_code === "load_spike")).toBe(true);
+  });
+
+  it("a session on the local next day does not leak into today's acute window", () => {
+    // 2026-10-24 01:00 local in Chisinau = 2026-10-23T22:00Z.
+    // UTC slicing would bucket it on 10-23 (inside) — local bucketing puts it
+    // on 10-24 (outside).
+    const chronic = [mkSession("2026-10-10", 600)];
+    const lateSession = { ...mkSession("x", 1000), started_at: "2026-10-23T22:00:00Z" };
+    const res = evaluateAlerts(ctx({ sessions: [...chronic, lateSession], timezone: "Europe/Chisinau" }));
+    // acute window local 10-16..10-23 contains nothing → no spike
+    expect(res.some((r) => r.rule_code === "load_spike")).toBe(false);
+  });
+});
+
 describe("illness_symptoms", () => {
   it("does not fire on whitespace-only symptoms", () => {
     const c = mkCheckin(TODAY, { symptoms: "   " });
@@ -142,6 +165,21 @@ describe("post-training pain", () => {
     expect(withTz.some((r) => r.rule_code === "joint_pain")).toBe(true);
     const noTz = evaluateAlerts(ctx({ postCheckins: [p] }));
     expect(noTz.some((r) => r.rule_code === "joint_pain")).toBe(false);
+  });
+
+  it("post check-in submitted today UTC but yesterday local does NOT fire", () => {
+    // 2026-10-23T00:30Z == 2026-10-22 21:30 in America/Santiago (UTC-3) —
+    // belongs to the athlete's previous day and must not alert "today".
+    const p = mkPost("2026-10-23T00:30:00Z", { pain_status: "joint_tendon", pain_location: "knee" });
+    const res = evaluateAlerts(ctx({ postCheckins: [p], timezone: "America/Santiago" }));
+    expect(res.some((r) => r.rule_code === "joint_pain")).toBe(false);
+  });
+
+  it("post check-in from the previous local day does NOT fire", () => {
+    // 2026-10-22T20:00Z is 22-10-2026 23:00 in Chisinau — yesterday.
+    const p = mkPost("2026-10-22T20:00:00Z", { pain_status: "joint_tendon", pain_location: "knee" });
+    const res = evaluateAlerts(ctx({ postCheckins: [p], timezone: "Europe/Chisinau" }));
+    expect(res.some((r) => r.rule_code === "joint_pain")).toBe(false);
   });
 });
 

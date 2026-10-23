@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildSnapshot, dailyReadiness, computeBaseline } from "@/lib/readiness";
 import { evaluateAlerts } from "@/lib/alerts";
-import { addDays, localDate } from "@/lib/dates";
+import { addDays, localDate, localDayUtcBounds } from "@/lib/dates";
 import type { AlertRule, MorningCheckin, PostTrainingCheckin, TrainingSession } from "@/lib/types";
 
 /**
@@ -19,6 +19,9 @@ export async function evaluateAthleteDay(
   timezone: string,
 ) {
   const from = addDays(date, -40);
+  // The fetch window must cover the athlete-local `from` date entirely —
+  // a UTC-midnight bound silently drops the first local hours of the window.
+  const windowStart = localDayUtcBounds(from, timezone).start.toISOString();
 
   const [{ data: checkins }, { data: sessions }, { data: post }, { data: rules }] =
     await Promise.all([
@@ -32,12 +35,12 @@ export async function evaluateAthleteDay(
         .from("training_sessions")
         .select("*")
         .eq("athlete_id", athleteId)
-        .gte("started_at", `${from}T00:00:00Z`),
+        .gte("started_at", windowStart),
       admin
         .from("post_training_checkins")
         .select("*")
         .eq("athlete_id", athleteId)
-        .gte("submitted_at", `${from}T00:00:00Z`),
+        .gte("submitted_at", windowStart),
       admin.from("alert_rules").select("*").eq("enabled", true),
     ]);
 

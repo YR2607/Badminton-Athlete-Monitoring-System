@@ -57,6 +57,50 @@ export function isValidTimeZone(tz: string): boolean {
   }
 }
 
+/** Offset of `tz` from UTC in ms at the given instant (positive east of UTC). */
+function tzOffsetMs(at: Date, tz: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(at);
+  const g = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? "0");
+  const asUTC = Date.UTC(g("year"), g("month") - 1, g("day"), g("hour") % 24, g("minute"), g("second"));
+  return asUTC - at.getTime();
+}
+
+/** UTC instant of local `date 00:00` in `tz` (two-pass to stay correct across DST edges). */
+function localMidnightUtc(date: string, tz: string): Date {
+  const guess = new Date(`${date}T00:00:00Z`);
+  let t = new Date(guess.getTime() - tzOffsetMs(guess, tz));
+  t = new Date(guess.getTime() - tzOffsetMs(t, tz));
+  return t;
+}
+
+/**
+ * UTC instants bounding the calendar day `date` (YYYY-MM-DD) in timezone `tz`:
+ * [start, end) — end is exclusive and equals local midnight of the next day.
+ * Correct on DST transitions (the day may be 23 or 25 hours long).
+ */
+export function localDayUtcBounds(date: string, tz: string): { start: Date; end: Date } {
+  return { start: localMidnightUtc(date, tz), end: localMidnightUtc(addDays(date, 1), tz) };
+}
+
+/**
+ * UTC bounds for an inclusive local-date range [from..to] in `tz`.
+ * Use as: .gte(ts, bounds.start) .lt(ts, bounds.end).
+ */
+export function localRangeUtcBounds(from: string, to: string, tz: string): { start: string; end: string } {
+  const start = localDayUtcBounds(from, tz).start;
+  const end = localDayUtcBounds(to, tz).end;
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
 /** Inclusive list of calendar dates between from and to (YYYY-MM-DD). */
 export function dateRange(from: string, to: string): string[] {
   const out: string[] = [];

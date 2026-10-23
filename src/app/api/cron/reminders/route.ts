@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { localDate, localMinutesOfDay, localWeekday } from "@/lib/dates";
+import { localDate, localDayUtcBounds, localMinutesOfDay, localWeekday } from "@/lib/dates";
 import type { Athlete, GroupMembership, Profile, TrainingSchedule } from "@/lib/types";
 
 /**
@@ -41,23 +41,29 @@ export async function GET(req: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const { data: profiles } = await admin.from("profiles").select("*").eq("role", "athlete");
-  const { data: athletes } = await admin.from("athletes").select("*").eq("status", "active");
-  const { data: memberships } = await admin.from("group_memberships").select("*").is("left_at", null);
-  const { data: schedules } = await admin.from("training_schedules").select("*").eq("active", true);
-  const { data: missingRule } = await admin
-    .from("alert_rules")
-    .select("severity, params")
-    .eq("code", "missing_morning")
-    .eq("enabled", true)
-    .maybeSingle();
+  const [profiles, athletes, memberships, schedules, missingRule] = await Promise.all([
+    admin.from("profiles").select("*").eq("role", "athlete"),
+    admin.from("athletes").select("*").eq("status", "active"),
+    admin.from("group_memberships").select("*").is("left_at", null),
+    admin.from("training_schedules").select("*").eq("active", true),
+    admin
+      .from("alert_rules")
+      .select("severity, params")
+      .eq("code", "missing_morning")
+      .eq("enabled", true)
+      .maybeSingle(),
+  ]);
+  const readError = profiles.error ?? athletes.error ?? memberships.error ?? schedules.error;
+  if (readError) {
+    return NextResponse.json({ error: "db_read_failed" }, { status: 500 });
+  }
 
-  const profById = new Map(((profiles as Profile[]) ?? []).map((p) => [p.id, p]));
+  const profById = new Map(((profiles.data as Profile[] | null) ?? []).map((p) => [p.id, p]));
   const missingAfter =
-    Number((missingRule?.params as { after_local_hour?: number } | null)?.after_local_hour ?? 12) * 60;
+    Number((missingRule.data?.params as { after_local_hour?: number } | null)?.after_local_hour ?? 12) * 60;
   let created = 0;
 
-  for (const a of (athletes as Athlete[]) ?? []) {
+  for (const a of (athletes.data as Athlete[] | null) ?? []) {
     const profile = profById.get(a.profile_id);
     if (!profile) continue;
     const tz = profile.timezone;
@@ -75,7 +81,7 @@ export async function GET(req: NextRequest) {
     const morningHour = Number(process.env.MORNING_REMINDER_HOUR ?? 10);
     if (!ck && minutesNow >= morningHour * 60) {
       const t = text("morning_reminder", profile.preferred_language);
-      const { error } = await admin.from("notifications").upsert(
+      const { data: inserted, error } = await admin.from("notifications").upsert(
         {
           profile_id: profile.id,
           kind: "morning_reminder",
@@ -83,17 +89,17 @@ export async function GET(req: NextRequest) {
           body: t.body,
           dedup_key: `morning:${a.id}:${today}`,
         },
-        { onConflict: "dedup_key" },
-      );
-      if (!error) created++;
+        { onConflict: "dedup_key", ignoreDuplicates: true },
+      ).select("id");
+      if (!error) created += inserted?.length ?? 0;
     }
 
     // missing_morning alert rule: no check-in after the configured local hour.
-    if (!ck && missingRule && minutesNow >= missingAfter) {
+    if (!ck && missingRule.data && minutesNow >= missingAfter) {
       await admin.rpc("record_alert", {
         p_athlete_id: a.id,
         p_rule_code: "missing_morning",
-        p_severity: missingRule.severity,
+        p_severity: missingRule.data.severity,
         p_evidence: { date: today, local_minutes: minutesNow },
         p_recommendation:
           "Утренняя анкета не заполнена к полудню. Уточнить у спортсмена, всё ли в порядке.",
@@ -102,26 +108,30 @@ export async function GET(req: NextRequest) {
     }
 
     // Post-training: a scheduled session for the athlete's group ended >= 90min ago
-    const myGroups = ((memberships as GroupMembership[]) ?? [])
+    const myGroups = ((memberships.data as GroupMembership[] | null) ?? [])
       .filter((m) => m.athlete_id === a.id)
       .map((m) => m.group_id);
     const wd = localWeekday(now, tz);
-    const todays = ((schedules as TrainingSchedule[]) ?? []).filter(
+    const todays = ((schedules.data as TrainingSchedule[] | null) ?? []).filter(
       (s) => myGroups.includes(s.group_id) && s.weekday === wd,
     );
     if (todays.length > 0) {
+      // "session already logged today" — today in the athlete's timezone,
+      // translated to real UTC instants (not a UTC-midnight slice).
+      const day = localDayUtcBounds(today, tz);
       const { data: session } = await admin
         .from("training_sessions")
         .select("id")
         .eq("athlete_id", a.id)
-        .gte("started_at", `${today}T00:00:00Z`)
+        .gte("started_at", day.start.toISOString())
+        .lt("started_at", day.end.toISOString())
         .limit(1)
         .maybeSingle();
       if (!session) {
         const [h, m] = todays[0].start_time.split(":").map(Number);
         if (minutesNow >= h * 60 + m + 90) {
           const t = text("post_training_reminder", profile.preferred_language);
-          const { error } = await admin.from("notifications").upsert(
+          const { data: inserted, error } = await admin.from("notifications").upsert(
             {
               profile_id: profile.id,
               kind: "post_training_reminder",
@@ -129,9 +139,9 @@ export async function GET(req: NextRequest) {
               body: t.body,
               dedup_key: `post:${a.id}:${today}`,
             },
-            { onConflict: "dedup_key" },
-          );
-          if (!error) created++;
+            { onConflict: "dedup_key", ignoreDuplicates: true },
+          ).select("id");
+          if (!error) created += inserted?.length ?? 0;
         }
       }
     }

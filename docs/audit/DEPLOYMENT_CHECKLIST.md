@@ -26,8 +26,14 @@
 
 ## Cron
 
-- [ ] `vercel.json` ships `*/15 * * * *` → `/api/cron/reminders`. Vercel Cron calls it **without** the bearer header — either keep the endpoint protected by `CRON_SECRET` and use an external scheduler (cron-job.org / GitHub Actions), or accept Vercel's OIDC. **Decide before launch** — as deployed, Vercel Cron will receive `403`.
-- [ ] Confirm `notifications` and `alerts` (missing_morning) rows appear after threshold hours on staging data.
+- `vercel.json` ships `*/15 * * * *` → `/api/cron/reminders`.
+- **Auth:** Vercel Cron automatically sends `Authorization: Bearer $CRON_SECRET` when `CRON_SECRET` is set in project env vars — the existing header check works with no code change. (Earlier audit note claiming Vercel would get `403` was wrong.)
+- **Plan compatibility:** Vercel **Hobby** permits only **once-daily** cron execution — a 15-minute cadence is silently degraded there and cannot deliver reminders at ~10:00 / missing-checkin alerts at ~12:00 / post-training reminders across timezones.
+  - If deploying on **Hobby**: use an external scheduler hitting the endpoint every ~15 min with the bearer header — cron-job.org (free) or a GitHub Actions `schedule:` workflow. Both call `GET https://<origin>/api/cron/reminders` with `Authorization: Bearer $CRON_SECRET`.
+  - If on **Pro or higher**: keep `*/15 * * * *` — no action needed.
+- [ ] Decide the hosting plan and scheduler accordingly.
+- [ ] Verify: wrong/missing secret → `403`; correct secret on staging → `200` and real `notifications`/`alerts` rows after threshold hours.
+- [ ] Cron should only run on the production deployment (Vercel runs cron only in production by default).
 
 ## Backups & restore (Phase F)
 

@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/auth";
 import { scopedAthleteIds } from "@/lib/coach-data";
-import { todayInTz } from "@/lib/dates";
+import { localRangeUtcBounds, todayInTz } from "@/lib/dates";
 import { buildCsv, buildXlsx, buildHtmlReport, type ExportBundle } from "@/lib/export";
 import type { Athlete, Profile } from "@/lib/types";
 
@@ -50,6 +50,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "no_athletes" }, { status: 400 });
   }
 
+  // Timestamp columns are filtered by the exported timezone's local-day
+  // bounds ([start, end) — end exclusive). Date columns keep plain date
+  // comparisons. The report's declared timezone is what drives the filter.
+  const bounds = localRangeUtcBounds(from, to, profile.timezone);
+  const { start: tsFrom, end: tsTo } = bounds;
+
   // Reads use the caller's RLS-scoped client: access control is enforced by
   // policies, not by trusting query params.
   const [{ data: athletes }, { data: memberships }, { data: groups }, { data: morning }, { data: sessions }, { data: post }, { data: snaps }, { data: alerts }, { data: notes }] =
@@ -58,11 +64,11 @@ export async function GET(req: NextRequest) {
       supabase.from("group_memberships").select("athlete_id, group_id").in("athlete_id", athleteIds).is("left_at", null),
       supabase.from("groups").select("*"),
       supabase.from("morning_checkins").select("*").in("athlete_id", athleteIds).gte("checkin_date", from).lte("checkin_date", to).order("checkin_date"),
-      supabase.from("training_sessions").select("*").in("athlete_id", athleteIds).gte("started_at", `${from}T00:00:00Z`).lte("started_at", `${to}T23:59:59.999Z`).order("started_at"),
-      supabase.from("post_training_checkins").select("*").in("athlete_id", athleteIds).gte("submitted_at", `${from}T00:00:00Z`).lte("submitted_at", `${to}T23:59:59.999Z`),
+      supabase.from("training_sessions").select("*").in("athlete_id", athleteIds).gte("started_at", tsFrom).lt("started_at", tsTo).order("started_at"),
+      supabase.from("post_training_checkins").select("*").in("athlete_id", athleteIds).gte("submitted_at", tsFrom).lt("submitted_at", tsTo),
       supabase.from("readiness_snapshots").select("*").in("athlete_id", athleteIds).gte("snapshot_date", from).lte("snapshot_date", to),
-      supabase.from("alerts").select("*").in("athlete_id", athleteIds).gte("triggered_at", `${from}T00:00:00Z`).lte("triggered_at", `${to}T23:59:59.999Z`),
-      includeNotes ? supabase.from("coach_notes").select("athlete_id, created_at, kind, note").in("athlete_id", athleteIds).gte("created_at", `${from}T00:00:00Z`).lte("created_at", `${to}T23:59:59.999Z`) : Promise.resolve({ data: [] }),
+      supabase.from("alerts").select("*").in("athlete_id", athleteIds).gte("triggered_at", tsFrom).lt("triggered_at", tsTo),
+      includeNotes ? supabase.from("coach_notes").select("athlete_id, created_at, kind, note").in("athlete_id", athleteIds).gte("created_at", tsFrom).lt("created_at", tsTo) : Promise.resolve({ data: [] }),
     ]);
 
   const { data: profs } = ((athletes as Athlete[] | null) ?? []).length
