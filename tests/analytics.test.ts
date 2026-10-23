@@ -34,7 +34,6 @@ const mkSession = (date: string): TrainingSession => ({
   duration_minutes: null,
   session_rpe: null,
   session_load: null,
-  training_type: null,
   created_at: `${date}T16:00:00Z`,
 });
 

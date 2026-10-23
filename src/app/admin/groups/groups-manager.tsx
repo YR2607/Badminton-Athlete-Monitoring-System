@@ -49,7 +49,6 @@ export function GroupsManager({
   const [schedGroup, setSchedGroup] = useState("");
   const [weekday, setWeekday] = useState("1");
   const [startTime, setStartTime] = useState("16:00");
-  const [ttype, setTtype] = useState("mixed");
   const [busy, setBusy] = useState(false);
 
   const run = async (fn: () => Promise<{ ok?: boolean; error?: string }>) => {
@@ -178,7 +177,7 @@ export function GroupsManager({
               </option>
             ))}
           </Select>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <div>
               <Label>{d.weekday}</Label>
               <Select value={weekday} onChange={(e) => setWeekday(e.target.value)}>
@@ -193,21 +192,11 @@ export function GroupsManager({
               <Label>{d.startTime}</Label>
               <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
             </div>
-            <div>
-              <Label>{dict.postTraining.type}</Label>
-              <Select value={ttype} onChange={(e) => setTtype(e.target.value)}>
-                {Object.keys(dict.postTraining.types).map((t) => (
-                  <option key={t} value={t}>
-                    {dict.postTraining.types[t as keyof typeof dict.postTraining.types]}
-                  </option>
-                ))}
-              </Select>
-            </div>
           </div>
           <Button
             disabled={busy || !schedGroup}
             onClick={() =>
-              run(() => upsertSchedule({ group_id: schedGroup, weekday: Number(weekday), start_time: startTime, training_type: ttype }))
+              run(() => upsertSchedule({ group_id: schedGroup, weekday: Number(weekday), start_time: startTime }))
             }
           >
             {dict.common.save}
@@ -216,8 +205,7 @@ export function GroupsManager({
             {schedules.map((s) => (
               <li key={s.id} className="flex items-center justify-between py-2">
                 <span>
-                  {groups.find((g) => g.id === s.group_id)?.name} · {d.weekdays[s.weekday]} {s.start_time.slice(0, 5)} ·{" "}
-                  {dict.postTraining.types[s.training_type]}
+                  {groups.find((g) => g.id === s.group_id)?.name} · {d.weekdays[s.weekday]} {s.start_time.slice(0, 5)}
                 </span>
                 <Button size="sm" variant="ghost" onClick={() => run(() => deleteSchedule(s.id))}>
                   {dict.common.delete}

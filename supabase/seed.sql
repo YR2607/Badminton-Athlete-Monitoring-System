@@ -12,9 +12,9 @@ insert into public.groups (id, name, description)
 values ('d0000000-0000-4000-8000-000000000001', 'DEMO U15', 'Synthetic demo group — safe to delete')
 on conflict (id) do nothing;
 
-insert into public.training_schedules (group_id, weekday, start_time, training_type)
+insert into public.training_schedules (group_id, weekday, start_time)
 values
-  ('d0000000-0000-4000-8000-000000000001', 1, '16:00', 'court'),
-  ('d0000000-0000-4000-8000-000000000001', 3, '16:00', 'technique'),
-  ('d0000000-0000-4000-8000-000000000001', 5, '17:00', 'physical')
+  ('d0000000-0000-4000-8000-000000000001', 1, '16:00'),
+  ('d0000000-0000-4000-8000-000000000001', 3, '16:00'),
+  ('d0000000-0000-4000-8000-000000000001', 5, '17:00')
 on conflict (group_id, weekday, start_time) do nothing;

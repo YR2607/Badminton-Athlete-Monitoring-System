@@ -140,7 +140,6 @@ run("RLS isolation", () => {
       group_id: groupId,
       weekday: 6,
       start_time: "09:00",
-      training_type: "mixed",
     });
     expect(error).not.toBeNull();
   });
@@ -183,9 +182,6 @@ run("RLS isolation", () => {
       .insert({
         athlete_id: athleteAId,
         started_at: new Date().toISOString(),
-        duration_minutes: 60,
-        training_type: "court",
-        session_rpe: 5,
       })
       .select("id")
       .single();

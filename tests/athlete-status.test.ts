@@ -40,7 +40,6 @@ const mkSession = (over: Partial<TrainingSession> = {}): TrainingSession => ({
   group_id: null,
   started_at: "2026-10-22T16:00:00Z",
   duration_minutes: null,
-  training_type: null,
   session_rpe: null,
   session_load: null,
   created_at: "2026-10-22T16:00:00Z",

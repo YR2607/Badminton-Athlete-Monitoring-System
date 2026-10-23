@@ -20,8 +20,9 @@ PostgreSQL (Supabase). Миграции: `supabase/migrations/0001..0003`.
   шкал 1–5, блок боли (status/location/side/severity/onset/triggers/
   swelling/limitation), symptoms, client_uuid — идемпотентность.
 - **training_sessions** — started_at; с миграции 0006 duration_minutes,
-  training_type, session_rpe nullable (параметры не собираются — запись это
+  session_rpe nullable (параметры не собираются — запись это
   маркер «тренировка была», создаётся автоматически с вечерней анкетой).
+  Колонка training_type удалена миграцией 0007 (типов тренировок больше нет).
   session_load = duration×rpe (GENERATED ALWAYS → NULL для новых записей).
 - **post_training_checkins** — 1:1 с session (unique training_session_id),
   шкалы самочувствия/ног/рук, блок боли.

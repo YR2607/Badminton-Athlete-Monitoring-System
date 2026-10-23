@@ -64,10 +64,9 @@ export function buildCsv(b: ExportBundle): string {
   parts.push("## Training Sessions");
   parts.push(
     toCsv(
-      ["athlete_code", "started_at", "date", "type", "duration_min", "rpe", "session_load"],
+      ["athlete_code", "started_at", "date"],
       b.sessions.map((s) => [
         athleteLabel(b, s.athlete_id), s.started_at, localDate(new Date(s.started_at), b.timezone),
-        s.training_type, s.duration_minutes, s.session_rpe, s.session_load,
       ]),
     ),
   );
@@ -123,8 +122,6 @@ export async function buildXlsx(b: ExportBundle): Promise<Buffer> {
     ["sessions", b.sessions.length],
     ["post_checkins", b.postCheckins.length],
     ["alerts", b.alerts.length],
-    ["total_load", b.sessions.reduce((x, s) => x + (s.session_load ?? 0), 0)],
-    ["total_minutes", b.sessions.reduce((x, s) => x + (s.duration_minutes ?? 0), 0)],
   ]);
   sheet("Athletes", ["athlete_code", "display_name", "group", "birth_year", "status"],
     b.athletes.map((a) => [a.athlete_code, a.display_name ?? "", a.group_name ?? "", a.birth_year ?? "", a.status]));
@@ -138,10 +135,9 @@ export async function buildXlsx(b: ExportBundle): Promise<Buffer> {
       c.swelling ?? "", c.movement_limitation ?? "", c.symptoms ?? "", c.notes ?? "",
     ]));
   sheet("Training Sessions",
-    ["athlete_code", "started_at", "date", "type", "duration_min", "rpe", "session_load"],
+    ["athlete_code", "started_at", "date"],
     b.sessions.map((s) => [
       athleteLabel(b, s.athlete_id), s.started_at, localDate(new Date(s.started_at), b.timezone),
-      s.training_type, s.duration_minutes, s.session_rpe, s.session_load,
     ]));
   sheet("Post-Training Check-ins",
     ["athlete_code", "session_id", "submitted_at", "overall", "legs", "arms", "pain_status", "pain_location", "notes"],
@@ -182,7 +178,7 @@ export function buildHtmlReport(b: ExportBundle, title: string): string {
 <p>Generated: ${escapeHtml(b.generatedAt)} · TZ: ${escapeHtml(b.timezone)} · Range: ${escapeHtml(b.rangeFrom)} – ${escapeHtml(b.rangeTo)}</p>
 <h2>Athletes</h2>${rows(["code", "group", "year", "status"], b.athletes.map((a) => [a.athlete_code, a.group_name ?? "", a.birth_year ?? "", a.status]))}
 <h2>Morning Check-ins</h2>${rows(["code", "date", "sleep", "recovery", "fatigue", "soreness", "stress", "mood", "readiness", "pain"], b.morning.map((c) => [athleteLabel(b, c.athlete_id), c.checkin_date, c.sleep_score, c.recovery_score, c.fatigue_score, c.muscle_soreness_score, c.stress_score, c.mood_score, readinessScore(normalizeCheckin(c)), c.pain_status]))}
-<h2>Training Sessions</h2>${rows(["code", "date", "type", "min", "rpe", "load"], b.sessions.map((s) => [athleteLabel(b, s.athlete_id), localDate(new Date(s.started_at), b.timezone), s.training_type, s.duration_minutes, s.session_rpe, s.session_load]))}
+<h2>Training Sessions</h2>${rows(["code", "date"], b.sessions.map((s) => [athleteLabel(b, s.athlete_id), localDate(new Date(s.started_at), b.timezone)]))}
 <h2>Alerts</h2>${rows(["code", "rule", "severity", "status", "at"], b.alerts.map((a) => [athleteLabel(b, a.athlete_id), a.rule_code, a.severity, a.status, a.triggered_at]))}
 </body></html>`;
 }

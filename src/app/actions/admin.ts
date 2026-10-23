@@ -77,7 +77,6 @@ export async function upsertSchedule(input: {
   group_id: string;
   weekday: number;
   start_time: string;
-  training_type: string;
 }): Promise<ActionResult> {
   const me = await requireAdmin();
   if (!me) return { error: "forbidden" };
@@ -87,7 +86,6 @@ export async function upsertSchedule(input: {
     group_id: input.group_id,
     weekday: input.weekday,
     start_time: input.start_time,
-    training_type: input.training_type,
     active: true,
   };
   const { error } = input.id

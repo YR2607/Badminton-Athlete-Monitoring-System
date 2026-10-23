@@ -6,14 +6,6 @@ export type AppRole = "athlete" | "coach" | "admin";
 export type AthleteStatus = "active" | "inactive" | "archived";
 export type PainStatus = "none" | "muscle_soreness" | "joint_tendon" | "acute_instability" | "other";
 export type PainSide = "left" | "right" | "both" | "na";
-export type TrainingType =
-  | "court"
-  | "technique"
-  | "game"
-  | "physical"
-  | "strength"
-  | "recovery"
-  | "mixed";
 export type AlertSeverity = "normal" | "attention" | "review_load" | "priority";
 export type AlertStatus = "open" | "acknowledged" | "resolved" | "dismissed";
 export type ConfidenceLevel = "sufficient" | "insufficient";
@@ -68,7 +60,6 @@ export interface TrainingSchedule {
   group_id: string;
   weekday: number;
   start_time: string;
-  training_type: TrainingType;
   active: boolean;
 }
 
@@ -102,7 +93,6 @@ export interface TrainingSession {
   started_at: string;
   /** Null unless entered historically — session params are no longer collected. */
   duration_minutes: number | null;
-  training_type: TrainingType | null;
   session_rpe: number | null;
   session_load: number | null;
   created_at: string;
