@@ -98,5 +98,21 @@ export const recommendationReviewSchema = z.object({
   coach_comment: z.string().max(2000).optional(),
 });
 
+export const athleteGrowthSchema = z.object({
+  athlete_id: z.string().uuid(),
+  birth_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().or(z.literal("")),
+  sex: z.enum(["male", "female"]).optional().or(z.literal("")),
+  mother_height_cm: z.number().min(100).max(220).optional().nullable(),
+  father_height_cm: z.number().min(100).max(220).optional().nullable(),
+});
+
+export const growthMeasurementSchema = z.object({
+  athlete_id: z.string().uuid(),
+  measured_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  height_cm: z.number().min(50).max(230),
+  weight_kg: z.number().min(10).max(200).optional().nullable(),
+  sitting_height_cm: z.number().min(20).max(120).optional().nullable(),
+});
+
 export type MorningCheckinInput = z.infer<typeof morningCheckinSchema>;
 export type PostTrainingInput = z.infer<typeof postTrainingSchema>;

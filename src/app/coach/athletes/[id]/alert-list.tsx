@@ -76,6 +76,9 @@ function evidenceLines(dict: Dictionary, ev: Record<string, unknown>): string[] 
   push(L.normAvg, ev.norm_avg != null ? Math.round(Number(ev.norm_avg)) : null);
   push(L.normSd, ev.norm_sd);
   push(L.normDays, ev.norm_days);
+  push(L.growthPct, ev.growth_pct != null ? `${ev.growth_pct}%` : null);
+  push(L.velocityCmYr, ev.velocity_cm_yr);
+  push(L.band, ev.band);
   push(L.delta, ev.delta);
   push(L.daysBelow, ev.days_below_baseline);
   push(L.days, ev.days);

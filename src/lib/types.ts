@@ -28,7 +28,22 @@ export interface Athlete {
   profile_id: string;
   athlete_code: string;
   birth_year: number | null;
+  birth_date: string | null;
+  sex: "male" | "female" | null;
+  mother_height_cm: number | null;
+  father_height_cm: number | null;
   status: AthleteStatus;
+  created_at: string;
+}
+
+export interface GrowthMeasurement {
+  id: string;
+  athlete_id: string;
+  measured_on: string;
+  height_cm: number;
+  weight_kg: number | null;
+  sitting_height_cm: number | null;
+  entered_by: string | null;
   created_at: string;
 }
 

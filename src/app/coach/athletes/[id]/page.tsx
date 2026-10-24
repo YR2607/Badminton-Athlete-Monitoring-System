@@ -11,6 +11,8 @@ import { isFlagEnabled } from "@/lib/flags";
 import { dailyLoads, type SessionInput } from "@/lib/load";
 import { AthleteDashboard } from "@/components/dashboard/athlete-dashboard";
 import { RecList } from "./rec-list";
+import { GrowthPanel } from "./growth-panel";
+import { decimalAge, growthVelocity, khamisRoche, maturationCategory } from "@/lib/growth";
 import { AthleteSwitcher, type NavAthlete } from "./athlete-switcher";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +29,7 @@ import type {
   Profile,
   ReadinessSnapshot,
   Recommendation,
+  GrowthMeasurement,
   TrainingSession,
 } from "@/lib/types";
 
@@ -211,6 +214,34 @@ export default async function AthleteDetailPage({
         .order("rec_date", { ascending: false })
     : { data: null };
   const recs = (recRows as Recommendation[] | null) ?? [];
+
+  // ---- Phase 4: growth (flag 'growth') ----
+  const growthOn = await isFlagEnabled("growth", athleteGroupIds);
+  let growthMs: GrowthMeasurement[] = [];
+  if (growthOn) {
+    const { data: gRows } = await supabase
+      .from("growth_measurements")
+      .select("*")
+      .eq("athlete_id", a.id)
+      .order("measured_on", { ascending: true });
+    growthMs = (gRows as GrowthMeasurement[]) ?? [];
+  }
+  const gLast = growthMs.at(-1) ?? null;
+  const gVelocity = growthVelocity(
+    growthMs.map((g) => ({ measured_on: g.measured_on, height_cm: g.height_cm, weight_kg: g.weight_kg })),
+  );
+  const kr =
+    growthOn && a.birth_date && a.sex && gLast &&
+    a.mother_height_cm != null && a.father_height_cm != null && gLast.weight_kg != null
+      ? khamisRoche(
+          a.sex,
+          gLast.height_cm,
+          gLast.weight_kg,
+          a.mother_height_cm,
+          a.father_height_cm,
+          decimalAge(a.birth_date, today),
+        )
+      : null;
   let dashSnaps: ReadinessSnapshot[] = [];
   let dashLoads: ReturnType<typeof dailyLoads> = [];
   if (dashboardOn && (srpeOn || zscoreOn)) {
@@ -406,6 +437,18 @@ export default async function AthleteDetailPage({
       )}
 
       {recsOn && <RecList recs={recs} dict={dict} />}
+
+      {growthOn && (
+        <GrowthPanel
+          dict={dict}
+          athlete={a}
+          measurements={growthMs}
+          velocity={gVelocity}
+          pahCm={kr?.pahCm ?? null}
+          pctPah={kr?.pctPah ?? null}
+          category={kr ? maturationCategory(kr.pctPah) : null}
+        />
+      )}
 
       <div className="flex flex-wrap gap-1">
           {rangeKeys.map((k) => (

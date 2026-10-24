@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile, audit } from "@/lib/auth";
-import { coachNoteSchema, alertReviewSchema, recommendationReviewSchema } from "@/lib/validation";
+import { coachNoteSchema, alertReviewSchema, recommendationReviewSchema, athleteGrowthSchema, growthMeasurementSchema } from "@/lib/validation";
 import { evaluateAthleteDay } from "@/lib/evaluate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { localDate } from "@/lib/dates";
@@ -103,6 +103,78 @@ async function requireCoach() {
   const profile = await getCurrentProfile();
   if (!profile || !["coach", "admin"].includes(profile.role)) return null;
   return profile;
+}
+
+/**
+ * Growth section (Phase 4, flag 'growth'): coach/admin records birth date,
+ * sex and biological parents' heights (with parental consent). Coaches lack
+ * UPDATE on `athletes` by RLS, so the write goes through the service client
+ * after an explicit access check; everything lands in the audit log.
+ */
+export async function updateAthleteGrowth(input: unknown): Promise<ActionResult> {
+  const parsed = athleteGrowthSchema.safeParse(input);
+  if (!parsed.success) return { error: "validation" };
+  const profile = await requireCoach();
+  if (!profile) return { error: "forbidden" };
+
+  // Access check through RLS: returns the row only if this coach may see it.
+  const access = await athleteAccess(parsed.data.athlete_id);
+  if (!access) return { error: "forbidden" };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("athletes")
+    .update({
+      birth_date: parsed.data.birth_date || null,
+      sex: parsed.data.sex || null,
+      mother_height_cm: parsed.data.mother_height_cm ?? null,
+      father_height_cm: parsed.data.father_height_cm ?? null,
+    })
+    .eq("id", parsed.data.athlete_id);
+  if (error) return { error: error.message };
+  await audit("athlete.growth.update", "athletes", parsed.data.athlete_id, {});
+  revalidatePath(`/coach/athletes/${parsed.data.athlete_id}`);
+  return { ok: true };
+}
+
+export async function addGrowthMeasurement(input: unknown): Promise<ActionResult> {
+  const parsed = growthMeasurementSchema.safeParse(input);
+  if (!parsed.success) return { error: "validation" };
+  const profile = await requireCoach();
+  if (!profile) return { error: "forbidden" };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("growth_measurements").upsert(
+    {
+      athlete_id: parsed.data.athlete_id,
+      measured_on: parsed.data.measured_on,
+      height_cm: parsed.data.height_cm,
+      weight_kg: parsed.data.weight_kg ?? null,
+      sitting_height_cm: parsed.data.sitting_height_cm ?? null,
+      entered_by: profile.id,
+    },
+    { onConflict: "athlete_id,measured_on" },
+  );
+  if (error) return { error: error.message };
+  await audit("growth.measure", "growth_measurements", parsed.data.athlete_id, {
+    measured_on: parsed.data.measured_on,
+  });
+  // New measurement may change %PAH / velocity -> re-run the day evaluation.
+  try {
+    const tz = accessTz(parsed.data.athlete_id, profile);
+    const today = localDate(new Date(), await tz);
+    await evaluateAthleteDay(createAdminClient(), parsed.data.athlete_id, today, await tz);
+  } catch (e) {
+    console.error("evaluate_failed", e);
+  }
+  revalidatePath(`/coach/athletes/${parsed.data.athlete_id}`);
+  return { ok: true };
+}
+
+/** Resolve an athlete's timezone through the RLS-visible profile join. */
+async function accessTz(athleteId: string, fallback: { timezone: string }): Promise<string> {
+  const a = await athleteAccess(athleteId);
+  return a?.timezone ?? fallback.timezone;
 }
 
 export interface MorningFields {

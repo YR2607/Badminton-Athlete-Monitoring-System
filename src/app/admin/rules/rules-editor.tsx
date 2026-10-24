@@ -59,6 +59,11 @@ const FIELDS: Record<string, FieldDef[]> = {
     { key: "fatigue_min", min: 1, max: 10, step: 1, unit: "of10" },
   ],
   missing_morning: [{ key: "after_local_hour", min: 8, max: 18, step: 1, unit: "hour" }],
+  growth_spurt: [
+    { key: "band_low", min: 80, max: 92, step: 1, unit: "percent" },
+    { key: "band_high", min: 90, max: 99, step: 1, unit: "percent" },
+    { key: "velocity_cm_yr", min: 4, max: 20, step: 0.5 },
+  ],
 };
 
 function paramNumber(rule: AlertRule, f: FieldDef): number {

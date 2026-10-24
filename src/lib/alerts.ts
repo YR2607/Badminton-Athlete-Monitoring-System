@@ -33,6 +33,9 @@ export interface EvalContext {
   zToday?: number | null; // today's score z vs rolling norm (Phase 2)
   scoreNorm?: RollingNorm | null; // rolling 28d norm of daily score
   zscoreEnabled?: boolean; // 'zscore_baseline' feature flag
+  growthPct?: number | null; // % of predicted adult height (Phase 4)
+  growthVelocity?: number | null; // cm/year from latest two measurements
+  growthEnabled?: boolean; // 'growth' feature flag
 }
 
 export interface AlertCandidate {
@@ -72,6 +75,8 @@ const RECO: Record<string, string> = {
     "Нагрузка почти одинаковая каждый день — нет разгрузочных. Чередовать тяжёлые и лёгкие дни.",
   plan_deviation:
     "Фактическая нагрузка выше плановой несколько дней подряд. Сверить план тренировок с фактической тяжестью сессий.",
+  growth_spurt:
+    "Скачок роста — повышенный риск травм и временное падение координации. Снизить объём прыжковой работы, контролировать технику приземления.",
 };
 
 function rule(ctx: EvalContext, code: string): AlertRule | undefined {
@@ -368,6 +373,26 @@ export function evaluateAlerts(ctx: EvalContext): AlertCandidate[] {
           }, ctx.checkin?.id ?? null),
         );
       }
+    }
+  }
+
+  // ---- growth spurt (flag 'growth'): %PAH band or high velocity ----
+  const growthRule = rule(ctx, "growth_spurt");
+  if (growthRule && ctx.growthEnabled) {
+    const bandLow = num(growthRule.params.band_low, 88);
+    const bandHigh = num(growthRule.params.band_high, 95);
+    const velMax = num(growthRule.params.velocity_cm_yr, 9);
+    const inBand =
+      ctx.growthPct != null && ctx.growthPct >= bandLow && ctx.growthPct <= bandHigh;
+    const fastGrowth = ctx.growthVelocity != null && ctx.growthVelocity > velMax;
+    if (inBand || fastGrowth) {
+      out.push(
+        mk(ctx, "growth_spurt", "review_load", {
+          growth_pct: ctx.growthPct,
+          velocity_cm_yr: ctx.growthVelocity,
+          band: `${bandLow}–${bandHigh}%`,
+        }, ctx.checkin?.id ?? null),
+      );
     }
   }
 

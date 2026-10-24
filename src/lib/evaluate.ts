@@ -3,9 +3,10 @@ import { buildSnapshot, dailyConditionSeries, computeBaseline, postsByLocalDate,
 import { evaluateAlerts } from "@/lib/alerts";
 import { dailyLoads, acwrEwma, type ScheduleInput, type SessionInput } from "@/lib/load";
 import { evaluateRecommendations } from "@/lib/recommendations";
+import { decimalAge, growthVelocity, khamisRoche } from "@/lib/growth";
 import { flagEnabled } from "@/lib/flags";
 import { addDays, dateRange, localDate, localDayUtcBounds } from "@/lib/dates";
-import type { AlertRule, FeatureFlag, MorningCheckin, PostTrainingCheckin, TrainingSchedule, TrainingSession } from "@/lib/types";
+import type { AlertRule, Athlete, FeatureFlag, GrowthMeasurement, MorningCheckin, PostTrainingCheckin, TrainingSchedule, TrainingSession } from "@/lib/types";
 
 /**
  * Recompute the athlete's readiness snapshot for `date` and evaluate alert
@@ -26,7 +27,7 @@ export async function evaluateAthleteDay(
   // a UTC-midnight bound silently drops the first local hours of the window.
   const windowStart = localDayUtcBounds(from, timezone).start.toISOString();
 
-  const [{ data: checkins }, { data: post }, { data: rules }, { data: sessions }, { data: membership }, { data: flags }] =
+  const [{ data: checkins }, { data: post }, { data: rules }, { data: sessions }, { data: membership }, { data: flags }, { data: athleteRow }, { data: growthRows }] =
     await Promise.all([
       admin
         .from("morning_checkins")
@@ -53,6 +54,13 @@ export async function evaluateAthleteDay(
         .limit(1)
         .maybeSingle(),
       admin.from("feature_flags").select("key, enabled, group_ids"),
+      admin.from("athletes").select("*").eq("id", athleteId).maybeSingle(),
+      admin
+        .from("growth_measurements")
+        .select("*")
+        .eq("athlete_id", athleteId)
+        .order("measured_on", { ascending: false })
+        .limit(6),
     ]);
 
   const groupId = membership?.group_id ?? null;
@@ -107,6 +115,34 @@ export async function evaluateAthleteDay(
   const groupIds = groupId ? [groupId] : [];
   const loadEnabled = flagEnabled(flagRows, "srpe", groupIds);
   const zscoreEnabled = flagEnabled(flagRows, "zscore_baseline", groupIds);
+  const growthEnabled = flagEnabled(flagRows, "growth", groupIds);
+
+  // ---- Phase 4: growth & maturation (%PAH band / velocity) ----
+  let growthPct: number | null = null;
+  let growthVelocityValue: number | null = null;
+  if (growthEnabled) {
+    const ath = athleteRow as Athlete | null;
+    const ms = ((growthRows as GrowthMeasurement[] | null) ?? []).slice().reverse();
+    const last = ms.at(-1);
+    growthVelocityValue = growthVelocity(
+      ms.map((m) => ({ measured_on: m.measured_on, height_cm: m.height_cm, weight_kg: m.weight_kg })),
+    );
+    if (
+      ath?.birth_date && ath.sex && last &&
+      ath.mother_height_cm != null && ath.father_height_cm != null &&
+      last.weight_kg != null
+    ) {
+      const kr = khamisRoche(
+        ath.sex,
+        last.height_cm,
+        last.weight_kg,
+        ath.mother_height_cm,
+        ath.father_height_cm,
+        decimalAge(ath.birth_date, date),
+      );
+      growthPct = kr?.pctPah ?? null;
+    }
+  }
 
   // ---- Phase 2: rolling 28-day norms (excluding today) per item + score ----
   let zToday: number | null = null;
@@ -165,6 +201,9 @@ export async function evaluateAthleteDay(
     zToday,
     scoreNorm,
     zscoreEnabled,
+    growthPct,
+    growthVelocity: growthVelocityValue,
+    growthEnabled,
   });
 
   // ---- Phase 8: coach recommendations (flag 'recommendations') ----
@@ -176,6 +215,7 @@ export async function evaluateAthleteDay(
       acwr: loadEnabled ? (acwr?.ratio ?? null) : null,
       itemZ,
       acutePain: candidates.some((c) => c.rule_code === "acute_pain"),
+      growthPct,
     });
     if (candidates2.length > 0) {
       await admin.from("recommendations").upsert(
