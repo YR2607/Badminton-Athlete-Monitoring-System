@@ -199,9 +199,38 @@ export function CoachTable({
                 <span className={cn("text-accent", !spark.length && "invisible")}>
                   <Sparkline points={spark} width={96} height={26} />
                 </span>
-                <span className="text-xs text-muted">
-                  {d.tableSleep} {r.todayCheckin?.sleep_score ?? "—"} · {d.tableFatigue}{" "}
-                  {r.todayCheckin?.fatigue_score ?? "—"}
+                <span className="flex flex-col items-end gap-0.5">
+                  <span className="flex items-center gap-2">
+                    {r.checkinDots.map((cd) => (
+                      <span key={cd.date} className="flex gap-0.5" title={cd.date}>
+                        <span
+                          title={`${cd.date} · ${d.dotMorning}`}
+                          className={cn(
+                            "inline-block h-2.5 w-2.5 rounded-full border",
+                            cd.morning
+                              ? "border-ok bg-ok"
+                              : cd.date === r.today
+                                ? "border-warn bg-warn/30"
+                                : "border-border bg-transparent",
+                          )}
+                        />
+                        <span
+                          title={`${cd.date} · ${d.dotEvening}`}
+                          className={cn(
+                            "inline-block h-2.5 w-2.5 rounded-full border",
+                            cd.evening
+                              ? "border-accent bg-accent"
+                              : cd.hadSession
+                                ? "border-warn bg-warn/30"
+                                : "border-border bg-transparent",
+                          )}
+                        />
+                      </span>
+                    ))}
+                  </span>
+                  <span className="text-[10px] text-muted">
+                    {d.dotMorning} ● / {d.dotEvening} ●
+                  </span>
                 </span>
               </div>
 

@@ -486,6 +486,8 @@ const ru = {
     daysAgo: "дн. назад",
     pendingPost: "post-анкета не заполнена",
     schedMissed: "вероятный пропуск тренировки",
+    dotMorning: "утро",
+    dotEvening: "вечер",
     obsOf: "из",
     normReady: "Норма рассчитана",
     normPending: "Личная норма ещё не рассчитана",

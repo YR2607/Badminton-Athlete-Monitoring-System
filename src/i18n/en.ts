@@ -484,6 +484,8 @@ const en: Dictionary = {
     daysAgo: "days ago",
     pendingPost: "post check-in missing",
     schedMissed: "likely missed session",
+    dotMorning: "morning",
+    dotEvening: "evening",
     obsOf: "of",
     normReady: "Baseline computed",
     normPending: "Personal norm not yet computed",

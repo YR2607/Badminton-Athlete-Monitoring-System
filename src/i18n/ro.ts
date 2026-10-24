@@ -484,6 +484,8 @@ const ro: Dictionary = {
     daysAgo: "zile în urmă",
     pendingPost: "chestionar post lipsă",
     schedMissed: "probabil antrenament ratat",
+    dotMorning: "dimineață",
+    dotEvening: "seară",
     obsOf: "din",
     normReady: "Norma calculată",
     normPending: "Norma personală nu e încă calculată",

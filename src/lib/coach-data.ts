@@ -58,6 +58,8 @@ export interface CoachAthleteRow {
   /** Registered sessions ended >1h ago without a post-training check-in. */
   pendingPostCount: number;
   missedYesterday: boolean;
+  /** Last 7 days (oldest → today): morning/evening check-in presence for dots. */
+  checkinDots: { date: string; morning: boolean; evening: boolean; hadSession: boolean }[];
   series: { date: string; score: number }[];
 }
 
@@ -246,6 +248,17 @@ export async function coachDashboard(
       scheduledMissedYesterday,
       pendingPostCount,
       missedYesterday: !list.some((c) => c.checkin_date === yesterday),
+      checkinDots: Array.from({ length: 7 }, (_, i) => {
+        const date = addDays(today, i - 6);
+        return {
+          date,
+          morning: list.some((c) => c.checkin_date === date),
+          evening: postByDate.has(date),
+          hadSession: aSessions.some(
+            (s) => localDate(new Date(s.started_at), athleteTz) === date,
+          ),
+        };
+      }),
       series: series.filter((s) => s.date >= since14),
     };
   });
