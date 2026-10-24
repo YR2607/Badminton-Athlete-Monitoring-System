@@ -114,7 +114,7 @@ export async function AppShell({
           </div>
         </div>
       )}
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-24 md:pb-6">{children}</main>
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-28 md:pb-6">{children}</main>
 
       {/* Mobile bottom tab bar */}
       <BottomNav primary={primary} overflow={overflow} moreLabel={dict.nav.more} />
