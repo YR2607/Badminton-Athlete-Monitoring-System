@@ -87,6 +87,19 @@ describe("acwrEwma", () => {
   it("returns null when chronic load is ~0", () => {
     expect(acwrEwma(Array(30).fill(0))).toBeNull();
   });
+
+  it("returns null when a single session sits in a long zero window", () => {
+    // Regression: 41-day window with training only yesterday+today must not
+    // produce an ACWR spike — history counts from the first non-zero load.
+    const loads = [...Array(39).fill(0), 0, 840];
+    expect(acwrEwma(loads)).toBeNull();
+  });
+
+  it("counts history from the first non-zero load, not the window start", () => {
+    const loads = [...Array(20).fill(0), ...Array(25).fill(300)];
+    const r = acwrEwma(loads);
+    expect(r!.days).toBe(25);
+  });
 });
 
 describe("monotony / strain", () => {

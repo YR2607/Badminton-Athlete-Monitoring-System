@@ -94,13 +94,17 @@ export interface AcwrResult {
  * or when chronic load is ~0 (ratio is meaningless at zero denominator).
  */
 export function acwrEwma(loads: number[], minDays = 21): AcwrResult | null {
-  if (loads.length < minDays) return null;
+  // History = days since the first non-zero load, not the window length —
+  // otherwise a single session after weeks of zeros yields a fake spike.
+  const firstIdx = loads.findIndex((l) => l > 0);
+  const days = firstIdx === -1 ? 0 : loads.length - firstIdx;
+  if (days < minDays) return null;
   const lAcute = 2 / (7 + 1);
   const lChronic = 2 / (28 + 1);
   const acute = ewma(loads, lAcute).at(-1)!;
   const chronic = ewma(loads, lChronic).at(-1)!;
   if (chronic < 1) return null; // practically no training — ratio would explode
-  return { acute, chronic, ratio: acute / chronic, days: loads.length };
+  return { acute, chronic, ratio: acute / chronic, days };
 }
 
 /**
@@ -109,12 +113,13 @@ export function acwrEwma(loads: number[], minDays = 21): AcwrResult | null {
  * suppressed as meaningless.
  */
 export function acwrSeries(loads: number[], minDays = 21): (number | null)[] {
+  const firstIdx = loads.findIndex((l) => l > 0);
   const lAcute = 2 / (7 + 1);
   const lChronic = 2 / (28 + 1);
   const acute = ewma(loads, lAcute);
   const chronic = ewma(loads, lChronic);
   return loads.map((_, i) => {
-    if (i + 1 < minDays || chronic[i] < 1) return null;
+    if (firstIdx === -1 || i - firstIdx + 1 < minDays || chronic[i] < 1) return null;
     return acute[i] / chronic[i];
   });
 }
