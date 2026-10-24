@@ -74,6 +74,7 @@ const ru = {
     report: "Отчёт",
     notifications: "Уведомления",
     guide: "Справка",
+    more: "Ещё",
   },
   athleteHome: {
     greeting: "Привет",

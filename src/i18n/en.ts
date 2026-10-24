@@ -73,6 +73,7 @@ const en: Dictionary = {
     report: "Report",
     notifications: "Notifications",
     guide: "Guide",
+    more: "More",
   },
   athleteHome: {
     greeting: "Hi",

@@ -73,6 +73,7 @@ const ro: Dictionary = {
     report: "Raport",
     notifications: "Notificări",
     guide: "Ghid",
+    more: "Mai mult",
   },
   athleteHome: {
     greeting: "Salut",
