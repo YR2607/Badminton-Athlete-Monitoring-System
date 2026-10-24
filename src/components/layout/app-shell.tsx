@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Dictionary } from "@/i18n";
 import type { AppRole } from "@/lib/types";
@@ -66,7 +67,7 @@ export function navItems(role: AppRole, d: Dictionary): { href: string; label: s
   ];
 }
 
-export function AppShell({
+export async function AppShell({
   role,
   displayName,
   dict,
@@ -78,6 +79,7 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const items = navItems(role, dict);
+  const impersonating = (await cookies()).has("rm-impersonating");
   return (
     <div className="min-h-full flex flex-col">
       <header className="sticky top-0 z-30 border-b border-border bg-surface/95 backdrop-blur">
@@ -113,6 +115,21 @@ export function AppShell({
           </div>
         </div>
       </header>
+      {impersonating && (
+        <div className="border-b border-accent/30 bg-accent/10">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2 text-sm">
+            <span className="truncate">
+              {dict.common.impersonatingBanner} <b>{displayName}</b>
+            </span>
+            <Link
+              href="/auth/impersonation-exit"
+              className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground"
+            >
+              {dict.common.exitImpersonation}
+            </Link>
+          </div>
+        </div>
+      )}
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-24 md:pb-6">{children}</main>
 
       {/* Mobile bottom tab bar */}

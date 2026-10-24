@@ -30,6 +30,8 @@ const en: Dictionary = {
     noResults: "Nothing found",
     insufficientData: "Not enough data yet",
     signOut: "Sign out",
+    impersonatingBanner: "You are signed in as",
+    exitImpersonation: "Back to my account",
     athlete: "Athlete",
     coach: "Coach",
     admin: "Admin",
@@ -460,7 +462,7 @@ const en: Dictionary = {
     newPasswordBtn: "New password",
     loginAs: "Sign in as",
     loginAsConfirm:
-      "You will be signed in as {name}. Your admin session will be replaced — to get back, sign out and sign in with your own account.",
+      "You will sign in as {name} and see the app through their eyes. Your session is kept — use the button at the top of the page to return.",
     credentialsTitle: "Sign-in credentials",
     credentialsHint: "Password is shown once — pass it to the athlete or parent.",
     copy: "Copy",

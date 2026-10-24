@@ -30,6 +30,8 @@ const ro: Dictionary = {
     noResults: "Nimic găsit",
     insufficientData: "Date insuficiente deocamdată",
     signOut: "Ieșire",
+    impersonatingBanner: "Sunteți autentificat ca",
+    exitImpersonation: "Înapoi la contul meu",
     athlete: "Sportiv",
     coach: "Antrenor",
     admin: "Administrator",
@@ -460,7 +462,7 @@ const ro: Dictionary = {
     newPasswordBtn: "Parolă nouă",
     loginAs: "Intră ca",
     loginAsConfirm:
-      "Vei fi autentificat ca {name}. Sesiunea de administrator va fi înlocuită — pentru a reveni, deconectează-te și autentifică-te cu contul tău.",
+      "Vei fi autentificat ca {name} și vei vedea aplicația cu ochii lui. Sesiunea ta se păstrează — revii din butonul de sus al paginii.",
     credentialsTitle: "Date de autentificare",
     credentialsHint: "Parola se afișează o singură dată — transmite-o sportivului sau părintelui.",
     copy: "Copiază",

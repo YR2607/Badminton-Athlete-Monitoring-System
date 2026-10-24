@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -49,6 +50,9 @@ export async function signIn(
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
+  const store = await cookies();
+  store.delete("rm-impersonator");
+  store.delete("rm-impersonating");
 }
 
 export async function requestPasswordReset(
@@ -236,6 +240,27 @@ export async function adminImpersonate(
   const { data: targetUser } = await admin.auth.admin.getUserById(target.user_id);
   const email = targetUser?.user?.email;
   if (!email) return { error: "not_found" };
+
+  // Stash the admin's own session so /auth/impersonation-exit can restore it
+  // with one click — no password prompt on the way back.
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (session) {
+    const store = await cookies();
+    const opts = {
+      path: "/",
+      sameSite: "lax" as const,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 8,
+    };
+    store.set(
+      "rm-impersonator",
+      JSON.stringify({ at: session.access_token, rt: session.refresh_token }),
+      { ...opts, httpOnly: true },
+    );
+    store.set("rm-impersonating", "1", opts);
+  }
 
   const { data, error } = await admin.auth.admin.generateLink({
     type: "magiclink",
