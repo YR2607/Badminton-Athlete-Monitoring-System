@@ -103,6 +103,22 @@ export function acwrEwma(loads: number[], minDays = 21): AcwrResult | null {
   return { acute, chronic, ratio: acute / chronic, days: loads.length };
 }
 
+/**
+ * Per-day ACWR series for charts: one ratio per day starting from `minDays`
+ * of history; earlier positions are null. Ratio < ~0 while chronic ≈ 0 is
+ * suppressed as meaningless.
+ */
+export function acwrSeries(loads: number[], minDays = 21): (number | null)[] {
+  const lAcute = 2 / (7 + 1);
+  const lChronic = 2 / (28 + 1);
+  const acute = ewma(loads, lAcute);
+  const chronic = ewma(loads, lChronic);
+  return loads.map((_, i) => {
+    if (i + 1 < minDays || chronic[i] < 1) return null;
+    return acute[i] / chronic[i];
+  });
+}
+
 /** Foster monotony for a 7-day window: mean / population SD. Null if SD ~ 0. */
 export function monotony(loads7: number[]): number | null {
   if (loads7.length < 7) return null;

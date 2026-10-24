@@ -117,6 +117,10 @@ export interface ReadinessSnapshot {
   baseline_avg: number | null;
   baseline_sd: number | null;
   baseline_version: number;
+  z_score: number | null;
+  score_norm: { avg: number; sd: number; days: number } | null;
+  item_baselines: Record<string, { avg: number; sd: number; days: number } | null> | null;
+  item_zscores: Record<string, number | null> | null;
   input_data_count: number;
   confidence: ConfidenceLevel;
   explanation: Record<string, unknown>;

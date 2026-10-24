@@ -5,6 +5,10 @@ import { getDictionary } from "@/i18n";
 import { addDays, localDate, todayInTz } from "@/lib/dates";
 import { dailyConditionSeries, postsByLocalDate, bandForScore } from "@/lib/readiness";
 import { bandAdviceKey } from "@/lib/alerts";
+import { isFlagEnabled } from "@/lib/flags";
+import { dailyLoads, type SessionInput } from "@/lib/load";
+import { dateRange } from "@/lib/dates";
+import { AthleteDashboard } from "@/components/dashboard/athlete-dashboard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +44,7 @@ export default async function AthleteHome() {
   const { data: schedules } = groupIds.length
     ? await supabase
         .from("training_schedules")
-        .select("weekday")
+        .select("weekday, planned_minutes, planned_rpe")
         .in("group_id", groupIds)
         .eq("active", true)
     : { data: [] };
@@ -70,6 +74,46 @@ export default async function AthleteHome() {
   );
   const chart7 = series.filter((p) => p.date >= addDays(today, -6));
   const chart30 = series;
+
+  // Dashboard data (behind flags; queries only run when enabled).
+  const dashboardOn = await isFlagEnabled("athlete_dashboard", groupIds);
+  const srpeOn = await isFlagEnabled("srpe", groupIds);
+  const zscoreOn = await isFlagEnabled("zscore_baseline", groupIds);
+  let snap30: ReadinessSnapshot[] = [];
+  let dayLoads: ReturnType<typeof dailyLoads> = [];
+  if (dashboardOn && (zscoreOn || srpeOn)) {
+    const since40 = addDays(today, -39);
+    const [{ data: snaps }, { data: sessions }] = await Promise.all([
+      supabase
+        .from("readiness_snapshots")
+        .select("*")
+        .eq("athlete_id", athlete.id)
+        .gte("snapshot_date", since30)
+        .order("snapshot_date", { ascending: true }),
+      supabase
+        .from("training_sessions")
+        .select("started_at, session_rpe, duration_minutes")
+        .eq("athlete_id", athlete.id)
+        .gte("started_at", `${since40}T00:00:00Z`),
+    ]);
+    snap30 = (snaps as ReadinessSnapshot[]) ?? [];
+    const sessionInputs: SessionInput[] = ((sessions as { started_at: string; session_rpe: number | null; duration_minutes: number | null }[] | null) ?? []).map(
+      (s) => ({
+        date: localDate(new Date(s.started_at), tz),
+        rpe: s.session_rpe,
+        minutes: s.duration_minutes,
+      }),
+    );
+    dayLoads = dailyLoads(
+      dateRange(since40, today),
+      sessionInputs,
+      (schedules ?? []).map((s) => ({
+        weekday: s.weekday,
+        planned_minutes: s.planned_minutes,
+        planned_rpe: s.planned_rpe,
+      })),
+    );
+  }
 
   const painToday = (todayCheckin as MorningCheckin | null)?.pain_status !== "none" && todayCheckin;
 
@@ -177,6 +221,16 @@ export default async function AthleteHome() {
           </div>
         </CardContent>
       </Card>
+
+      {dashboardOn && (srpeOn || zscoreOn) && (
+        <AthleteDashboard
+          dict={dict}
+          snapshots={snap30}
+          loads={dayLoads}
+          srpe={srpeOn}
+          zscore={zscoreOn}
+        />
+      )}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

@@ -139,6 +139,7 @@ export async function evaluateAthleteDay(
         calculated_at: new Date().toISOString(),
         ...snap,
         z_score: zToday,
+        score_norm: scoreNorm,
         item_baselines: itemBaselines,
         item_zscores: itemZ,
       },

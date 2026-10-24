@@ -36,7 +36,7 @@ export function SeriesLineChart({
   data: SeriesPoint[];
   series: SeriesDef[];
   height?: number;
-  domain?: [number, number];
+  domain?: [number | "auto", number | "auto"];
   reference?: { y: number; label?: string };
 }) {
   if (data.length === 0) return null;
@@ -74,10 +74,12 @@ export function LoadBarChart({
   data,
   height = 220,
   label,
+  plannedLabel,
 }: {
   data: SeriesPoint[];
   height?: number;
   label: string;
+  plannedLabel?: string;
 }) {
   if (data.length === 0) return null;
   return (
@@ -87,6 +89,10 @@ export function LoadBarChart({
         <XAxis dataKey="date" tick={{ fontSize: 11 }} tickMargin={6} />
         <YAxis tick={{ fontSize: 11 }} />
         <Tooltip />
+        {plannedLabel ? <Legend wrapperStyle={{ fontSize: 12 }} /> : null}
+        {plannedLabel ? (
+          <Bar dataKey="planned" name={plannedLabel} fill="#94a3b8" radius={[3, 3, 0, 0]} isAnimationActive={false} />
+        ) : null}
         <Bar dataKey="load" name={label} fill="#2563eb" radius={[3, 3, 0, 0]} isAnimationActive={false} />
       </BarChart>
     </ResponsiveContainer>
