@@ -9,6 +9,7 @@ import { isFlagEnabled } from "@/lib/flags";
 import { dailyLoads, type SessionInput } from "@/lib/load";
 import { dateRange } from "@/lib/dates";
 import { AthleteDashboard } from "@/components/dashboard/athlete-dashboard";
+import { EventsPanel } from "@/components/events-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -113,6 +114,26 @@ export default async function AthleteHome() {
         planned_rpe: s.planned_rpe,
       })),
     );
+  }
+
+  // Phase 5: context calendar (flag 'events') — own + group events.
+  const eventsOn = await isFlagEnabled("events", groupIds);
+  let eventRows: import("@/lib/types").CalendarEvent[] = [];
+  if (eventsOn) {
+    const { data: ev } = groupIds.length
+      ? await supabase
+          .from("calendar_events")
+          .select("*")
+          .or(`athlete_id.eq.${athlete.id},group_id.in.(${groupIds.join(",")})`)
+          .order("start_date", { ascending: false })
+          .limit(20)
+      : await supabase
+          .from("calendar_events")
+          .select("*")
+          .eq("athlete_id", athlete.id)
+          .order("start_date", { ascending: false })
+          .limit(20);
+    eventRows = (ev as import("@/lib/types").CalendarEvent[] | null) ?? [];
   }
 
   const painToday = (todayCheckin as MorningCheckin | null)?.pain_status !== "none" && todayCheckin;
@@ -222,6 +243,10 @@ export default async function AthleteHome() {
         </CardContent>
       </Card>
 
+      {eventsOn && (
+        <EventsPanel dict={dict} events={eventRows} athleteId={athlete.id} mode="athlete" />
+      )}
+
       {dashboardOn && (srpeOn || zscoreOn) && (
         <AthleteDashboard
           dict={dict}
@@ -229,6 +254,7 @@ export default async function AthleteHome() {
           loads={dayLoads}
           srpe={srpeOn}
           zscore={zscoreOn}
+          events={eventsOn ? eventRows : []}
         />
       )}
 

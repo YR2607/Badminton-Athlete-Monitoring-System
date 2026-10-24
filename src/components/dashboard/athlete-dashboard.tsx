@@ -4,7 +4,7 @@ import { SeriesLineChart, LoadBarChart } from "@/components/charts/series-chart"
 import { acwrSeries, type DayLoad } from "@/lib/load";
 import { MORNING_ITEM_KEYS, type MorningItemKey } from "@/lib/readiness";
 import type { Dictionary } from "@/i18n";
-import type { ReadinessSnapshot } from "@/lib/types";
+import type { CalendarEvent, ReadinessSnapshot } from "@/lib/types";
 
 /**
  * Athlete dashboard (flag 'athlete_dashboard'). Blocks that need load data
@@ -17,12 +17,14 @@ export function AthleteDashboard({
   loads,
   srpe,
   zscore,
+  events = [],
 }: {
   dict: Dictionary;
   snapshots: ReadinessSnapshot[];
   loads: DayLoad[];
   srpe: boolean;
   zscore: boolean;
+  events?: CalendarEvent[];
 }) {
   const d = dict.dashboard;
   const today = snapshots.at(-1);
@@ -65,6 +67,9 @@ export function AthleteDashboard({
 
   const itemZ = today?.item_zscores ?? null;
 
+  // Event markers on the corridor chart (x-axis is ISO snapshot_date).
+  const markers = events.map((e) => ({ date: e.start_date, label: dict.events.kinds[e.kind] }));
+
   return (
     <div className="space-y-4">
       {zscore && (
@@ -90,6 +95,7 @@ export function AthleteDashboard({
                   { key: "normLow", label: d.corrLow, color: "#94a3b8", dash: true },
                 ]}
                 domain={[0, 100]}
+                markers={markers}
               />
             )}
           </CardContent>

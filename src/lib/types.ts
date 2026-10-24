@@ -176,6 +176,20 @@ export interface Alert {
   resolution_note: string | null;
 }
 
+export type EventKind = "competition" | "camp" | "school" | "illness" | "vacation" | "other";
+
+export interface CalendarEvent {
+  id: string;
+  athlete_id: string | null;
+  group_id: string | null;
+  kind: EventKind;
+  title: string;
+  start_date: string;
+  end_date: string;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface Recommendation {
   id: string;
   athlete_id: string;

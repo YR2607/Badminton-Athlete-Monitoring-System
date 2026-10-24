@@ -27,7 +27,7 @@ export async function evaluateAthleteDay(
   // a UTC-midnight bound silently drops the first local hours of the window.
   const windowStart = localDayUtcBounds(from, timezone).start.toISOString();
 
-  const [{ data: checkins }, { data: post }, { data: rules }, { data: sessions }, { data: membership }, { data: flags }, { data: athleteRow }, { data: growthRows }] =
+  const [{ data: checkins }, { data: post }, { data: rules }, { data: sessions }, { data: membership }, { data: flags }, { data: athleteRow }, { data: growthRows }, { data: illnessRows }] =
     await Promise.all([
       admin
         .from("morning_checkins")
@@ -61,6 +61,12 @@ export async function evaluateAthleteDay(
         .eq("athlete_id", athleteId)
         .order("measured_on", { ascending: false })
         .limit(6),
+      admin
+        .from("calendar_events")
+        .select("start_date, end_date, kind")
+        .eq("athlete_id", athleteId)
+        .eq("kind", "illness")
+        .gte("end_date", from),
     ]);
 
   const groupId = membership?.group_id ?? null;
@@ -116,6 +122,7 @@ export async function evaluateAthleteDay(
   const loadEnabled = flagEnabled(flagRows, "srpe", groupIds);
   const zscoreEnabled = flagEnabled(flagRows, "zscore_baseline", groupIds);
   const growthEnabled = flagEnabled(flagRows, "growth", groupIds);
+  const eventsEnabled = flagEnabled(flagRows, "events", groupIds);
 
   // ---- Phase 4: growth & maturation (%PAH band / velocity) ----
   let growthPct: number | null = null;
@@ -151,11 +158,18 @@ export async function evaluateAthleteDay(
   let scoreNorm: ReturnType<typeof rollingNorm> = null;
   if (zscoreEnabled) {
     const from28 = addDays(date, -ROLLING_WINDOW_DAYS);
+    // Sick days are excluded from the norm when the 'events' flag is on —
+    // an illness week must not drag the personal baseline down.
+    const illness = (eventsEnabled
+      ? (illnessRows as { start_date: string; end_date: string }[] | null) ?? []
+      : []
+    ).map((e) => [e.start_date, e.end_date] as const);
+    const sick = (d: string) => illness.some(([a, b]) => d >= a && d <= b);
     const window28 = ((checkins as MorningCheckin[] | null) ?? []).filter(
-      (c) => c.checkin_date >= from28 && c.checkin_date < date,
+      (c) => c.checkin_date >= from28 && c.checkin_date < date && !sick(c.checkin_date),
     );
     const normScores = series
-      .filter((d) => d.date >= from28 && d.date < date)
+      .filter((d) => d.date >= from28 && d.date < date && !sick(d.date))
       .map((d) => d.score);
     scoreNorm = rollingNorm(normScores, SD_FLOOR_SCORE);
     const todayScore = series.find((d) => d.date === date)?.score ?? null;

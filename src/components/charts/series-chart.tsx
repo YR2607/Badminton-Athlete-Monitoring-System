@@ -32,12 +32,15 @@ export function SeriesLineChart({
   height = 240,
   domain,
   reference,
+  markers,
 }: {
   data: SeriesPoint[];
   series: SeriesDef[];
   height?: number;
   domain?: [number | "auto", number | "auto"];
   reference?: { y: number; label?: string };
+  /** Vertical markers (calendar events) — `date` must match the x-axis key. */
+  markers?: { date: string; label: string }[];
 }) {
   if (data.length === 0) return null;
   return (
@@ -51,6 +54,15 @@ export function SeriesLineChart({
         {reference ? (
           <ReferenceLine y={reference.y} stroke="#94a3b8" strokeDasharray="4 4" label={reference.label} />
         ) : null}
+        {(markers ?? []).map((m, i) => (
+          <ReferenceLine
+            key={`${m.date}-${i}`}
+            x={m.date}
+            stroke="#b45309"
+            strokeDasharray="3 3"
+            label={{ value: m.label, position: "insideTopRight", fontSize: 10, fill: "#b45309" }}
+          />
+        ))}
         {series.map((s) => (
           <Line
             key={s.key}

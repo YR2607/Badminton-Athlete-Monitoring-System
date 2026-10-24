@@ -106,6 +106,20 @@ export const athleteGrowthSchema = z.object({
   father_height_cm: z.number().min(100).max(220).optional().nullable(),
 });
 
+export const calendarEventSchema = z
+  .object({
+    athlete_id: z.string().uuid().nullable().optional(),
+    group_id: z.string().uuid().nullable().optional(),
+    kind: z.enum(["competition", "camp", "school", "illness", "vacation", "other"]),
+    title: z.string().trim().min(1).max(200),
+    start_date: z.string().date(),
+    end_date: z.string().date(),
+  })
+  .refine((s) => Boolean(s.athlete_id) !== Boolean(s.group_id), {
+    message: "exactly one of athlete_id / group_id",
+  })
+  .refine((s) => s.end_date >= s.start_date, { message: "end_date before start_date" });
+
 export const growthMeasurementSchema = z.object({
   athlete_id: z.string().uuid(),
   measured_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

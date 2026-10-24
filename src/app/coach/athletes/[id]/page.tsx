@@ -12,6 +12,7 @@ import { dailyLoads, type SessionInput } from "@/lib/load";
 import { AthleteDashboard } from "@/components/dashboard/athlete-dashboard";
 import { RecList } from "./rec-list";
 import { GrowthPanel } from "./growth-panel";
+import { EventsPanel } from "@/components/events-panel";
 import { decimalAge, growthVelocity, khamisRoche, maturationCategory } from "@/lib/growth";
 import { AthleteSwitcher, type NavAthlete } from "./athlete-switcher";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -214,6 +215,27 @@ export default async function AthleteDetailPage({
         .order("rec_date", { ascending: false })
     : { data: null };
   const recs = (recRows as Recommendation[] | null) ?? [];
+
+  // ---- Phase 5: context calendar (flag 'events') ----
+  const eventsOn = await isFlagEnabled("events", athleteGroupIds);
+  let eventRows: import("@/lib/types").CalendarEvent[] = [];
+  if (eventsOn) {
+    const evQuery = membership?.group_id
+      ? supabase
+          .from("calendar_events")
+          .select("*")
+          .or(`athlete_id.eq.${a.id},group_id.eq.${membership.group_id}`)
+          .order("start_date", { ascending: false })
+          .limit(30)
+      : supabase
+          .from("calendar_events")
+          .select("*")
+          .eq("athlete_id", a.id)
+          .order("start_date", { ascending: false })
+          .limit(30);
+    const { data: ev } = await evQuery;
+    eventRows = (ev as import("@/lib/types").CalendarEvent[] | null) ?? [];
+  }
 
   // ---- Phase 4: growth (flag 'growth') ----
   const growthOn = await isFlagEnabled("growth", athleteGroupIds);
@@ -433,10 +455,21 @@ export default async function AthleteDetailPage({
           loads={dashLoads}
           srpe={srpeOn}
           zscore={zscoreOn}
+          events={eventsOn ? eventRows : []}
         />
       )}
 
       {recsOn && <RecList recs={recs} dict={dict} />}
+
+      {eventsOn && (
+        <EventsPanel
+          dict={dict}
+          events={eventRows}
+          athleteId={a.id}
+          groupId={membership?.group_id ?? null}
+          mode="staff"
+        />
+      )}
 
       {growthOn && (
         <GrowthPanel
