@@ -201,14 +201,24 @@ export function conditionScore(
   return Math.round(blended * 100) / 100;
 }
 
-/** Bucket post-training check-ins by local date; latest submission per day wins. */
-export function postsByLocalDate<T extends { submitted_at: string }>(
+/**
+ * Bucket post-training check-ins by local date; latest submission per day
+ * wins. When `sessionDateById` maps check-in's training_session_id to the
+ * session's local date, that date wins over submitted_at — a check-in
+ * backfilling yesterday's session counts for yesterday.
+ */
+export function postsByLocalDate<T extends { submitted_at: string; training_session_id?: string }>(
   posts: T[],
   tz: string,
+  sessionDateById?: Map<string, string>,
 ): { date: string; post: T }[] {
   const byDate = new Map<string, T>();
   for (const p of [...posts].sort((a, b) => a.submitted_at.localeCompare(b.submitted_at))) {
-    byDate.set(localDate(new Date(p.submitted_at), tz), p);
+    const sid = p.training_session_id;
+    const date =
+      (sid ? sessionDateById?.get(sid) : undefined) ??
+      localDate(new Date(p.submitted_at), tz);
+    byDate.set(date, p);
   }
   return [...byDate].map(([date, post]) => ({ date, post }));
 }

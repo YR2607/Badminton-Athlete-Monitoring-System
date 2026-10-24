@@ -38,6 +38,11 @@ export const postTrainingSchema = z
     overall_feeling: score110,
     leg_fatigue: score110,
     arm_shoulder_fatigue: score110,
+    // sRPE load fields — optional so the flag-off rollout still validates.
+    session_rpe: z.number().int().min(0).max(10).optional(),
+    session_minutes: z.number().int().min(1).max(600).optional(),
+    // "yesterday" allows backfilling the previous day's session (24h window).
+    session_day: z.enum(["today", "yesterday"]).optional(),
     pain_status: painStatus,
     pain_location: z.string().max(200).optional().or(z.literal("")),
     pain_side: painSide.optional(),

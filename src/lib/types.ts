@@ -52,6 +52,8 @@ export interface TrainingSchedule {
   group_id: string;
   weekday: number;
   start_time: string;
+  planned_minutes: number | null;
+  planned_rpe: number | null;
   active: boolean;
 }
 
@@ -83,7 +85,6 @@ export interface TrainingSession {
   athlete_id: string;
   group_id: string | null;
   started_at: string;
-  /** Null unless entered historically — session params are no longer collected. */
   duration_minutes: number | null;
   session_rpe: number | null;
   session_load: number | null;

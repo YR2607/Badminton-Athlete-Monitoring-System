@@ -40,6 +40,19 @@ const FIELDS: Record<string, FieldDef[]> = {
   sustained_decline: [{ key: "days", min: 2, max: 7, step: 1 }],
   load_spike: [{ key: "ratio", min: 1.1, max: 3, step: 0.1, unit: "times" }],
   load_with_decline: [{ key: "load_ratio", min: 1.1, max: 2.5, step: 0.1, unit: "times" }],
+  acwr_high: [
+    { key: "threshold", min: 1.1, max: 2.5, step: 0.05, unit: "times" },
+    { key: "min_days", min: 14, max: 60, step: 1 },
+  ],
+  acwr_low: [
+    { key: "threshold", min: 0.5, max: 0.95, step: 0.05, unit: "times" },
+    { key: "min_days", min: 21, max: 90, step: 1 },
+  ],
+  monotony_high: [{ key: "threshold", min: 1.2, max: 4, step: 0.1, unit: "times" }],
+  plan_deviation: [
+    { key: "ratio", min: 1.05, max: 2, step: 0.05, unit: "times" },
+    { key: "sessions", min: 2, max: 7, step: 1 },
+  ],
   repeated_fatigue: [
     { key: "days", min: 2, max: 7, step: 1 },
     { key: "fatigue_min", min: 1, max: 10, step: 1, unit: "of10" },

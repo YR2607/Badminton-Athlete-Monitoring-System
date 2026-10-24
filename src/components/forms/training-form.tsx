@@ -17,6 +17,9 @@ const schema = z.object({
   overall_feeling: z.number().min(1).max(10),
   leg_fatigue: z.number().min(1).max(10),
   arm_shoulder_fatigue: z.number().min(1).max(10),
+  session_rpe: z.number().int().min(0).max(10).optional(),
+  session_minutes: z.number().int().min(1).max(600).optional(),
+  session_day: z.enum(["today", "yesterday"]).default("today"),
   pain_status: z.enum(["none", "muscle_soreness", "joint_tendon", "acute_instability", "other"]),
   pain_location: z.string().optional(),
   pain_side: z.enum(["left", "right", "both", "na"]).optional(),
@@ -30,7 +33,20 @@ const painValues = ["none", "muscle_soreness", "joint_tendon", "acute_instabilit
 const sideKeys = ["sideLeft", "sideRight", "sideBoth", "sideNa"] as const;
 const sideValues = ["left", "right", "both", "na"] as const;
 
-export function TrainingForm({ dict }: { dict: Dictionary }) {
+export function TrainingForm({
+  dict,
+  srpe,
+  defaultMinutes,
+  allowYesterday,
+}: {
+  dict: Dictionary;
+  /** sRPE feature flag: show RPE + minutes fields */
+  srpe: boolean;
+  /** Prefill from the group schedule */
+  defaultMinutes?: number;
+  /** Yesterday was a scheduled training day → allow backfilling it */
+  allowYesterday?: boolean;
+}) {
   const d = dict.postTraining;
   const dm = dict.morning;
   const router = useRouter();
@@ -39,10 +55,14 @@ export function TrainingForm({ dict }: { dict: Dictionary }) {
     defaultValues: {
       pain_status: "none",
       pain_triggers: [],
+      session_day: "today",
+      session_minutes: defaultMinutes,
     },
   });
 
   const painStatus = watch("pain_status");
+  const sessionDay = watch("session_day");
+  const rpe = watch("session_rpe");
 
   async function onSubmit(values: FormValues) {
     const parsed = schema.safeParse(values);
@@ -56,6 +76,9 @@ export function TrainingForm({ dict }: { dict: Dictionary }) {
         overall_feeling: values.overall_feeling,
         leg_fatigue: values.leg_fatigue,
         arm_shoulder_fatigue: values.arm_shoulder_fatigue,
+        session_rpe: srpe ? values.session_rpe : undefined,
+        session_minutes: srpe ? values.session_minutes : undefined,
+        session_day: srpe ? values.session_day : "today",
         pain_status: values.pain_status,
         pain_location: values.pain_location,
         pain_side: values.pain_side,
@@ -90,6 +113,74 @@ export function TrainingForm({ dict }: { dict: Dictionary }) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {srpe && (
+        <Card>
+          <CardContent className="space-y-4 pt-4">
+            {allowYesterday && (
+              <div>
+                <p className="mb-2 text-sm font-medium">{d.when}</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {(["today", "yesterday"] as const).map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setValue("session_day", v)}
+                      className={cn(
+                        "min-h-11 rounded-lg border text-sm font-medium",
+                        sessionDay === v
+                          ? "border-accent bg-accent/5"
+                          : "border-border hover:bg-foreground/5",
+                      )}
+                    >
+                      {v === "today" ? d.today : d.yesterday}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div>
+              <p className="mb-2 text-sm font-medium">{d.rpe}</p>
+              <Controller
+                control={control}
+                name="session_rpe"
+                render={({ field }) => (
+                  <ScaleInput
+                    min={0}
+                    max={10}
+                    value={field.value}
+                    onChange={field.onChange}
+                    lowLabel={d.rpeAnchors["0"]}
+                    highLabel={d.rpeAnchors["10"]}
+                  />
+                )}
+              />
+              {rpe != null && d.rpeAnchors[String(rpe) as keyof typeof d.rpeAnchors] && (
+                <p className="mt-1 text-center text-xs text-muted">
+                  {rpe} — {d.rpeAnchors[String(rpe) as keyof typeof d.rpeAnchors]}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="s_min">{d.minutes}</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="s_min"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={600}
+                  className="w-28"
+                  {...register("session_minutes", {
+                    setValueAs: (v) => (v === "" || v == null ? undefined : Number(v)),
+                  })}
+                />
+                <span className="text-sm text-muted">{d.minutesUnit}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardContent className="space-y-4 pt-4">
           {scale("overall_feeling", d.overallFeeling, d.feelingLow, d.feelingHigh)}

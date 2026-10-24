@@ -13,15 +13,16 @@ PostgreSQL (Supabase). Миграции: `supabase/migrations/0001..0003`.
 - **groups / group_memberships** — составы; left_at NULL = активный член
   (partial unique index на активную запись).
 - **training_schedules** — недельное расписание группы (weekday, start_time)
-  для напоминаний и «пропущенных анкет».
+  для напоминаний и «пропущенных анкет». С миграции 0011 также
+  planned_minutes/planned_rpe — плановая нагрузка сессии.
 - **morning_checkins** — одна анкета на (athlete_id, checkin_date); шесть
   шкал 1–10, блок боли (status/location/side/severity/onset/triggers/
   swelling/limitation), symptoms, client_uuid — идемпотентность.
-- **training_sessions** — started_at; с миграции 0006 duration_minutes,
-  session_rpe nullable (параметры не собираются — запись это
-  маркер «тренировка была», создаётся автоматически с вечерней анкетой).
+- **training_sessions** — started_at; duration_minutes и session_rpe
+  заполняются вечерней анкетой (фича `srpe`, с фазы 1). Допустимо
+  дозаполнение «вчерашней» сессии — анкета привязывается к дате сессии.
   Колонка training_type удалена миграцией 0007 (типов тренировок больше нет).
-  session_load = duration×rpe (GENERATED ALWAYS → NULL для новых записей).
+  session_load = duration×rpe (GENERATED ALWAYS).
 - **post_training_checkins** — 1:1 с session (unique training_session_id),
   шкалы самочувствия/ног/рук, блок боли.
 - **readiness_snapshots** — производные от анкет: score 0–100,
@@ -34,6 +35,9 @@ PostgreSQL (Supabase). Миграции: `supabase/migrations/0001..0003`.
 - **consent_records** — тип/статус/отзыв согласия (родитель/представитель).
 - **notifications** — внутренние уведомления, dedup_key, read_at.
 - **audit_logs** — кто/что/над чем, jsonb metadata. Читают только админы.
+- **feature_flags** — включение новых модулей: key, enabled, group_ids
+  (пустой массив = для всех групп). Управление — `/admin/features`
+  (миграция 0010).
 
 ## RLS-политики (сводка)
 

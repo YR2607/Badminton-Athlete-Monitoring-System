@@ -42,6 +42,8 @@ export function GroupsManager({
   const [schedGroup, setSchedGroup] = useState("");
   const [weekday, setWeekday] = useState("1");
   const [startTime, setStartTime] = useState("16:00");
+  const [plannedMinutes, setPlannedMinutes] = useState("90");
+  const [plannedRpe, setPlannedRpe] = useState("5");
   const [busy, setBusy] = useState(false);
 
   const run = async (fn: () => Promise<{ ok?: boolean; error?: string }>) => {
@@ -142,10 +144,42 @@ export function GroupsManager({
               <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label>{d.plannedMinutes}</Label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={600}
+                value={plannedMinutes}
+                onChange={(e) => setPlannedMinutes(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>{d.plannedRpe}</Label>
+              <Input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={10}
+                value={plannedRpe}
+                onChange={(e) => setPlannedRpe(e.target.value)}
+              />
+            </div>
+          </div>
           <Button
             disabled={busy || !schedGroup}
             onClick={() =>
-              run(() => upsertSchedule({ group_id: schedGroup, weekday: Number(weekday), start_time: startTime }))
+              run(() =>
+                upsertSchedule({
+                  group_id: schedGroup,
+                  weekday: Number(weekday),
+                  start_time: startTime,
+                  planned_minutes: plannedMinutes ? Number(plannedMinutes) : null,
+                  planned_rpe: plannedRpe ? Number(plannedRpe) : null,
+                }),
+              )
             }
           >
             {dict.common.save}
@@ -155,6 +189,9 @@ export function GroupsManager({
               <li key={s.id} className="flex items-center justify-between py-2">
                 <span>
                   {groups.find((g) => g.id === s.group_id)?.name} · {d.weekdays[s.weekday]} {s.start_time.slice(0, 5)}
+                  {s.planned_minutes != null &&
+                    ` · ${s.planned_minutes}${dict.postTraining.minutesUnit}`}
+                  {s.planned_rpe != null && ` · RPE ${s.planned_rpe}`}
                 </span>
                 <Button size="sm" variant="ghost" onClick={() => run(() => deleteSchedule(s.id))}>
                   {dict.common.delete}

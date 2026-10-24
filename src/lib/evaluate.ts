@@ -1,8 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildSnapshot, dailyConditionSeries, computeBaseline, postsByLocalDate } from "@/lib/readiness";
 import { evaluateAlerts } from "@/lib/alerts";
-import { addDays, localDate, localDayUtcBounds } from "@/lib/dates";
-import type { AlertRule, MorningCheckin, PostTrainingCheckin } from "@/lib/types";
+import { dailyLoads, type ScheduleInput, type SessionInput } from "@/lib/load";
+import { flagEnabled } from "@/lib/flags";
+import { addDays, dateRange, localDate, localDayUtcBounds } from "@/lib/dates";
+import type { AlertRule, FeatureFlag, MorningCheckin, PostTrainingCheckin, TrainingSchedule, TrainingSession } from "@/lib/types";
 
 /**
  * Recompute the athlete's readiness snapshot for `date` and evaluate alert
@@ -23,7 +25,7 @@ export async function evaluateAthleteDay(
   // a UTC-midnight bound silently drops the first local hours of the window.
   const windowStart = localDayUtcBounds(from, timezone).start.toISOString();
 
-  const [{ data: checkins }, { data: post }, { data: rules }] =
+  const [{ data: checkins }, { data: post }, { data: rules }, { data: sessions }, { data: membership }, { data: flags }] =
     await Promise.all([
       admin
         .from("morning_checkins")
@@ -37,7 +39,38 @@ export async function evaluateAthleteDay(
         .eq("athlete_id", athleteId)
         .gte("submitted_at", windowStart),
       admin.from("alert_rules").select("*").eq("enabled", true),
+      admin
+        .from("training_sessions")
+        .select("id, started_at, session_rpe, duration_minutes, group_id")
+        .eq("athlete_id", athleteId)
+        .gte("started_at", windowStart),
+      admin
+        .from("group_memberships")
+        .select("group_id")
+        .eq("athlete_id", athleteId)
+        .is("left_at", null)
+        .limit(1)
+        .maybeSingle(),
+      admin.from("feature_flags").select("key, enabled, group_ids"),
     ]);
+
+  const groupId = membership?.group_id ?? null;
+  const { data: schedules } = groupId
+    ? await admin
+        .from("training_schedules")
+        .select("weekday, planned_minutes, planned_rpe")
+        .eq("group_id", groupId)
+        .eq("active", true)
+    : { data: null };
+
+  // Check-ins are bucketed by the session's local date, not submitted_at —
+  // a backfilled questionnaire belongs to the day it describes.
+  const sessionDateById = new Map(
+    ((sessions as TrainingSession[] | null) ?? []).map((s) => [
+      s.id,
+      localDate(new Date(s.started_at), timezone),
+    ]),
+  );
 
   const todayCheckin =
     (checkins as MorningCheckin[] | null)?.find((c) => c.checkin_date === date) ?? null;
@@ -46,7 +79,7 @@ export async function evaluateAthleteDay(
   const postsAll = ((post as PostTrainingCheckin[]) ?? []).filter(
     (p) => localDate(new Date(p.submitted_at), timezone) >= from,
   );
-  const postEntries = postsByLocalDate(postsAll, timezone);
+  const postEntries = postsByLocalDate(postsAll, timezone, sessionDateById);
   const postByDate = new Map(postEntries.map((e) => [e.date, e.post]));
 
   // Baseline: earliest window of daily scores (first 14 days with data).
@@ -69,6 +102,25 @@ export async function evaluateAthleteDay(
     );
   }
 
+  // Daily load series (sRPE x minutes) + plan from the group schedule.
+  const sessionInputs: SessionInput[] = ((sessions as TrainingSession[] | null) ?? []).map(
+    (s) => ({
+      date: sessionDateById.get(s.id)!,
+      rpe: s.session_rpe,
+      minutes: s.duration_minutes,
+    }),
+  );
+  const loads = dailyLoads(
+    dateRange(from, date),
+    sessionInputs,
+    ((schedules as TrainingSchedule[] | null) ?? []) as ScheduleInput[],
+  );
+  const loadEnabled = flagEnabled(
+    ((flags as FeatureFlag[] | null) ?? []),
+    "srpe",
+    groupId ? [groupId] : [],
+  );
+
   const candidates = evaluateAlerts({
     athleteId,
     today: date,
@@ -81,6 +133,8 @@ export async function evaluateAthleteDay(
     baseline,
     postCheckins: postsAll,
     rules: (rules as AlertRule[]) ?? [],
+    loads,
+    loadEnabled,
   });
 
   for (const a of candidates) {

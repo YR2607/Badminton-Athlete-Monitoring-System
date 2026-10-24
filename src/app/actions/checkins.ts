@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile, getCurrentAthlete, audit } from "@/lib/auth";
 import { evaluateAthleteDay } from "@/lib/evaluate";
-import { localDate } from "@/lib/dates";
+import { addDays, localDate } from "@/lib/dates";
+import { isFlagEnabled } from "@/lib/flags";
 import { morningCheckinSchema, postTrainingSchema } from "@/lib/validation";
 
 export type ActionResult = { ok?: boolean; error?: string };
@@ -67,9 +68,10 @@ export async function submitMorningCheckin(input: unknown): Promise<ActionResult
 }
 
 /**
- * Evening check-in: the athlete reports post-training wellness only. The
- * session row is auto-created as a "training happened" marker — athletes
- * never enter duration/RPE, so no load is computed from it.
+ * Evening check-in: post-training wellness plus (behind the `srpe` flag)
+ * session RPE 0-10 and minutes, which feed session_load = rpe x min.
+ * `session_day: "yesterday"` backfills the previous day's session within
+ * the 24h validity window.
  */
 export async function submitEveningCheckin(input: unknown): Promise<ActionResult> {
   const parsed = postTrainingSchema.safeParse(input);
@@ -87,12 +89,28 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
     .limit(1)
     .maybeSingle();
 
+  const srpeOn = await isFlagEnabled(
+    "srpe",
+    membership?.group_id ? [membership.group_id] : [],
+  );
+
+  // Backfill: allow yesterday's session only (older answers are unreliable).
+  const today = localDate(new Date(), profile.timezone);
+  const sessionDate =
+    srpeOn && parsed.data.session_day === "yesterday" ? addDays(today, -1) : today;
+  const startedAt =
+    sessionDate === today
+      ? new Date().toISOString()
+      : `${sessionDate}T18:00:00Z`; // placeholder time for backfilled sessions
+
   const { data: inserted, error: sErr } = await supabase
     .from("training_sessions")
     .insert({
       athlete_id: athlete.id,
       group_id: membership?.group_id ?? null,
-      started_at: new Date().toISOString(),
+      started_at: startedAt,
+      session_rpe: srpeOn ? (parsed.data.session_rpe ?? null) : null,
+      duration_minutes: srpeOn ? (parsed.data.session_minutes ?? null) : null,
       client_uuid: parsed.data.client_uuid,
     })
     .select("id")
@@ -129,9 +147,10 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
   });
   if (error) return { error: error.code === "23505" ? "duplicate" : error.message };
 
-  const date = localDate(new Date(), profile.timezone);
   try {
-    await evaluateAthleteDay(createAdminClient(), athlete.id, date, profile.timezone);
+    // Recompute the session's day — for backfills that's yesterday, so its
+    // snapshot folds in the evening questionnaire too.
+    await evaluateAthleteDay(createAdminClient(), athlete.id, sessionDate, profile.timezone);
   } catch (e) {
     console.error("evaluate_failed", e);
   }

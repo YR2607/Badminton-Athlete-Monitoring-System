@@ -1,11 +1,13 @@
 import { getCurrentAthlete, getCurrentProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getDictionary } from "@/i18n";
-import { localDate, todayInTz } from "@/lib/dates";
+import { localDate, todayInTz, addDays } from "@/lib/dates";
+import { isFlagEnabled } from "@/lib/flags";
+import { weekdayOf } from "@/lib/load";
 import { TrainingForm } from "@/components/forms/training-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2 } from "lucide-react";
-import type { PostTrainingCheckin } from "@/lib/types";
+import type { PostTrainingCheckin, TrainingSchedule } from "@/lib/types";
 
 export default async function TrainingPage() {
   const profile = (await getCurrentProfile())!;
@@ -13,12 +15,40 @@ export default async function TrainingPage() {
   const dict = getDictionary(profile.preferred_language);
   const supabase = await createClient();
   const today = todayInTz(profile.timezone);
+  const yesterday = addDays(today, -1);
 
-  const { data: posts } = await supabase
-    .from("post_training_checkins")
-    .select("id, submitted_at")
-    .eq("athlete_id", athlete.id)
-    .gte("submitted_at", `${today}T00:00:00Z`);
+  const [{ data: posts }, { data: membership }] = await Promise.all([
+    supabase
+      .from("post_training_checkins")
+      .select("id, submitted_at")
+      .eq("athlete_id", athlete.id)
+      .gte("submitted_at", `${addDays(today, -1)}T00:00:00Z`),
+    supabase
+      .from("group_memberships")
+      .select("group_id")
+      .eq("athlete_id", athlete.id)
+      .is("left_at", null)
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  const groupId = membership?.group_id ?? null;
+  const [srpe, { data: schedules }] = await Promise.all([
+    isFlagEnabled("srpe", groupId ? [groupId] : []),
+    groupId
+      ? supabase
+          .from("training_schedules")
+          .select("*")
+          .eq("group_id", groupId)
+          .eq("active", true)
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const rows = (schedules as TrainingSchedule[] | null) ?? [];
+  const todayRows = rows.filter((s) => s.weekday === weekdayOf(today));
+  const yesterdayRows = rows.filter((s) => s.weekday === weekdayOf(yesterday));
+  const defaultMinutes =
+    todayRows.find((s) => s.planned_minutes != null)?.planned_minutes ?? undefined;
 
   const doneToday = ((posts as PostTrainingCheckin[]) ?? []).some(
     (p) => localDate(new Date(p.submitted_at), profile.timezone) === today,
@@ -40,7 +70,12 @@ export default async function TrainingPage() {
         </Card>
       )}
 
-      <TrainingForm dict={dict} />
+      <TrainingForm
+        dict={dict}
+        srpe={srpe}
+        defaultMinutes={defaultMinutes}
+        allowYesterday={yesterdayRows.length > 0}
+      />
     </div>
   );
 }

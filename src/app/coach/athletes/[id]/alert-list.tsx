@@ -77,6 +77,21 @@ function evidenceLines(dict: Dictionary, ev: Record<string, unknown>): string[] 
   push(L.days, ev.days);
   push(L.scores, dayScores(ev.recent_scores, "score"));
   push(L.fatigueScores, dayScores(ev.fatigue_scores, "fatigue"));
+  push(L.acwr, ev.acwr);
+  push(L.acuteLoad, ev.acute_load);
+  push(L.chronicLoad, ev.chronic_load);
+  push(L.monotony, ev.monotony);
+  push(L.weeklyLoad, ev.weekly_load);
+  push(L.streak, ev.streak);
+  push(L.sessionsFactPlan, dayScores(ev.daily_loads, "load"));
+  push(
+    L.sessionsFactPlan,
+    Array.isArray(ev.sessions)
+      ? (ev.sessions as Record<string, unknown>[])
+          .map((s) => `${s.date}: ${s.load}${s.planned != null ? ` / ${s.planned}` : ""}`)
+          .join(" · ")
+      : null,
+  );
   push(L.date, ev.date ?? ev.checkin_date);
   if (typeof ev.local_minutes === "number") {
     const hh = String(Math.floor(ev.local_minutes / 60)).padStart(2, "0");

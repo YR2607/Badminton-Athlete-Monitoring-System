@@ -5,6 +5,7 @@ import type {
   PostTrainingCheckin,
 } from "@/lib/types";
 import type { Baseline } from "@/lib/readiness";
+import { acwrEwma, monotony, planOverrunStreak, type DayLoad } from "@/lib/load";
 import { addDays, localDate } from "@/lib/dates";
 
 /**
@@ -27,6 +28,8 @@ export interface EvalContext {
   baseline: Baseline | null;
   postCheckins: PostTrainingCheckin[]; // recent ~14d
   rules: AlertRule[]; // enabled rules
+  loads?: DayLoad[]; // per-day sRPE load, ascending by date
+  loadEnabled?: boolean; // 'srpe' feature flag for this athlete's group
 }
 
 export interface AlertCandidate {
@@ -58,6 +61,14 @@ const RECO: Record<string, string> = {
     "Состояние хуже личной нормы несколько дней подряд. Пересмотреть ближайшую нагрузку и обсудить восстановление.",
   repeated_fatigue:
     "Высокая субъективная усталость несколько дней подряд. Проверить сон и восстановление, рассмотреть лёгкий день.",
+  acwr_high:
+    "Нагрузка выросла быстрее, чем спортсмен адаптировался (ACWR). Снизить объём/интенсивность на 2–3 дня, без резких скачков.",
+  acwr_low:
+    "Нагрузка заметно ниже привычной — спортсмен детренируется. Рассмотреть постепенное добавление объёма.",
+  monotony_high:
+    "Нагрузка почти одинаковая каждый день — нет разгрузочных. Чередовать тяжёлые и лёгкие дни.",
+  plan_deviation:
+    "Фактическая нагрузка выше плановой несколько дней подряд. Сверить план тренировок с фактической тяжестью сессий.",
 };
 
 function rule(ctx: EvalContext, code: string): AlertRule | undefined {
@@ -66,6 +77,10 @@ function rule(ctx: EvalContext, code: string): AlertRule | undefined {
 
 function num(v: unknown, dflt: number): number {
   return typeof v === "number" && Number.isFinite(v) ? v : dflt;
+}
+
+function round2(v: number): number {
+  return Math.round(v * 100) / 100;
 }
 
 function mk(
@@ -268,6 +283,70 @@ export function evaluateAlerts(ctx: EvalContext): AlertCandidate[] {
           })),
         }, ctx.checkin?.id ?? null),
       );
+    }
+  }
+
+  // ---- load-based rules (gated by the 'srpe' feature flag) ----
+  const loads = ctx.loads ?? [];
+  if (ctx.loadEnabled && loads.length > 0) {
+    const loadSeries = loads.map((d) => d.load);
+
+    const acwrHigh = rule(ctx, "acwr_high");
+    const acwrLow = rule(ctx, "acwr_low");
+    if (acwrHigh || acwrLow) {
+      const minDaysHigh = num(acwrHigh?.params.min_days, 21);
+      const minDaysLow = num(acwrLow?.params.min_days, 28);
+      const acwr = acwrEwma(loadSeries, Math.min(minDaysHigh, minDaysLow));
+      if (acwr) {
+        const evidence = {
+          acwr: round2(acwr.ratio),
+          acute_load: round2(acwr.acute),
+          chronic_load: round2(acwr.chronic),
+          days: acwr.days,
+        };
+        if (acwrHigh && acwr.days >= minDaysHigh && acwr.ratio > num(acwrHigh.params.threshold, 1.5)) {
+          out.push(mk(ctx, "acwr_high", "review_load", evidence, ctx.checkin?.id ?? null));
+        }
+        if (acwrLow && acwr.days >= minDaysLow && acwr.ratio < num(acwrLow.params.threshold, 0.8)) {
+          out.push(mk(ctx, "acwr_low", "normal", evidence, ctx.checkin?.id ?? null));
+        }
+      }
+    }
+
+    const monotonyRule = rule(ctx, "monotony_high");
+    if (monotonyRule) {
+      const week = loads.slice(-7).map((d) => d.load);
+      const m = monotony(week);
+      if (m !== null && m > num(monotonyRule.params.threshold, 2.0)) {
+        out.push(
+          mk(ctx, "monotony_high", "review_load", {
+            monotony: round2(m),
+            weekly_load: week.reduce((a, b) => a + b, 0),
+            daily_loads: loads.slice(-7).map((d) => ({ date: d.date, load: d.load })),
+          }, ctx.checkin?.id ?? null),
+        );
+      }
+    }
+
+    const planRule = rule(ctx, "plan_deviation");
+    if (planRule) {
+      const ratio = num(planRule.params.ratio, 1.25);
+      const need = num(planRule.params.sessions, 3);
+      const streak = planOverrunStreak(loads, ratio);
+      if (streak >= need) {
+        const recent = loads.slice(-streak).map((d) => ({
+          date: d.date,
+          load: d.load,
+          planned: d.planned,
+        }));
+        out.push(
+          mk(ctx, "plan_deviation", "attention", {
+            streak,
+            ratio,
+            sessions: recent,
+          }, ctx.checkin?.id ?? null),
+        );
+      }
     }
   }
 

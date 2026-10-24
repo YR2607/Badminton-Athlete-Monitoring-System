@@ -181,10 +181,13 @@ async function main() {
     for (let d = DAYS - 1; d >= 0; d--) {
       const date = addDays(today, -d);
       if (!TRAIN_DAYS.includes(weekdayOf(date))) continue;
-      // Sessions carry no duration/RPE — params are no longer collected.
+      // sRPE: plausible RPE/minutes so load metrics have data to chew on.
+      const rpe = 4 + ((a.id.charCodeAt(0) + d) % 4); // 4-7
+      const minutes = 75 + ((a.id.charCodeAt(1) + d) % 4) * 15; // 75-120
       sessions.push({
         athlete_id: a.id, group_id: group.id,
         started_at: `${date}T14:00:00Z`,
+        session_rpe: rpe, duration_minutes: minutes,
         client_uuid: crypto.randomUUID(),
       });
     }

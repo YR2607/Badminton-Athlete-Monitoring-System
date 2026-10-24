@@ -47,15 +47,23 @@ export async function upsertSchedule(input: {
   group_id: string;
   weekday: number;
   start_time: string;
+  planned_minutes?: number | null;
+  planned_rpe?: number | null;
 }): Promise<ActionResult> {
   const me = await requireAdmin();
   if (!me) return { error: "forbidden" };
   if (input.weekday < 0 || input.weekday > 6) return { error: "validation" };
+  if (input.planned_minutes != null && (input.planned_minutes < 1 || input.planned_minutes > 600))
+    return { error: "validation" };
+  if (input.planned_rpe != null && (input.planned_rpe < 0 || input.planned_rpe > 10))
+    return { error: "validation" };
   const admin = createAdminClient();
   const row = {
     group_id: input.group_id,
     weekday: input.weekday,
     start_time: input.start_time,
+    planned_minutes: input.planned_minutes ?? null,
+    planned_rpe: input.planned_rpe ?? null,
     active: true,
   };
   const { error } = input.id
