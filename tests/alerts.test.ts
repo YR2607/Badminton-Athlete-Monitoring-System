@@ -20,6 +20,7 @@ const mkCheckin = (date: string, over: Partial<MorningCheckin> = {}): MorningChe
   checkin_date: date,
   submitted_at: `${date}T07:00:00Z`,
   sleep_score: 4,
+  sleep_hours: null,
   recovery_score: 4,
   fatigue_score: 2,
   muscle_soreness_score: 2,
@@ -138,6 +139,62 @@ describe("evaluateAlerts — readiness rules", () => {
       }),
     );
     expect(res.some((r) => r.rule_code === "sustained_decline" && r.severity === "review_load")).toBe(true);
+  });
+});
+
+describe("evaluateAlerts — z-score readiness_drop (Phase 2)", () => {
+  const zRule: AlertRule = {
+    id: "4z", code: "readiness_drop", severity: "attention", enabled: true,
+    params: { z_below: 1.5, sd_below: 1.0, min_abs_drop: 10 }, description: "", version: 1,
+  };
+  const norm = { avg: 70, sd: 5, days: 20 };
+
+  it("fires on z < -threshold when the flag is on and norm formed", () => {
+    const res = evaluateAlerts(
+      ctx({
+        checkin: mkCheckin(TODAY),
+        recentCheckins: [mkCheckin(TODAY)],
+        dailyReadiness: [{ date: TODAY, score: 60 }],
+        baseline: null, // z path must not need the legacy baseline
+        zscoreEnabled: true,
+        scoreNorm: norm,
+        zToday: -2,
+        rules: [zRule],
+      }),
+    );
+    const a = res.find((r) => r.rule_code === "readiness_drop");
+    expect(a).toBeDefined();
+    expect(a!.evidence.z_score).toBe(-2);
+  });
+
+  it("stays silent in the attention zone -1.5 < z < -1", () => {
+    const res = evaluateAlerts(
+      ctx({
+        checkin: mkCheckin(TODAY),
+        dailyReadiness: [{ date: TODAY, score: 64 }],
+        zscoreEnabled: true,
+        scoreNorm: norm,
+        zToday: -1.2,
+        rules: [zRule],
+      }),
+    );
+    expect(res.some((r) => r.rule_code === "readiness_drop")).toBe(false);
+  });
+
+  it("falls back to the legacy absolute rule when the norm is not formed", () => {
+    const baseline = computeBaseline(Array(10).fill(80));
+    const res = evaluateAlerts(
+      ctx({
+        checkin: mkCheckin(TODAY),
+        dailyReadiness: [{ date: TODAY, score: 60 }],
+        baseline,
+        zscoreEnabled: true, // flag on but norm not formed -> legacy path
+        scoreNorm: null,
+        zToday: null,
+        rules: [zRule],
+      }),
+    );
+    expect(res.some((r) => r.rule_code === "readiness_drop")).toBe(true);
   });
 });
 

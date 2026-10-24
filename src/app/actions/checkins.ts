@@ -30,10 +30,23 @@ export async function submitMorningCheckin(input: unknown): Promise<ActionResult
   if (parsed.data.checkin_date !== today) return { error: "invalid_date" };
 
   const supabase = await createClient();
+  const { data: membership } = await supabase
+    .from("group_memberships")
+    .select("group_id")
+    .eq("athlete_id", athlete.id)
+    .is("left_at", null)
+    .limit(1)
+    .maybeSingle();
+  const zscoreOn = await isFlagEnabled(
+    "zscore_baseline",
+    membership?.group_id ? [membership.group_id] : [],
+  );
+
   const row = {
     athlete_id: athlete.id,
     checkin_date: today,
     sleep_score: parsed.data.sleep_score,
+    sleep_hours: zscoreOn ? (parsed.data.sleep_hours ?? null) : null,
     recovery_score: parsed.data.recovery_score,
     fatigue_score: parsed.data.fatigue_score,
     muscle_soreness_score: parsed.data.muscle_soreness_score,

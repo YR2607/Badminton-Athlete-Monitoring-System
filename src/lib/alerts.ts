@@ -4,7 +4,7 @@ import type {
   MorningCheckin,
   PostTrainingCheckin,
 } from "@/lib/types";
-import type { Baseline } from "@/lib/readiness";
+import type { Baseline, RollingNorm } from "@/lib/readiness";
 import { acwrEwma, monotony, planOverrunStreak, type DayLoad } from "@/lib/load";
 import { addDays, localDate } from "@/lib/dates";
 
@@ -30,6 +30,9 @@ export interface EvalContext {
   rules: AlertRule[]; // enabled rules
   loads?: DayLoad[]; // per-day sRPE load, ascending by date
   loadEnabled?: boolean; // 'srpe' feature flag for this athlete's group
+  zToday?: number | null; // today's score z vs rolling norm (Phase 2)
+  scoreNorm?: RollingNorm | null; // rolling 28d norm of daily score
+  zscoreEnabled?: boolean; // 'zscore_baseline' feature flag
 }
 
 export interface AlertCandidate {
@@ -232,21 +235,39 @@ export function evaluateAlerts(ctx: EvalContext): AlertCandidate[] {
   const todayScore = ctx.dailyReadiness.find((d) => d.date === ctx.today)?.score ?? null;
 
   const dropRule = rule(ctx, "readiness_drop");
-  if (dropRule && ctx.baseline && todayScore !== null) {
-    const sdBelow = num(dropRule.params.sd_below, 1.0);
-    const minAbs = num(dropRule.params.min_abs_drop, 10);
-    const drop = ctx.baseline.avg - todayScore;
-    // sd==0 means a perfectly stable baseline — any drop is notable, so we
-    // also apply the absolute threshold.
-    if ((ctx.baseline.sd > 0 && drop > sdBelow * ctx.baseline.sd) || drop >= minAbs) {
-      out.push(
-        mk(ctx, "readiness_drop", "attention", {
-          today_score: todayScore,
-          baseline_avg: ctx.baseline.avg,
-          baseline_sd: ctx.baseline.sd,
-          delta: -drop,
-        }, ctx.checkin?.id ?? null),
-      );
+  if (dropRule && todayScore !== null) {
+    // Phase 2: z-score vs the rolling 28-day norm takes precedence when the
+    // flag is on and the norm has formed; the legacy baseline/absolute
+    // drop check remains as the fallback.
+    const zBelow = num(dropRule.params.z_below, 1.5);
+    if (ctx.zscoreEnabled && ctx.scoreNorm && ctx.zToday !== null && ctx.zToday !== undefined) {
+      if (ctx.zToday < -zBelow) {
+        out.push(
+          mk(ctx, "readiness_drop", "attention", {
+            z_score: ctx.zToday,
+            today_score: todayScore,
+            norm_avg: ctx.scoreNorm.avg,
+            norm_sd: ctx.scoreNorm.sd,
+            norm_days: ctx.scoreNorm.days,
+          }, ctx.checkin?.id ?? null),
+        );
+      }
+    } else if (ctx.baseline) {
+      const sdBelow = num(dropRule.params.sd_below, 1.0);
+      const minAbs = num(dropRule.params.min_abs_drop, 10);
+      const drop = ctx.baseline.avg - todayScore;
+      // sd==0 means a perfectly stable baseline — any drop is notable, so we
+      // also apply the absolute threshold.
+      if ((ctx.baseline.sd > 0 && drop > sdBelow * ctx.baseline.sd) || drop >= minAbs) {
+        out.push(
+          mk(ctx, "readiness_drop", "attention", {
+            today_score: todayScore,
+            baseline_avg: ctx.baseline.avg,
+            baseline_sd: ctx.baseline.sd,
+            delta: -drop,
+          }, ctx.checkin?.id ?? null),
+        );
+      }
     }
   }
 

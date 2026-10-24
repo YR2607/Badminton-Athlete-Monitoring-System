@@ -8,6 +8,8 @@ export const morningCheckinSchema = z
   .object({
     checkin_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     sleep_score: score110,
+    // Optional self-reported sleep duration (Phase 2, 'zscore_baseline' flag).
+    sleep_hours: z.number().min(0).max(16).multipleOf(0.5).optional().nullable(),
     recovery_score: score110,
     fatigue_score: score110,
     muscle_soreness_score: score110,

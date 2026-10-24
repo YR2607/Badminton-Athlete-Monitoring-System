@@ -34,6 +34,7 @@ const FIELDS: Record<string, FieldDef[]> = {
   illness_symptoms: [],
   joint_pain: [{ key: "min_severity", min: 1, max: 10, step: 1, unit: "of10" }],
   readiness_drop: [
+    { key: "z_below", min: 1, max: 3, step: 0.25 },
     { key: "sd_below", min: 0.5, max: 3, step: 0.25 },
     { key: "min_abs_drop", min: 5, max: 30, step: 1, unit: "points" },
   ],

@@ -13,6 +13,13 @@ import {
   MORNING_WEIGHT,
   bandForScore,
   MIN_BASELINE_OBSERVATIONS,
+  rollingNorm,
+  rollingItemNorms,
+  itemZScores,
+  zScore,
+  ROLLING_MIN_DAYS,
+  SD_FLOOR_SCORE,
+  SD_FLOOR_ITEM,
 } from "@/lib/readiness";
 import type { MorningCheckin, PostTrainingCheckin } from "@/lib/types";
 
@@ -22,6 +29,7 @@ const mkCheckin = (over: Partial<MorningCheckin> = {}): MorningCheckin => ({
   checkin_date: "2026-10-20",
   submitted_at: "2026-10-20T07:00:00Z",
   sleep_score: 4,
+  sleep_hours: null,
   recovery_score: 4,
   fatigue_score: 2,
   muscle_soreness_score: 1,
@@ -175,6 +183,39 @@ describe("dailyConditionSeries", () => {
     expect(series).toHaveLength(2);
     expect(series[0].score).not.toBe(series[1].score);
     expect(series[1].score).toBe(conditionScore(mkCheckin({ checkin_date: "2026-10-21" })));
+  });
+});
+
+describe("rollingNorm / zScore", () => {
+  it("refuses a norm with too few days", () => {
+    expect(rollingNorm(Array(ROLLING_MIN_DAYS - 1).fill(70), SD_FLOOR_SCORE)).toBeNull();
+  });
+
+  it("computes mean/sd and applies the SD floor", () => {
+    const n = rollingNorm([60, 70, 80, 60, 70, 80, 60, 70, 80, 65, 75, 70], SD_FLOOR_SCORE);
+    expect(n!.days).toBe(12);
+    expect(n!.sd).toBeGreaterThan(0);
+    const flat = rollingNorm(Array(ROLLING_MIN_DAYS).fill(70), SD_FLOOR_SCORE);
+    expect(flat!.sd).toBe(SD_FLOOR_SCORE); // floor kicks in on zero variance
+  });
+
+  it("z = (value - avg) / sd, negative below the norm", () => {
+    const norm = { avg: 70, sd: 5, days: 20 };
+    expect(zScore(60, norm)).toBe(-2);
+    expect(zScore(75, norm)).toBe(1);
+    expect(zScore(60, null)).toBeNull();
+  });
+});
+
+describe("rollingItemNorms / itemZScores", () => {
+  it("builds per-item norms and flags a below-norm item", () => {
+    const past = Array.from({ length: 12 }, () => mkCheckin({ sleep_score: 8 }));
+    const norms = rollingItemNorms(past);
+    expect(norms.sleep_score!.avg).toBe(8);
+    expect(norms.sleep_score!.sd).toBe(SD_FLOOR_ITEM);
+    const today = mkCheckin({ sleep_score: 6 });
+    const z = itemZScores(today, norms);
+    expect(z.sleep_score).toBe(-4); // (6-8)/0.5
   });
 });
 

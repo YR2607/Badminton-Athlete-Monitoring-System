@@ -8,6 +8,7 @@ const mkCheckin = (date: string, over: Partial<MorningCheckin> = {}): MorningChe
   checkin_date: date,
   submitted_at: `${date}T07:00:00Z`,
   sleep_score: 4,
+  sleep_hours: null,
   recovery_score: 4,
   fatigue_score: 2,
   muscle_soreness_score: 1,

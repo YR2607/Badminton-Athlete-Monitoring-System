@@ -63,6 +63,7 @@ export interface MorningCheckin {
   checkin_date: string;
   submitted_at: string;
   sleep_score: number;
+  sleep_hours: number | null;
   recovery_score: number;
   fatigue_score: number;
   muscle_soreness_score: number;

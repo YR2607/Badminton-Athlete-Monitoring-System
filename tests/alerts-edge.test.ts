@@ -19,7 +19,7 @@ const mkCheckin = (date: string, over: Partial<MorningCheckin> = {}): MorningChe
   athlete_id: "a1",
   checkin_date: date,
   submitted_at: `${date}T07:00:00Z`,
-  sleep_score: 4, recovery_score: 4, fatigue_score: 2,
+  sleep_score: 4, sleep_hours: null, recovery_score: 4, fatigue_score: 2,
   muscle_soreness_score: 2, stress_score: 2, mood_score: 4,
   pain_status: "none", pain_location: null, pain_side: null,
   pain_severity: null, pain_onset: null, pain_triggers: [],

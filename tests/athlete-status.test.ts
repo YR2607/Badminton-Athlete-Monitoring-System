@@ -16,6 +16,7 @@ const mkCheckin = (over: Partial<MorningCheckin> = {}): MorningCheckin => ({
   checkin_date: "2026-10-22",
   submitted_at: "2026-10-22T07:00:00Z",
   sleep_score: 4,
+  sleep_hours: null,
   recovery_score: 4,
   fatigue_score: 2,
   muscle_soreness_score: 1,

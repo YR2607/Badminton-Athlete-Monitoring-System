@@ -191,6 +191,77 @@ export function postWellnessScore(
  */
 export const MORNING_WEIGHT = 0.7;
 
+// ---- Phase 2: rolling personal norms (z-score) ----
+//
+// Norm = mean/SD over the last ROLLING_WINDOW_DAYS *excluding* today, needing
+// at least ROLLING_MIN_DAYS filled days. An SD floor keeps z-scores sane when
+// an athlete answers almost identically every day.
+export const ROLLING_WINDOW_DAYS = 28;
+export const ROLLING_MIN_DAYS = 10;
+export const SD_FLOOR_SCORE = 3; // condition-score points (of 100)
+export const SD_FLOOR_ITEM = 0.5; // raw scale points (of 10)
+
+export interface RollingNorm {
+  avg: number;
+  sd: number;
+  days: number;
+}
+
+export function rollingNorm(
+  values: number[],
+  sdFloor: number,
+  minDays = ROLLING_MIN_DAYS,
+): RollingNorm | null {
+  if (values.length < minDays) return null;
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+  const variance = values.reduce((a, b) => a + (b - avg) ** 2, 0) / values.length;
+  const sd = Math.max(Math.sqrt(variance), sdFloor);
+  return { avg: round2n(avg), sd: round2n(sd), days: values.length };
+}
+
+export function zScore(value: number, norm: RollingNorm | null): number | null {
+  if (!norm) return null;
+  return Math.round(((value - norm.avg) / norm.sd) * 1000) / 1000;
+}
+
+function round2n(v: number): number {
+  return Math.round(v * 100) / 100;
+}
+
+export const MORNING_ITEM_KEYS = [
+  "sleep_score",
+  "recovery_score",
+  "fatigue_score",
+  "muscle_soreness_score",
+  "stress_score",
+  "mood_score",
+] as const;
+export type MorningItemKey = (typeof MORNING_ITEM_KEYS)[number];
+
+/** Rolling raw-value norms for each morning questionnaire item. */
+export function rollingItemNorms(
+  checkins: MorningCheckin[],
+): Record<MorningItemKey, RollingNorm | null> {
+  const out = {} as Record<MorningItemKey, RollingNorm | null>;
+  for (const k of MORNING_ITEM_KEYS) {
+    out[k] = rollingNorm(
+      checkins.map((c) => c[k]).filter((v): v is number => v != null),
+      SD_FLOOR_ITEM,
+    );
+  }
+  return out;
+}
+
+/** Per-item z-scores for today's raw answers against their rolling norms. */
+export function itemZScores(
+  checkin: MorningCheckin,
+  norms: Record<MorningItemKey, RollingNorm | null>,
+): Record<MorningItemKey, number | null> {
+  const out = {} as Record<MorningItemKey, number | null>;
+  for (const k of MORNING_ITEM_KEYS) out[k] = zScore(checkin[k], norms[k]);
+  return out;
+}
+
 export function conditionScore(
   checkin: Parameters<typeof normalizeCheckin>[0],
   post?: Parameters<typeof postWellnessScore>[0] | null,

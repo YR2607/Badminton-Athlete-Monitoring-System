@@ -72,6 +72,10 @@ function evidenceLines(dict: Dictionary, ev: Record<string, unknown>): string[] 
   push(L.symptoms, ev.symptoms);
   push(L.todayScore, ev.today_score);
   push(L.baselineAvg, ev.baseline_avg != null ? Math.round(Number(ev.baseline_avg)) : null);
+  push(L.zScore, ev.z_score);
+  push(L.normAvg, ev.norm_avg != null ? Math.round(Number(ev.norm_avg)) : null);
+  push(L.normSd, ev.norm_sd);
+  push(L.normDays, ev.norm_days);
   push(L.delta, ev.delta);
   push(L.daysBelow, ev.days_below_baseline);
   push(L.days, ev.days);

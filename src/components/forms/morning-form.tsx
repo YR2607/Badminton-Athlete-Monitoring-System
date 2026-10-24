@@ -16,6 +16,7 @@ import type { MorningCheckin } from "@/lib/types";
 
 const schema = z.object({
   sleep_score: z.number().min(1).max(10),
+  sleep_hours: z.number().min(0).max(16).optional().nullable(),
   recovery_score: z.number().min(1).max(10),
   fatigue_score: z.number().min(1).max(10),
   muscle_soreness_score: z.number().min(1).max(10),
@@ -45,10 +46,12 @@ export function MorningForm({
   dict,
   checkinDate,
   existing,
+  showSleepHours = false,
 }: {
   dict: Dictionary;
   checkinDate: string;
   existing?: MorningCheckin | null;
+  showSleepHours?: boolean;
 }) {
   const d = dict.morning;
   const router = useRouter();
@@ -63,6 +66,7 @@ export function MorningForm({
     defaultValues: existing
       ? {
           sleep_score: existing.sleep_score,
+          sleep_hours: existing.sleep_hours ?? undefined,
           recovery_score: existing.recovery_score,
           fatigue_score: existing.fatigue_score,
           muscle_soreness_score: existing.muscle_soreness_score,
@@ -140,6 +144,28 @@ export function MorningForm({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       {scale("sleep_score", d.sleep, d.sleepLow, d.sleepHigh)}
+      {showSleepHours && (
+        <Card>
+          <CardContent className="pt-4">
+            <Label htmlFor="sleep_hours">{d.sleepHours}</Label>
+            <div className="mt-2 flex items-center gap-2">
+              <Input
+                id="sleep_hours"
+                type="number"
+                inputMode="decimal"
+                min={0}
+                max={16}
+                step={0.5}
+                className="w-28"
+                {...register("sleep_hours", {
+                  setValueAs: (v) => (v === "" || v === null || Number.isNaN(+v) ? undefined : +v),
+                })}
+              />
+              <span className="text-sm text-muted">{d.sleepHoursUnit}</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       {scale("recovery_score", d.recovery, d.recoveryLow, d.recoveryHigh)}
       {scale("fatigue_score", d.fatigue, d.fatigueLow, d.fatigueHigh)}
       {scale("muscle_soreness_score", d.soreness, d.sorenessLow, d.sorenessHigh)}

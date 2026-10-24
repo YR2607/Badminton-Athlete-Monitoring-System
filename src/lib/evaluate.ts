@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildSnapshot, dailyConditionSeries, computeBaseline, postsByLocalDate } from "@/lib/readiness";
+import { buildSnapshot, dailyConditionSeries, computeBaseline, postsByLocalDate, rollingNorm, rollingItemNorms, itemZScores, zScore, SD_FLOOR_SCORE, ROLLING_WINDOW_DAYS } from "@/lib/readiness";
 import { evaluateAlerts } from "@/lib/alerts";
 import { dailyLoads, type ScheduleInput, type SessionInput } from "@/lib/load";
 import { flagEnabled } from "@/lib/flags";
@@ -89,19 +89,6 @@ export async function evaluateAthleteDay(
     series.slice(0, 14).map((d) => d.score),
   );
 
-  if (todayCheckin) {
-    const snap = buildSnapshot(todayCheckin, history, 1, postByDate.get(date));
-    await admin.from("readiness_snapshots").upsert(
-      {
-        athlete_id: athleteId,
-        snapshot_date: date,
-        calculated_at: new Date().toISOString(),
-        ...snap,
-      },
-      { onConflict: "athlete_id,snapshot_date" },
-    );
-  }
-
   // Daily load series (sRPE x minutes) + plan from the group schedule.
   const sessionInputs: SessionInput[] = ((sessions as TrainingSession[] | null) ?? []).map(
     (s) => ({
@@ -115,11 +102,49 @@ export async function evaluateAthleteDay(
     sessionInputs,
     ((schedules as TrainingSchedule[] | null) ?? []) as ScheduleInput[],
   );
-  const loadEnabled = flagEnabled(
-    ((flags as FeatureFlag[] | null) ?? []),
-    "srpe",
-    groupId ? [groupId] : [],
-  );
+  const flagRows = (flags as FeatureFlag[] | null) ?? [];
+  const groupIds = groupId ? [groupId] : [];
+  const loadEnabled = flagEnabled(flagRows, "srpe", groupIds);
+  const zscoreEnabled = flagEnabled(flagRows, "zscore_baseline", groupIds);
+
+  // ---- Phase 2: rolling 28-day norms (excluding today) per item + score ----
+  let zToday: number | null = null;
+  let itemBaselines: Record<string, unknown> | null = null;
+  let itemZ: Record<string, number | null> | null = null;
+  let scoreNorm: ReturnType<typeof rollingNorm> = null;
+  if (zscoreEnabled) {
+    const from28 = addDays(date, -ROLLING_WINDOW_DAYS);
+    const window28 = ((checkins as MorningCheckin[] | null) ?? []).filter(
+      (c) => c.checkin_date >= from28 && c.checkin_date < date,
+    );
+    const normScores = series
+      .filter((d) => d.date >= from28 && d.date < date)
+      .map((d) => d.score);
+    scoreNorm = rollingNorm(normScores, SD_FLOOR_SCORE);
+    const todayScore = series.find((d) => d.date === date)?.score ?? null;
+    zToday = todayScore !== null ? zScore(todayScore, scoreNorm) : null;
+    const iNorms = rollingItemNorms(window28);
+    itemBaselines = Object.fromEntries(
+      Object.entries(iNorms).map(([k, v]) => [k, v ?? null]),
+    );
+    if (todayCheckin) itemZ = itemZScores(todayCheckin, iNorms);
+  }
+
+  if (todayCheckin) {
+    const snap = buildSnapshot(todayCheckin, history, 1, postByDate.get(date));
+    await admin.from("readiness_snapshots").upsert(
+      {
+        athlete_id: athleteId,
+        snapshot_date: date,
+        calculated_at: new Date().toISOString(),
+        ...snap,
+        z_score: zToday,
+        item_baselines: itemBaselines,
+        item_zscores: itemZ,
+      },
+      { onConflict: "athlete_id,snapshot_date" },
+    );
+  }
 
   const candidates = evaluateAlerts({
     athleteId,
@@ -135,6 +160,9 @@ export async function evaluateAthleteDay(
     rules: (rules as AlertRule[]) ?? [],
     loads,
     loadEnabled,
+    zToday,
+    scoreNorm,
+    zscoreEnabled,
   });
 
   for (const a of candidates) {
