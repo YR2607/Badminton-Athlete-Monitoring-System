@@ -13,6 +13,7 @@ import { AthleteDashboard } from "@/components/dashboard/athlete-dashboard";
 import { RecList } from "./rec-list";
 import { GrowthPanel } from "./growth-panel";
 import { EventsPanel } from "@/components/events-panel";
+import { OstrcHeatmap } from "@/components/ostrc-heatmap";
 import { TestsPanel } from "./tests-panel";
 import { decimalAge, growthVelocity, khamisRoche, maturationCategory } from "@/lib/growth";
 import { AthleteSwitcher, type NavAthlete } from "./athlete-switcher";
@@ -236,6 +237,24 @@ export default async function AthleteDetailPage({
           .limit(30);
     const { data: ev } = await evQuery;
     eventRows = (ev as import("@/lib/types").CalendarEvent[] | null) ?? [];
+  }
+
+  // ---- Phase 3: OSTRC-O2 (flag 'ostrc') ----
+  const ostrcOn = await isFlagEnabled("ostrc", athleteGroupIds);
+  let ostrcZones: import("@/lib/types").OstrcZone[] = [];
+  let ostrcRows: import("@/lib/types").OstrcResponse[] = [];
+  if (ostrcOn) {
+    const [{ data: zRows }, { data: oRows }] = await Promise.all([
+      supabase.from("ostrc_zones").select("*").eq("active", true).order("sort_order"),
+      supabase
+        .from("ostrc_responses")
+        .select("*")
+        .eq("athlete_id", a.id)
+        .order("week_start_date", { ascending: false })
+        .limit(60),
+    ]);
+    ostrcZones = (zRows as import("@/lib/types").OstrcZone[] | null) ?? [];
+    ostrcRows = (oRows as import("@/lib/types").OstrcResponse[] | null) ?? [];
   }
 
   // ---- Phase 6: field tests (flag 'field_tests') ----
@@ -528,6 +547,26 @@ export default async function AthleteDetailPage({
           groupId={membership?.group_id ?? null}
           mode="staff"
         />
+      )}
+
+      {ostrcOn && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{dict.ostrc.historyTitle}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {ostrcRows.length === 0 ? (
+              <p className="text-sm text-muted">{dict.common.noData}</p>
+            ) : (
+              <OstrcHeatmap
+                dict={dict}
+                lang={me.preferred_language}
+                zones={ostrcZones}
+                responses={ostrcRows}
+              />
+            )}
+          </CardContent>
+        </Card>
       )}
 
       {testsOn && fieldTests.length > 0 && (

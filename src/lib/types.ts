@@ -198,6 +198,37 @@ export interface FieldTestResult {
   created_at: string;
 }
 
+export interface OstrcZone {
+  id: string;
+  code: string;
+  name: { ru?: string; en?: string; ro?: string };
+  hint: { ru?: string; en?: string; ro?: string };
+  sort_order: number;
+  active: boolean;
+}
+
+export interface OstrcResponse {
+  id: string;
+  athlete_id: string;
+  week_start_date: string;
+  zone_code: string;
+  q1: number;
+  q2: number | null;
+  q3: number | null;
+  q4: number | null;
+  severity: number;
+  substantial: boolean;
+  any_problem: boolean;
+  onset_date: string | null;
+  days_missed: number | null;
+  informed: string[];
+  other_reason: boolean;
+  comment: string | null;
+  questionnaire_version: string;
+  locale: string | null;
+  submitted_at: string;
+}
+
 export type EventKind = "competition" | "camp" | "school" | "illness" | "vacation" | "other";
 
 export interface CalendarEvent {

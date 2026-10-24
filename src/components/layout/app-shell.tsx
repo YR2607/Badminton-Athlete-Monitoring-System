@@ -48,6 +48,7 @@ export function navGroups(role: AppRole, d: Dictionary): { primary: NavItem[]; o
       { href: "/admin/groups", label: d.nav.groups },
       { href: "/admin/features", label: d.nav.features },
       { href: "/admin/tests", label: d.nav.tests },
+      { href: "/admin/ostrc", label: d.tests.ostrcZones },
       { href: "/admin/rules", label: d.nav.rules },
       { href: "/admin/audit", label: d.nav.audit },
     ],

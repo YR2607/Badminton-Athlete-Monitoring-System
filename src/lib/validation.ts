@@ -106,6 +106,25 @@ export const athleteGrowthSchema = z.object({
   father_height_cm: z.number().min(100).max(220).optional().nullable(),
 });
 
+export const ostrcZoneResponseSchema = z.object({
+  zone_code: z.string().min(1).max(40),
+  q1: z.number().int(),
+  q2: z.number().int().nullish(),
+  q3: z.number().int().nullish(),
+  q4: z.number().int().nullish(),
+  onset_date: z.string().date().nullish(),
+  days_missed: z.number().int().min(0).max(7).nullish(),
+  informed: z.array(z.string().max(20)).max(5).default([]),
+  other_reason: z.boolean().default(false),
+  comment: z.string().trim().max(2000).nullish(),
+});
+
+export const ostrcSubmitSchema = z.object({
+  week_start_date: z.string().date(),
+  locale: z.string().max(5).optional(),
+  zones: z.array(ostrcZoneResponseSchema).min(1).max(12),
+});
+
 export const calendarEventSchema = z
   .object({
     athlete_id: z.string().uuid().nullable().optional(),

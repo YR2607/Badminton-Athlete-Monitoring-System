@@ -140,6 +140,30 @@ export default async function AthleteHome() {
     if (diff >= 3) sleepDiff = Math.round(diff);
   }
 
+  // Phase 3: weekly OSTRC-O2 survey prompt (flag 'ostrc' + parental consent).
+  const ostrcOn = await isFlagEnabled("ostrc", groupIds);
+  let ostrcDue = false;
+  if (ostrcOn) {
+    const { isoWeekMonday } = await import("@/lib/ostrc");
+    const [{ data: consent }, { data: wk }] = await Promise.all([
+      supabase
+        .from("consent_records")
+        .select("status")
+        .eq("athlete_id", athlete.id)
+        .eq("consent_type", "parental_data_processing")
+        .order("recorded_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("ostrc_responses")
+        .select("id")
+        .eq("athlete_id", athlete.id)
+        .eq("week_start_date", isoWeekMonday(today))
+        .limit(1),
+    ]);
+    ostrcDue = consent?.status === "granted" && !(wk ?? []).length;
+  }
+
   // Phase 5: context calendar (flag 'events') — own + group events.
   const eventsOn = await isFlagEnabled("events", groupIds);
   let eventRows: import("@/lib/types").CalendarEvent[] = [];
@@ -266,6 +290,17 @@ export default async function AthleteHome() {
           </div>
         </CardContent>
       </Card>
+
+      {ostrcDue && (
+        <Card className="border-accent/40 bg-accent/5">
+          <CardContent className="flex items-center justify-between gap-3 pt-4">
+            <p className="text-sm">{dict.ostrc.homeCard}</p>
+            <Link href="/athlete/ostrc">
+              <Button size="sm">{dict.ostrc.fillNow}</Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
 
       {engageOn && (streak >= 2 || sleepDiff !== null) && (
         <Card>

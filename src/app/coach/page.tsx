@@ -20,6 +20,42 @@ export default async function CoachDashboard({
   void (await searchParams);
   const { rows, groups } = await coachDashboard(supabase, profile.timezone);
 
+  // Phase 3: weekly OSTRC prevalence per zone (flag 'ostrc').
+  const { isFlagEnabled } = await import("@/lib/flags");
+  const ostrcOn = await isFlagEnabled("ostrc", null);
+  type ORow = { athlete_id: string; zone_code: string; week_start_date: string; any_problem: boolean; substantial: boolean };
+  let ostrcPrev: { zone: string; name: string; anyPct: number; subPct: number; n: number }[] = [];
+  if (ostrcOn) {
+    const ids = rows.map((r) => r.athlete.id);
+    const [{ data: zRows }, { data: oRows }] = await Promise.all([
+      supabase.from("ostrc_zones").select("*").eq("active", true).order("sort_order"),
+      ids.length
+        ? supabase
+            .from("ostrc_responses")
+            .select("athlete_id, zone_code, week_start_date, any_problem, substantial")
+            .in("athlete_id", ids)
+            .order("week_start_date", { ascending: false })
+            .limit(500)
+        : Promise.resolve({ data: [] }),
+    ]);
+    const all = (oRows as ORow[] | null) ?? [];
+    const latestWeek = all[0]?.week_start_date ?? null;
+    if (latestWeek) {
+      const wk = all.filter((r) => r.week_start_date === latestWeek);
+      ostrcPrev = (((zRows as import("@/lib/types").OstrcZone[] | null) ?? []).map((z) => {
+        const zr = wk.filter((r) => r.zone_code === z.code);
+        const n = zr.length;
+        return {
+          zone: z.code,
+          name: z.name[profile.preferred_language as "ru" | "en" | "ro"] || z.name.en || z.code,
+          n,
+          anyPct: n ? Math.round((zr.filter((r) => r.any_problem).length / n) * 100) : 0,
+          subPct: n ? Math.round((zr.filter((r) => r.substantial).length / n) * 100) : 0,
+        };
+      })).filter((z) => z.n > 0);
+    }
+  }
+
   const filled = rows.filter((r) => r.todayCheckin).length;
   const openAlerts = rows.flatMap((r) => r.openAlerts);
   const priority = rows.filter((r) => r.status === "needs_check").length;
@@ -88,6 +124,31 @@ export default async function CoachDashboard({
           </CardContent>
         </Card>
       </div>
+
+      {ostrcPrev.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{dict.ostrc.prevTitle}</CardTitle>
+            <p className="text-xs text-muted">{dict.ostrc.prevHint}</p>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-3">
+              {ostrcPrev.map((z) => (
+                <div key={z.zone} className="rounded-lg border border-border/60 px-3 py-2 text-sm">
+                  <p className="font-medium">{z.name}</p>
+                  <p className="text-xs text-muted">
+                    {dict.ostrc.anyProblem}: <b className={z.anyPct ? "text-warn" : ""}>{z.anyPct}%</b>
+                    {" · "}
+                    {dict.ostrc.substantialCap}:{" "}
+                    <b className={z.subPct ? "text-danger" : ""}>{z.subPct}%</b>
+                    {" · "}n={z.n}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
