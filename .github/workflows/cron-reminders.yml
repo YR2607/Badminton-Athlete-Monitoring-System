@@ -10,11 +10,8 @@
 name: cron-reminders
 
 on:
-  # Scheduled run is intentionally DISABLED for the pilot — reminders are
-  # deferred to the mobile-app phase; athletes fill in check-ins themselves.
-  # Re-enable by uncommenting once secrets.CRON_SECRET + vars.APP_URL are set:
-  # schedule:
-  #   - cron: "*/15 * * * *"
+  schedule:
+    - cron: "*/15 * * * *"
   workflow_dispatch: # manual "Run workflow" for smoke-testing
 
 jobs:
