@@ -6,6 +6,7 @@ import { evaluateRecommendations } from "@/lib/recommendations";
 import { decimalAge, growthVelocity, khamisRoche } from "@/lib/growth";
 import { flagEnabled } from "@/lib/flags";
 import { addDays, dateRange, localDate, localDayUtcBounds } from "@/lib/dates";
+import { getDictionary } from "@/i18n";
 import type { AlertRule, Athlete, FeatureFlag, GrowthMeasurement, MorningCheckin, PostTrainingCheckin, TrainingSchedule, TrainingSession } from "@/lib/types";
 
 /**
@@ -257,32 +258,61 @@ export async function evaluateAthleteDay(
     });
   }
 
-  // Notify all coaches about priority alerts.
-  const priorities = candidates.filter((c) => c.severity === "priority");
-  if (priorities.length > 0) {
-    const { data: coaches } = await admin
-      .from("profiles")
-      .select("id, preferred_language")
-      .eq("role", "coach");
-    const TITLES: Record<string, string> = {
-      ru: "Приоритетный сигнал",
-      en: "Priority alert",
-      ro: "Semnal prioritar",
+  // Notify coaches about every new alert — bell entry + web push.
+  // The notification dedup_key mirrors the alert dedup_key, so a push is sent
+  // only the first time a given alert fires for a given coach.
+  if (candidates.length > 0) {
+    const pushEnabled = flagEnabled(flagRows, "push", groupIds);
+    const [{ data: coaches }, { data: athProfile }] = await Promise.all([
+      admin
+        .from("profiles")
+        .select("id, preferred_language")
+        .in("role", ["coach", "admin"]),
+      admin
+        .from("profiles")
+        .select("display_name")
+        .eq("id", (athleteRow as Athlete | null)?.profile_id ?? "")
+        .maybeSingle(),
+    ]);
+    const athleteName =
+      athProfile?.display_name ?? (athleteRow as Athlete | null)?.athlete_code ?? "";
+    const TITLES: Record<string, { priority: string; regular: string }> = {
+      ru: { priority: "Приоритетный сигнал", regular: "Новый сигнал" },
+      en: { priority: "Priority alert", regular: "New alert" },
+      ro: { priority: "Semnal prioritar", regular: "Semnal nou" },
     };
     for (const c of coaches ?? []) {
-      const title = TITLES[c.preferred_language ?? "ru"] ?? TITLES.ru;
-      for (const p of priorities) {
-        await admin.from("notifications").upsert(
-          {
-            profile_id: c.id,
-            kind: "priority_alert",
+      const lang = c.preferred_language ?? "ru";
+      const t = TITLES[lang] ?? TITLES.ru;
+      const ruleNames = getDictionary(lang).rules.items as Record<
+        string,
+        { name: string }
+      >;
+      for (const a of candidates) {
+        const title = a.severity === "priority" ? t.priority : t.regular;
+        const body = `${athleteName} — ${ruleNames[a.rule_code]?.name ?? a.rule_code}`;
+        const { data: ins } = await admin
+          .from("notifications")
+          .upsert(
+            {
+              profile_id: c.id,
+              kind: a.severity === "priority" ? "priority_alert" : "alert",
+              title,
+              body,
+              data: { athlete_id: athleteId, rule: a.rule_code },
+              dedup_key: `notif:${c.id}:${a.dedup_key}`,
+            },
+            { onConflict: "dedup_key", ignoreDuplicates: true },
+          )
+          .select("id");
+        if (ins?.length && pushEnabled) {
+          const { sendPushToProfile } = await import("@/lib/push");
+          await sendPushToProfile(admin, c.id, {
             title,
-            body: `${p.rule_code}: ${p.recommendation}`,
-            data: { athlete_id: athleteId, rule: p.rule_code },
-            dedup_key: `notif:${c.id}:${p.dedup_key}`,
-          },
-          { onConflict: "dedup_key" },
-        );
+            body,
+            url: "/coach/alerts",
+          });
+        }
       }
     }
   }
