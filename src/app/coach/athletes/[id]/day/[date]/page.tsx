@@ -239,6 +239,12 @@ export default async function AthleteDayPage({
               </p>
               <div className="divide-y divide-border/50">
                 <ScoreRow label={h.sleep} value={c.sleep_score} />
+                {c.sleep_hours != null && (
+                  <div className="flex items-center justify-between gap-3 py-1.5">
+                    <span className="text-sm text-muted">{dict.morning.sleepHours}</span>
+                    <span className="text-sm tabular-nums">{c.sleep_hours} {dict.morning.sleepHoursUnit}</span>
+                  </div>
+                )}
                 <ScoreRow label={h.recovery} value={c.recovery_score} />
                 <ScoreRow label={h.fatigue} value={c.fatigue_score} />
                 <ScoreRow label={h.soreness} value={c.muscle_soreness_score} />
@@ -282,6 +288,16 @@ export default async function AthleteDayPage({
                           {s.duration_minutes} {dict.common.minutes}
                         </span>
                       )}
+                      {s.session_rpe != null && (
+                        <span>
+                          RPE {s.session_rpe}
+                        </span>
+                      )}
+                      {s.session_load != null && (
+                        <span className="text-muted">
+                          {dict.postTraining.sessionLoad}: {Math.round(s.session_load)}
+                        </span>
+                      )}
                     </div>
                     <div className="mt-2">
                       <p className="text-xs font-medium text-muted">
@@ -303,7 +319,7 @@ export default async function AthleteDayPage({
                           )}
                         </>
                       )}
-                      <PostCheckinEditor dict={dict} athleteId={a.id} sessionId={s.id} date={date} post={p ?? null} />
+                      <PostCheckinEditor dict={dict} athleteId={a.id} sessionId={s.id} date={date} post={p ?? null} session={s} />
                     </div>
                   </div>
                 );

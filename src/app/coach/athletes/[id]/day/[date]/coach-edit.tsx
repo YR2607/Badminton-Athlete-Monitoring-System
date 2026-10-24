@@ -15,6 +15,7 @@ import type {
   MorningCheckin,
   PainStatus,
   PostTrainingCheckin,
+  TrainingSession,
 } from "@/lib/types";
 
 const PAIN_OPTIONS: PainStatus[] = [
@@ -120,6 +121,7 @@ export function CheckinEditor({
   const [busy, setBusy] = useState(false);
   const [f, setF] = useState({
     sleep: checkin?.sleep_score,
+    sleepHours: checkin?.sleep_hours?.toString() ?? "",
     recovery: checkin?.recovery_score,
     fatigue: checkin?.fatigue_score,
     soreness: checkin?.muscle_soreness_score,
@@ -162,6 +164,7 @@ export function CheckinEditor({
       athlete_id: athleteId,
       checkin_date: date,
       sleep_score: f.sleep!,
+      sleep_hours: f.sleepHours ? Number(f.sleepHours) : null,
       recovery_score: f.recovery!,
       fatigue_score: f.fatigue!,
       muscle_soreness_score: f.soreness!,
@@ -209,6 +212,20 @@ export function CheckinEditor({
           />
         </div>
       ))}
+
+      <div>
+        <Label>{m.sleepHours}</Label>
+        <Input
+          type="number"
+          min={0}
+          max={16}
+          step={0.5}
+          inputMode="decimal"
+          className="w-28"
+          value={f.sleepHours}
+          onChange={(e) => setF((s) => ({ ...s, sleepHours: e.target.value }))}
+        />
+      </div>
 
       <div>
         <p className="mb-1 text-sm">{m.painQuestion}</p>
@@ -295,12 +312,14 @@ export function PostCheckinEditor({
   sessionId,
   date,
   post,
+  session,
 }: {
   dict: Dictionary;
   athleteId: string;
   sessionId: string | null;
   date: string;
   post: PostTrainingCheckin | null;
+  session?: TrainingSession | null;
 }) {
   const d = dict.day;
   const pt = dict.postTraining;
@@ -311,6 +330,8 @@ export function PostCheckinEditor({
     feeling: post?.overall_feeling,
     legs: post?.leg_fatigue,
     arms: post?.arm_shoulder_fatigue,
+    rpe: session?.session_rpe ?? undefined,
+    minutes: session?.duration_minutes?.toString() ?? "",
     painStatus: (post?.pain_status ?? "none") as PainStatus,
     painLocation: post?.pain_location ?? "",
     triggers: post?.pain_triggers ?? [],
@@ -330,6 +351,8 @@ export function PostCheckinEditor({
       overall_feeling: f.feeling!,
       leg_fatigue: f.legs!,
       arm_shoulder_fatigue: f.arms!,
+      session_rpe: f.rpe ?? null,
+      session_minutes: f.minutes ? Number(f.minutes) : null,
       pain_status: f.painStatus,
       pain_location: f.painLocation || null,
       pain_triggers: f.painStatus === "none" ? [] : f.triggers,
@@ -367,6 +390,22 @@ export function PostCheckinEditor({
       <div>
         <p className="mb-1 text-sm">{pt.armFatigue}</p>
         <ScaleInput value={f.arms} onChange={(v) => setF((s) => ({ ...s, arms: v }))} />
+      </div>
+      <div>
+        <p className="mb-1 text-sm">{pt.rpe}</p>
+        <ScaleInput min={0} max={10} value={f.rpe} onChange={(v) => setF((s) => ({ ...s, rpe: v }))} />
+      </div>
+      <div>
+        <Label>{pt.minutes}</Label>
+        <Input
+          type="number"
+          min={1}
+          max={600}
+          inputMode="numeric"
+          className="w-28"
+          value={f.minutes}
+          onChange={(e) => setF((s) => ({ ...s, minutes: e.target.value }))}
+        />
       </div>
       <div>
         <Label>{dict.day.pain}</Label>

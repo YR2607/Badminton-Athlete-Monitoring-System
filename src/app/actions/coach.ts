@@ -240,6 +240,7 @@ export interface MorningFields {
   athlete_id: string;
   checkin_date: string;
   sleep_score: number;
+  sleep_hours?: number | null;
   recovery_score: number;
   fatigue_score: number;
   muscle_soreness_score: number;
@@ -271,6 +272,7 @@ export async function coachUpsertMorningCheckin(f: MorningFields): Promise<Actio
       athlete_id: f.athlete_id,
       checkin_date: f.checkin_date,
       sleep_score: f.sleep_score,
+      sleep_hours: f.sleep_hours ?? null,
       recovery_score: f.recovery_score,
       fatigue_score: f.fatigue_score,
       muscle_soreness_score: f.muscle_soreness_score,
@@ -314,6 +316,8 @@ export interface PostCheckinFields {
   overall_feeling: number;
   leg_fatigue: number;
   arm_shoulder_fatigue: number;
+  session_rpe?: number | null;
+  session_minutes?: number | null;
   pain_status: string;
   pain_location?: string | null;
   pain_side?: string | null;
@@ -365,6 +369,18 @@ export async function coachUpsertPostCheckin(f: PostCheckinFields): Promise<Acti
       .single();
     if (sErr) return { error: sErr.message };
     session = created;
+  }
+
+  // sRPE lives on the session row; the coach may correct it like the scales.
+  if (f.session_rpe != null || f.session_minutes != null) {
+    const sUpdate: Record<string, number> = {};
+    if (f.session_rpe != null) sUpdate.session_rpe = f.session_rpe;
+    if (f.session_minutes != null) sUpdate.duration_minutes = f.session_minutes;
+    const { error: sErr } = await admin
+      .from("training_sessions")
+      .update(sUpdate)
+      .eq("id", session.id);
+    if (sErr) return { error: sErr.message };
   }
 
   const { error } = await admin.from("post_training_checkins").upsert(
