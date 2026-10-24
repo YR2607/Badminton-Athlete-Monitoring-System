@@ -2,13 +2,19 @@ import ExcelJS from "exceljs";
 import type {
   Alert,
   Athlete,
+  FieldTest,
+  FieldTestResult,
+  GrowthMeasurement,
   MorningCheckin,
   PostTrainingCheckin,
   ReadinessSnapshot,
+  Recommendation,
+  TrainingSchedule,
   TrainingSession,
 } from "@/lib/types";
 import { localDate } from "@/lib/dates";
 import { normalizeCheckin, readinessScore } from "@/lib/readiness";
+import { acwrSeries, dailyLoads, monotony, strain } from "@/lib/load";
 
 export interface ExportBundle {
   generatedAt: string;
@@ -22,6 +28,13 @@ export interface ExportBundle {
   snapshots: ReadinessSnapshot[];
   alerts: Alert[];
   notes: { athlete_id: string; created_at: string; kind: string; note: string }[];
+  /** Phase 10 extras (optional — older callers may omit them). */
+  schedules?: TrainingSchedule[];
+  athleteGroups?: { athlete_id: string; group_id: string }[];
+  growth?: GrowthMeasurement[];
+  testResults?: FieldTestResult[];
+  testsDict?: FieldTest[];
+  recommendations?: Recommendation[];
 }
 
 const esc = (v: unknown): string => {
@@ -40,6 +53,64 @@ function athleteLabel(b: ExportBundle, id: string): string {
   return a?.athlete_code ?? id;
 }
 
+interface LoadRow {
+  athlete_id: string;
+  date: string;
+  load: number;
+  planned: number | null;
+  acwr: number | null;
+  monotony: number | null;
+  strain: number | null;
+}
+
+/** Per-athlete daily sRPE load + EWMA-ACWR + Foster monotony/strain. */
+function loadRows(b: ExportBundle): LoadRow[] {
+  const groupOf = new Map((b.athleteGroups ?? []).map((m) => [m.athlete_id, m.group_id]));
+  const schedByGroup = new Map<string, TrainingSchedule[]>();
+  for (const s of b.schedules ?? []) {
+    const list = schedByGroup.get(s.group_id) ?? [];
+    list.push(s);
+    schedByGroup.set(s.group_id, list);
+  }
+  const dates: string[] = [];
+  for (let d = b.rangeFrom; d <= b.rangeTo; ) {
+    dates.push(d);
+    const next = new Date(`${d}T12:00:00Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
+    d = next.toISOString().slice(0, 10);
+  }
+  const out: LoadRow[] = [];
+  for (const a of b.athletes) {
+    const sched = (schedByGroup.get(groupOf.get(a.id) ?? "") ?? []).map((s) => ({
+      weekday: s.weekday,
+      planned_minutes: s.planned_minutes,
+      planned_rpe: s.planned_rpe,
+    }));
+    const inputs = b.sessions
+      .filter((s) => s.athlete_id === a.id)
+      .map((s) => ({
+        date: localDate(new Date(s.started_at), b.timezone),
+        rpe: s.session_rpe,
+        minutes: s.duration_minutes,
+      }));
+    const days = dailyLoads(dates, inputs, sched);
+    const acwr = acwrSeries(days.map((d) => d.load));
+    days.forEach((day, i) => {
+      const week = days.slice(Math.max(0, i - 6), i + 1).map((d) => d.load);
+      out.push({
+        athlete_id: a.id,
+        date: day.date,
+        load: day.load,
+        planned: day.planned,
+        acwr: acwr[i] !== null ? Math.round(acwr[i]! * 100) / 100 : null,
+        monotony: monotony(week) !== null ? Math.round(monotony(week)! * 100) / 100 : null,
+        strain: strain(week) !== null ? Math.round(strain(week)!) : null,
+      });
+    });
+  }
+  return out;
+}
+
 export function buildCsv(b: ExportBundle): string {
   const parts: string[] = [];
   parts.push(`# RallyMonitor export · ${b.generatedAt} · TZ ${b.timezone} · ${b.rangeFrom}..${b.rangeTo}`);
@@ -50,10 +121,10 @@ export function buildCsv(b: ExportBundle): string {
   parts.push("## Morning Check-ins");
   parts.push(
     toCsv(
-      ["athlete_code", "checkin_date", "submitted_at", "sleep", "recovery", "fatigue", "soreness", "stress", "mood", "readiness", "pain_status", "pain_location", "pain_side", "pain_severity", "swelling", "limitation", "symptoms", "notes"],
+      ["athlete_code", "checkin_date", "submitted_at", "sleep", "sleep_hours", "recovery", "fatigue", "soreness", "stress", "mood", "readiness", "pain_status", "pain_location", "pain_side", "pain_severity", "swelling", "limitation", "symptoms", "notes"],
       b.morning.map((c) => [
         athleteLabel(b, c.athlete_id), c.checkin_date, c.submitted_at,
-        c.sleep_score, c.recovery_score, c.fatigue_score, c.muscle_soreness_score,
+        c.sleep_score, c.sleep_hours ?? "", c.recovery_score, c.fatigue_score, c.muscle_soreness_score,
         c.stress_score, c.mood_score, readinessScore(normalizeCheckin(c)),
         c.pain_status, c.pain_location ?? "", c.pain_side ?? "", c.pain_severity ?? "",
         c.swelling ?? "", c.movement_limitation ?? "", c.symptoms ?? "", c.notes ?? "",
@@ -64,12 +135,74 @@ export function buildCsv(b: ExportBundle): string {
   parts.push("## Training Sessions");
   parts.push(
     toCsv(
-      ["athlete_code", "started_at", "date"],
+      ["athlete_code", "started_at", "date", "session_rpe", "duration_minutes", "session_load"],
       b.sessions.map((s) => [
         athleteLabel(b, s.athlete_id), s.started_at, localDate(new Date(s.started_at), b.timezone),
+        s.session_rpe ?? "", s.duration_minutes ?? "", s.session_load ?? "",
       ]),
     ),
   );
+  parts.push("");
+  parts.push("## Daily Scores (snapshots)");
+  parts.push(
+    toCsv(
+      ["athlete_code", "date", "readiness", "z_score", "norm_avg", "norm_sd", "confidence"],
+      b.snapshots.map((s) => [
+        athleteLabel(b, s.athlete_id), s.snapshot_date, s.readiness_score,
+        s.z_score ?? "", s.score_norm?.avg ?? "", s.score_norm?.sd ?? "", s.confidence,
+      ]),
+    ),
+  );
+  parts.push("");
+  parts.push("## Daily Load (sRPE)");
+  parts.push(
+    toCsv(
+      ["athlete_code", "date", "load_au", "planned_au", "acwr", "monotony_7d", "strain_7d"],
+      loadRows(b).map((r) => [
+        athleteLabel(b, r.athlete_id), r.date, r.load, r.planned ?? "",
+        r.acwr ?? "", r.monotony ?? "", r.strain ?? "",
+      ]),
+    ),
+  );
+  if (b.growth?.length) {
+    parts.push("");
+    parts.push("## Growth Measurements");
+    parts.push(
+      toCsv(
+        ["athlete_code", "measured_on", "height_cm", "weight_kg", "sitting_height_cm"],
+        b.growth.map((g) => [
+          athleteLabel(b, g.athlete_id), g.measured_on, g.height_cm,
+          g.weight_kg ?? "", g.sitting_height_cm ?? "",
+        ]),
+      ),
+    );
+  }
+  if (b.testResults?.length) {
+    const testName = (id: string) => b.testsDict?.find((t) => t.id === id)?.code ?? id;
+    parts.push("");
+    parts.push("## Field Tests");
+    parts.push(
+      toCsv(
+        ["athlete_code", "test", "test_date", "value", "attempt"],
+        b.testResults.map((r) => [
+          athleteLabel(b, r.athlete_id), testName(r.test_id), r.test_date, r.value, r.attempt,
+        ]),
+      ),
+    );
+  }
+  if (b.recommendations?.length) {
+    parts.push("");
+    parts.push("## Recommendations");
+    parts.push(
+      toCsv(
+        ["athlete_code", "rec_date", "rule", "severity", "decision", "coach_comment"],
+        b.recommendations.map((r) => [
+          athleteLabel(b, r.athlete_id), r.rec_date, r.rule_key, r.severity,
+          r.decision, r.coach_comment ?? "",
+        ]),
+      ),
+    );
+  }
   parts.push("");
   parts.push("## Post-Training Check-ins");
   parts.push(
@@ -126,19 +259,56 @@ export async function buildXlsx(b: ExportBundle): Promise<Buffer> {
   sheet("Athletes", ["athlete_code", "display_name", "group", "birth_year", "status"],
     b.athletes.map((a) => [a.athlete_code, a.display_name ?? "", a.group_name ?? "", a.birth_year ?? "", a.status]));
   sheet("Morning Check-ins",
-    ["athlete_code", "checkin_date", "submitted_at", "sleep", "recovery", "fatigue", "soreness", "stress", "mood", "readiness", "pain_status", "pain_location", "pain_side", "pain_severity", "swelling", "limitation", "symptoms", "notes"],
+    ["athlete_code", "checkin_date", "submitted_at", "sleep", "sleep_hours", "recovery", "fatigue", "soreness", "stress", "mood", "readiness", "pain_status", "pain_location", "pain_side", "pain_severity", "swelling", "limitation", "symptoms", "notes"],
     b.morning.map((c) => [
       athleteLabel(b, c.athlete_id), c.checkin_date, c.submitted_at,
-      c.sleep_score, c.recovery_score, c.fatigue_score, c.muscle_soreness_score,
+      c.sleep_score, c.sleep_hours ?? "", c.recovery_score, c.fatigue_score, c.muscle_soreness_score,
       c.stress_score, c.mood_score, readinessScore(normalizeCheckin(c)),
       c.pain_status, c.pain_location ?? "", c.pain_side ?? "", c.pain_severity ?? "",
       c.swelling ?? "", c.movement_limitation ?? "", c.symptoms ?? "", c.notes ?? "",
     ]));
   sheet("Training Sessions",
-    ["athlete_code", "started_at", "date"],
+    ["athlete_code", "started_at", "date", "session_rpe", "duration_minutes", "session_load"],
     b.sessions.map((s) => [
       athleteLabel(b, s.athlete_id), s.started_at, localDate(new Date(s.started_at), b.timezone),
+      s.session_rpe ?? "", s.duration_minutes ?? "", s.session_load ?? "",
     ]));
+  sheet("Daily Scores",
+    ["athlete_code", "date", "readiness", "z_score", "norm_avg", "norm_sd", "confidence"],
+    b.snapshots.map((s) => [
+      athleteLabel(b, s.athlete_id), s.snapshot_date, s.readiness_score,
+      s.z_score ?? "", s.score_norm?.avg ?? "", s.score_norm?.sd ?? "", s.confidence,
+    ]));
+  sheet("Daily Load",
+    ["athlete_code", "date", "load_au", "planned_au", "acwr", "monotony_7d", "strain_7d"],
+    loadRows(b).map((r) => [
+      athleteLabel(b, r.athlete_id), r.date, r.load, r.planned ?? "",
+      r.acwr ?? "", r.monotony ?? "", r.strain ?? "",
+    ]));
+  if (b.growth?.length) {
+    sheet("Growth",
+      ["athlete_code", "measured_on", "height_cm", "weight_kg", "sitting_height_cm"],
+      b.growth.map((g) => [
+        athleteLabel(b, g.athlete_id), g.measured_on, g.height_cm,
+        g.weight_kg ?? "", g.sitting_height_cm ?? "",
+      ]));
+  }
+  if (b.testResults?.length) {
+    const testName = (id: string) => b.testsDict?.find((t) => t.id === id)?.code ?? id;
+    sheet("Field Tests",
+      ["athlete_code", "test", "test_date", "value", "attempt"],
+      b.testResults.map((r) => [
+        athleteLabel(b, r.athlete_id), testName(r.test_id), r.test_date, r.value, r.attempt,
+      ]));
+  }
+  if (b.recommendations?.length) {
+    sheet("Recommendations",
+      ["athlete_code", "rec_date", "rule", "severity", "decision", "coach_comment"],
+      b.recommendations.map((r) => [
+        athleteLabel(b, r.athlete_id), r.rec_date, r.rule_key, r.severity,
+        r.decision, r.coach_comment ?? "",
+      ]));
+  }
   sheet("Post-Training Check-ins",
     ["athlete_code", "session_id", "submitted_at", "overall", "legs", "arms", "pain_status", "pain_location", "notes"],
     b.postCheckins.map((p) => [

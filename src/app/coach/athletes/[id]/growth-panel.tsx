@@ -59,6 +59,8 @@ export function GrowthPanel({
     if (res.ok) {
       toast.success(dict.common.saved);
       router.refresh();
+    } else if (res.error === "consent_required") {
+      toast.error(d.consentRequired);
     } else toast.error(dict.common.error);
   }
 

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Dictionary } from "@/i18n";
-import { setAthleteStatus, recordConsent } from "@/app/actions/admin";
+import { setAthleteStatus, recordConsent, anonymizeAthlete } from "@/app/actions/admin";
 import { adminDeleteUser, adminImpersonate, adminResetUserPassword } from "@/app/actions/auth";
 import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -127,6 +127,17 @@ export function UserTable({
     }
   }
 
+  async function anonymize(a: Athlete) {
+    if (!window.confirm(d.anonymizeConfirm)) return;
+    const res = await anonymizeAthlete(a.id);
+    if (res.ok) {
+      toast.success(dict.common.saved);
+      router.refresh();
+    } else {
+      toast.error(res.error ?? dict.common.error);
+    }
+  }
+
   const roleBadge = (p: Row) => (
     <Badge tone={p.role === "admin" ? "danger" : p.role === "coach" ? "accent" : "neutral"}>
       {dict.common[p.role as "athlete" | "coach" | "admin"]}
@@ -161,6 +172,9 @@ export function UserTable({
           </Button>
           <Button size="sm" variant="ghost" onClick={() => consent(p.athlete!)}>
             {d.consentStatus}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => anonymize(p.athlete!)}>
+            {d.anonymize}
           </Button>
         </>
       )}

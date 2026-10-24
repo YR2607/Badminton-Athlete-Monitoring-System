@@ -167,6 +167,19 @@ export async function updateAthleteGrowth(input: unknown): Promise<ActionResult>
   const access = await athleteAccess(parsed.data.athlete_id);
   if (!access) return { error: "forbidden" };
 
+  // Phase 10: parent data (birth date, sex, parents' heights) requires a
+  // currently-granted parental consent record.
+  const admin0 = createAdminClient();
+  const { data: consent } = await admin0
+    .from("consent_records")
+    .select("status")
+    .eq("athlete_id", parsed.data.athlete_id)
+    .eq("consent_type", "parental_data_processing")
+    .order("recorded_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (consent?.status !== "granted") return { error: "consent_required" };
+
   const admin = createAdminClient();
   const { error } = await admin
     .from("athletes")

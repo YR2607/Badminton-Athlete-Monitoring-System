@@ -166,6 +166,7 @@ const ro: Dictionary = {
     motherHeight: "Înălțimea mamei, cm",
     fatherHeight: "Înălțimea tatălui, cm",
     consentHint: "Introduceți datele părinților doar cu acordul lor",
+    consentRequired: "Înregistrați mai întâi acordul părintelui (Admin → Utilizatori → «Acord parental»)",
     velocity: "Viteza de creștere",
     cmYear: "cm/an",
     pah: "Înălțimea adultă prognozată",
@@ -652,6 +653,9 @@ const ro: Dictionary = {
     consentType: "Tip consimțământ",
     consentStatus: "Consimțământ părinte",
     consentGranted: "Consimțământ înregistrat",
+    anonymize: "Anonimizează",
+    anonymizeConfirm:
+      "Anonimizați sportivul? Numele, data nașterii, datele părinților, măsurătorile de creștere, evenimentele și notițele vor fi șterse, iar contul arhivat. Chestionarele rămân anonime după cod. Acțiunea e ireversibilă.",
     login: "Login",
     generate: "Generează",
     newPasswordBtn: "Parolă nouă",

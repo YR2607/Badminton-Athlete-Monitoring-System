@@ -153,6 +153,41 @@ export async function recordConsent(
   return { ok: true };
 }
 
+/**
+ * GDPR-style erasure (Phase 10): anonymize an athlete on request.
+ * Clears personal fields, renames the profile to the athlete code, and
+ * deletes directly-identifying extras (growth/parents data, events, push
+ * subs, coach notes). Check-ins/sessions stay — they are pseudonymous by
+ * athlete_code and needed for aggregate analytics. Fully audited.
+ */
+export async function anonymizeAthlete(athleteId: string): Promise<ActionResult> {
+  const me = await requireAdmin();
+  if (!me) return { error: "forbidden" };
+  const admin = createAdminClient();
+  const { data: a } = await admin
+    .from("athletes")
+    .select("id, athlete_code, profile_id")
+    .eq("id", athleteId)
+    .maybeSingle();
+  if (!a) return { error: "not found" };
+
+  await admin
+    .from("athletes")
+    .update({ birth_date: null, sex: null, mother_height_cm: null, father_height_cm: null, status: "archived" })
+    .eq("id", a.id);
+  await admin.from("profiles").update({ display_name: a.athlete_code }).eq("id", a.profile_id);
+  await admin.from("growth_measurements").delete().eq("athlete_id", a.id);
+  await admin.from("calendar_events").delete().eq("athlete_id", a.id);
+  await admin.from("coach_notes").delete().eq("athlete_id", a.id);
+  await admin.from("push_subscriptions").delete().eq("profile_id", a.profile_id);
+  await admin.from("consent_records").delete().eq("athlete_id", a.id);
+  await admin.from("group_memberships").update({ left_at: new Date().toISOString() }).eq("athlete_id", a.id).is("left_at", null);
+
+  await audit("athlete.anonymize", "athletes", a.id, {});
+  revalidatePath("/admin/users");
+  return { ok: true };
+}
+
 export type { AlertSeverity };
 
 export async function setFeatureFlag(

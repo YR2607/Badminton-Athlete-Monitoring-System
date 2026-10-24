@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
 
   // Reads use the caller's RLS-scoped client: access control is enforced by
   // policies, not by trusting query params.
-  const [{ data: athletes }, { data: memberships }, { data: groups }, { data: morning }, { data: sessions }, { data: post }, { data: snaps }, { data: alerts }, { data: notes }] =
+  const [{ data: athletes }, { data: memberships }, { data: groups }, { data: morning }, { data: sessions }, { data: post }, { data: snaps }, { data: alerts }, { data: notes }, { data: growthRows }, { data: testResRows }, { data: testsDictRows }, { data: recRows }] =
     await Promise.all([
       supabase.from("athletes").select("*").in("id", athleteIds),
       supabase.from("group_memberships").select("athlete_id, group_id").in("athlete_id", athleteIds).is("left_at", null),
@@ -69,6 +69,10 @@ export async function GET(req: NextRequest) {
       supabase.from("readiness_snapshots").select("*").in("athlete_id", athleteIds).gte("snapshot_date", from).lte("snapshot_date", to),
       supabase.from("alerts").select("*").in("athlete_id", athleteIds).gte("triggered_at", tsFrom).lt("triggered_at", tsTo),
       includeNotes ? supabase.from("coach_notes").select("athlete_id, created_at, kind, note").in("athlete_id", athleteIds).gte("created_at", tsFrom).lt("created_at", tsTo) : Promise.resolve({ data: [] }),
+      supabase.from("growth_measurements").select("*").in("athlete_id", athleteIds).gte("measured_on", from).lte("measured_on", to),
+      supabase.from("field_test_results").select("*").in("athlete_id", athleteIds).gte("test_date", from).lte("test_date", to),
+      supabase.from("field_tests").select("*"),
+      supabase.from("recommendations").select("*").in("athlete_id", athleteIds).gte("rec_date", from).lte("rec_date", to),
     ]);
 
   const { data: profs } = ((athletes as Athlete[] | null) ?? []).length
@@ -98,7 +102,23 @@ export async function GET(req: NextRequest) {
     snapshots: (snaps as ExportBundle["snapshots"]) ?? [],
     alerts: (alerts as ExportBundle["alerts"]) ?? [],
     notes: (notes as ExportBundle["notes"]) ?? [],
+    growth: (growthRows as ExportBundle["growth"]) ?? [],
+    testResults: (testResRows as ExportBundle["testResults"]) ?? [],
+    testsDict: (testsDictRows as ExportBundle["testsDict"]) ?? [],
+    recommendations: (recRows as ExportBundle["recommendations"]) ?? [],
+    athleteGroups: (memberships as { athlete_id: string; group_id: string }[] | null) ?? [],
   };
+
+  // Schedules of the involved groups drive the planned-load columns.
+  const expGroupIds = [...new Set((memberships ?? []).map((m: { group_id: string }) => m.group_id))];
+  if (expGroupIds.length) {
+    const { data: sched } = await supabase
+      .from("training_schedules")
+      .select("*")
+      .in("group_id", expGroupIds)
+      .eq("active", true);
+    bundle.schedules = (sched as ExportBundle["schedules"]) ?? [];
+  }
 
   const admin = createAdminClient();
   await admin.from("audit_logs").insert({

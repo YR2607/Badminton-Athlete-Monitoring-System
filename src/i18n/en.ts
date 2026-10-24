@@ -166,6 +166,7 @@ const en: Dictionary = {
     motherHeight: "Mother's height, cm",
     fatherHeight: "Father's height, cm",
     consentHint: "Enter parents' heights only with their consent",
+    consentRequired: "Record parental consent first (Admin → Users → 'Parental consent')",
     velocity: "Growth velocity",
     cmYear: "cm/yr",
     pah: "Predicted adult height",
@@ -652,6 +653,9 @@ const en: Dictionary = {
     consentType: "Consent type",
     consentStatus: "Parent consent",
     consentGranted: "Consent recorded",
+    anonymize: "Anonymize",
+    anonymizeConfirm:
+      "Anonymize this athlete? Name, birth date, parents' data, growth measurements, events and notes will be deleted and the account archived. Check-ins remain anonymous under the athlete code. This cannot be undone.",
     login: "Login",
     generate: "Generate",
     newPasswordBtn: "New password",
