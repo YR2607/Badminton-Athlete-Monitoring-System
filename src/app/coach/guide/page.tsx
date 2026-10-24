@@ -39,6 +39,86 @@ export default async function CoachGuidePage() {
 
       <Card>
         <CardHeader>
+          <CardTitle>{g.surveysTitle}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <p className="text-sm font-medium">
+              {dict.morning.title} <span className="text-muted">· {g.surveysDaily}</span>
+            </p>
+            <ul className="mt-1 space-y-1 text-sm text-muted">
+              {[
+                dict.morning.sleep,
+                dict.morning.recovery,
+                dict.morning.fatigue,
+                dict.morning.soreness,
+                dict.morning.stress,
+                dict.morning.mood,
+              ].map((q) => (
+                <li key={q} className="flex items-start justify-between gap-2">
+                  <span>{q}</span>
+                  <span className="shrink-0 text-xs">{g.surveysScale}</span>
+                </li>
+              ))}
+              <li className="flex items-start justify-between gap-2">
+                <span>{dict.morning.sleepHours}</span>
+                <span className="shrink-0 text-xs">{dict.morning.sleepHoursUnit}</span>
+              </li>
+              <li>{dict.morning.painQuestion}</li>
+              <li className="text-xs">{g.surveysPainNote}</li>
+            </ul>
+          </div>
+
+          <div className="border-t border-border/50 pt-3">
+            <p className="text-sm font-medium">
+              {dict.postTraining.title} <span className="text-muted">· {g.surveysAfter}</span>
+            </p>
+            <ul className="mt-1 space-y-1 text-sm text-muted">
+              {[
+                dict.postTraining.overallFeeling,
+                dict.postTraining.legFatigue,
+                dict.postTraining.armFatigue,
+              ].map((q) => (
+                <li key={q} className="flex items-start justify-between gap-2">
+                  <span>{q}</span>
+                  <span className="shrink-0 text-xs">{g.surveysScale}</span>
+                </li>
+              ))}
+              <li>
+                {dict.postTraining.when} ({dict.postTraining.today}/{dict.postTraining.yesterday})
+              </li>
+              <li className="flex items-start justify-between gap-2">
+                <span>{dict.postTraining.rpe}</span>
+                <span className="shrink-0 text-xs">0–10</span>
+              </li>
+              <li className="text-xs">{g.surveysRpeNote}</li>
+              <li>{dict.postTraining.minutes}</li>
+              <li>{dict.postTraining.painDuring}</li>
+            </ul>
+          </div>
+
+          <div className="border-t border-border/50 pt-3">
+            <p className="text-sm font-medium">
+              {dict.ostrc.title} <span className="text-muted">· {g.surveysWeekly}</span>
+            </p>
+            <ul className="mt-1 space-y-1 text-sm text-muted">
+              {[
+                dict.ostrc.questions.q1,
+                dict.ostrc.questions.q2,
+                dict.ostrc.questions.q3,
+                dict.ostrc.questions.q4,
+              ].map((q) => (
+                <li key={q}>{q.replace("{zone}", g.surveysZoneWord)}</li>
+              ))}
+              <li className="text-xs">{g.surveysOstrcNote}</li>
+              <li className="text-xs">{g.surveysOstrcExtra}</li>
+            </ul>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>{g.readinessTitle}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">

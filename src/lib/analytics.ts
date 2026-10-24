@@ -8,8 +8,10 @@ import { dailyConditionSeries } from "@/lib/readiness";
 
 export interface DayCell {
   date: string; // YYYY-MM-DD
-  filled: boolean;
+  filled: boolean; // morning check-in submitted
   hasPain: boolean;
+  evening: boolean; // post-training check-in submitted for that day
+  hadSession: boolean; // a training session was recorded that day
 }
 
 export interface AthletePeriodStats {
@@ -54,9 +56,17 @@ export function athleteStats(
   posts: { date: string; post: Pick<PostTrainingCheckin, "overall_feeling" | "leg_fatigue" | "arm_shoulder_fatigue"> }[] = [],
 ): AthletePeriodStats {
   const byDate = new Map(checkins.map((c) => [c.checkin_date, c]));
+  const postDates = new Set(posts.map((p) => p.date));
+  const sessionDates = new Set(sessions.map((s) => s.started_at.slice(0, 10)));
   const cells: DayCell[] = days.map((date) => {
     const c = byDate.get(date);
-    return { date, filled: !!c, hasPain: c ? c.pain_status !== "none" : false };
+    return {
+      date,
+      filled: !!c,
+      hasPain: c ? c.pain_status !== "none" : false,
+      evening: postDates.has(date),
+      hadSession: sessionDates.has(date),
+    };
   });
 
   const scores = dailyConditionSeries(checkins, posts);

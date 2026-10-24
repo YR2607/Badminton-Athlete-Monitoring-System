@@ -397,6 +397,19 @@ const en: Dictionary = {
     missed: "Missed",
   },
   guide: {
+    surveysTitle: "What the questionnaires ask",
+    surveysDaily: "daily",
+    surveysAfter: "after training",
+    surveysWeekly: "weekly",
+    surveysScale: "1–10 scale",
+    surveysPainNote:
+      "if pain is reported — where, side, severity (1–10), when it started, when it hurts, symptoms",
+    surveysRpeNote: "effort scale 0–10, anchors: 0 rest · 3 moderate · 7 very hard · 10 max",
+    surveysOstrcNote:
+      "for each selected zone — 4 questions, answers from 'no problems' to 'could not participate'; answering 'no problems' ends the questionnaire",
+    surveysOstrcExtra:
+      "optional: when it started, days missed, who was told, comment",
+    surveysZoneWord: "the zone",
     title: "How the metrics work",
     subtitle: "What each number means and where it comes from.",
     readinessTitle: "Readiness (0–100)",
@@ -856,6 +869,9 @@ const en: Dictionary = {
     filled: "filled",
     missed: "missed",
     painDay: "pain",
+    dotMorning: "morning",
+    dotEvening: "evening",
+    dotNoSession: "session — no check-in",
     summary: "Period totals",
     byAthlete: "By athlete",
     byDay: "By day",

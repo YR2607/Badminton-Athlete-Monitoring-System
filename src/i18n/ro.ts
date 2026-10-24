@@ -397,6 +397,19 @@ const ro: Dictionary = {
     missed: "Lipsă",
   },
   guide: {
+    surveysTitle: "Ce întreabă chestionarele",
+    surveysDaily: "zilnic",
+    surveysAfter: "după antrenament",
+    surveysWeekly: "săptămânal",
+    surveysScale: "scară 1–10",
+    surveysPainNote:
+      "dacă este raportată durere — unde, parte, intensitate (1–10), când a început, când doare, simptome",
+    surveysRpeNote: "scară de efort 0–10, repere: 0 odihnă · 3 moderat · 7 foarte greu · 10 maxim",
+    surveysOstrcNote:
+      "pentru fiecare zonă selectată — 4 întrebări, de la «nicio problemă» până la «nu am putut participa»; răspunsul «fără probleme» încheie chestionarul",
+    surveysOstrcExtra:
+      "opțional: când a început, zile ratate, cui i-a spus, comentariu",
+    surveysZoneWord: "zona",
     title: "Cum se calculează indicatorii",
     subtitle: "Ce înseamnă fiecare cifră și de unde provine.",
     readinessTitle: "Pregătirea (0–100)",
@@ -856,6 +869,9 @@ const ro: Dictionary = {
     filled: "completat",
     missed: "lipsă",
     painDay: "durere",
+    dotMorning: "dimineață",
+    dotEvening: "seară",
+    dotNoSession: "antrenament — fără chestionar",
     summary: "Total pe perioadă",
     byAthlete: "Pe sportivi",
     byDay: "Pe zile",

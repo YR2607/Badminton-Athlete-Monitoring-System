@@ -221,16 +221,31 @@ export default async function AnalyticsPage({
                             <td key={c.date} className="py-1.5 text-center">
                               <Link
                                 href={`/coach/athletes/${s.athleteId}/day/${c.date}`}
-                                className={cn(
-                                  "inline-block h-3 w-3 rounded-full",
-                                  c.hasPain
-                                    ? "bg-danger"
-                                    : c.filled
-                                      ? "bg-ok"
-                                      : "bg-foreground/15",
-                                )}
-                                title={`${c.date} — ${c.hasPain ? d.painDay : c.filled ? d.filled : d.missed}`}
-                              />
+                                className="inline-flex gap-0.5"
+                              >
+                                <span
+                                  className={cn(
+                                    "inline-block h-3 w-3 rounded-full",
+                                    c.hasPain
+                                      ? "bg-danger"
+                                      : c.filled
+                                        ? "bg-ok"
+                                        : "bg-foreground/15",
+                                  )}
+                                  title={`${c.date} · ${d.dotMorning}: ${c.hasPain ? d.painDay : c.filled ? d.filled : d.missed}`}
+                                />
+                                <span
+                                  className={cn(
+                                    "inline-block h-3 w-3 rounded-full",
+                                    c.evening
+                                      ? "bg-accent"
+                                      : c.hadSession
+                                        ? "bg-warn/60"
+                                        : "bg-foreground/15",
+                                  )}
+                                  title={`${c.date} · ${d.dotEvening}: ${c.evening ? d.filled : c.hadSession ? d.missed : d.dotNoSession}`}
+                                />
+                              </Link>
                             </td>
                           ))}
                           <td className="py-1.5 pl-2 font-semibold tabular-nums">{s.rate}%</td>
@@ -239,8 +254,10 @@ export default async function AnalyticsPage({
                     </tbody>
                   </table>
                 </div>
-                <div className="mt-2 flex gap-4 text-xs text-muted">
-                  <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-ok" /> {d.filled}</span>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+                  <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-ok" /> {d.dotMorning}</span>
+                  <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-accent" /> {d.dotEvening}</span>
+                  <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-warn/60" /> {d.dotNoSession}</span>
                   <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-foreground/15" /> {d.missed}</span>
                   <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-danger" /> {d.painDay}</span>
                 </div>
@@ -321,12 +338,26 @@ export default async function AnalyticsPage({
                         className="flex items-center gap-3 py-2 text-sm active:bg-foreground/[0.03]"
                       >
                         <span className="w-20 shrink-0 font-medium">{c.date}</span>
-                        <span
-                          className={cn(
-                            "h-3 w-3 shrink-0 rounded-full",
-                            c.hasPain ? "bg-danger" : c.filled ? "bg-ok" : "bg-foreground/15",
-                          )}
-                        />
+                        <span className="flex shrink-0 gap-0.5">
+                          <span
+                            title={d.dotMorning}
+                            className={cn(
+                              "h-3 w-3 rounded-full",
+                              c.hasPain ? "bg-danger" : c.filled ? "bg-ok" : "bg-foreground/15",
+                            )}
+                          />
+                          <span
+                            title={d.dotEvening}
+                            className={cn(
+                              "h-3 w-3 rounded-full",
+                              c.evening
+                                ? "bg-accent"
+                                : c.hadSession
+                                  ? "bg-warn/60"
+                                  : "bg-foreground/15",
+                            )}
+                          />
+                        </span>
                         <span className="min-w-0 flex-1 text-muted">
                           {c.filled ? (
                             <>
