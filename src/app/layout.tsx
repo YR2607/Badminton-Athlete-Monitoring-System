@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
@@ -11,6 +11,15 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "RallyMonitor",
   description: "Мониторинг состояния и нагрузки бадминтонистов",
+  appleWebApp: {
+    capable: true,
+    title: "RallyMonitor",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#2563eb",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
