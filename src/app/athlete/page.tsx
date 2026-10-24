@@ -116,6 +116,30 @@ export default async function AthleteHome() {
     );
   }
 
+  // Phase 9: engagement card — check-in streak + a simple personal insight
+  // (only with enough data; no alarming wording).
+  const engageOn = await isFlagEnabled("push", groupIds);
+  const recentList = (recent as MorningCheckin[]) ?? [];
+  const filledSet = new Set(recentList.map((c) => c.checkin_date));
+  let streak = 0;
+  for (let i = 0; i <= 60; i++) {
+    const day = addDays(today, -i);
+    if (filledSet.has(day)) streak++;
+    else if (i === 0) continue; // today may not be filled yet — start from yesterday
+    else break;
+  }
+  const scoreByDate = new Map(series.map((s) => [s.date, s.score]));
+  const withSleep = recentList.filter((c) => c.sleep_hours != null && scoreByDate.has(c.checkin_date));
+  const hiSleep = withSleep.filter((c) => (c.sleep_hours ?? 0) >= 8.5);
+  const loSleep = withSleep.filter((c) => (c.sleep_hours ?? 0) < 8.5);
+  let sleepDiff: number | null = null;
+  if (hiSleep.length >= 4 && loSleep.length >= 4) {
+    const avg = (arr: MorningCheckin[]) =>
+      arr.reduce((x, c) => x + scoreByDate.get(c.checkin_date)!, 0) / arr.length;
+    const diff = avg(hiSleep) - avg(loSleep);
+    if (diff >= 3) sleepDiff = Math.round(diff);
+  }
+
   // Phase 5: context calendar (flag 'events') — own + group events.
   const eventsOn = await isFlagEnabled("events", groupIds);
   let eventRows: import("@/lib/types").CalendarEvent[] = [];
@@ -242,6 +266,21 @@ export default async function AthleteHome() {
           </div>
         </CardContent>
       </Card>
+
+      {engageOn && (streak >= 2 || sleepDiff !== null) && (
+        <Card>
+          <CardContent className="space-y-1.5 pt-4 text-sm">
+            {streak >= 2 && (
+              <p>
+                🔥 {d.streak.replace("{n}", String(streak))}
+              </p>
+            )}
+            {sleepDiff !== null && (
+              <p className="text-muted">{d.sleepInsight.replace("{d}", String(sleepDiff))}</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {eventsOn && (
         <EventsPanel dict={dict} events={eventRows} athleteId={athlete.id} mode="athlete" />

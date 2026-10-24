@@ -6,6 +6,7 @@ import type { AppRole } from "@/lib/types";
 import { signOut } from "@/app/actions/auth";
 import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { BottomNav, type NavItem } from "@/components/layout/bottom-nav";
+import { PushSubscribe } from "@/components/push-subscribe";
 
 /** primary — mobile bottom tabs; overflow — inside the "More" sheet */
 export function navGroups(role: AppRole, d: Dictionary): { primary: NavItem[]; overflow: NavItem[] } {
@@ -57,11 +58,14 @@ export async function AppShell({
   role,
   displayName,
   dict,
+  pushEnabled = false,
   children,
 }: {
   role: AppRole;
   displayName: string;
   dict: Dictionary;
+  /** Mounts the push opt-in banner + SW registration (flag 'push'). */
+  pushEnabled?: boolean;
   children: React.ReactNode;
 }) {
   const { primary, overflow } = navGroups(role, dict);
@@ -121,6 +125,7 @@ export async function AppShell({
 
       {/* Mobile bottom tab bar */}
       <BottomNav primary={primary} overflow={overflow} moreLabel={dict.nav.more} />
+      {pushEnabled && <PushSubscribe dict={dict} />}
     </div>
   );
 }

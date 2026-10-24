@@ -99,6 +99,14 @@ const en: Dictionary = {
     monthChart: "Last 30 days",
     painNotice:
       "You reported pain or unusual symptoms. Tell your coach before training. If the pain is sharp, swollen or hard to move — tell an adult and see a doctor.",
+    streak: "{n} days in a row filling the check-in — great habit!",
+    sleepInsight: "Interesting: when you sleep 8.5+ hours, your wellbeing is on average {d} points higher",
+  },
+  push: {
+    bannerTitle: "Check-in reminders",
+    bannerBody: "The app will remind you about the morning and post-training check-ins",
+    enable: "Enable",
+    later: "Later",
   },
   dashboard: {
     zLabel: "Deviation from norm",

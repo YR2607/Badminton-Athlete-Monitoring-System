@@ -6,6 +6,7 @@ import { getCurrentProfile, audit } from "@/lib/auth";
 import { coachNoteSchema, alertReviewSchema, recommendationReviewSchema, athleteGrowthSchema, growthMeasurementSchema } from "@/lib/validation";
 import { evaluateAthleteDay } from "@/lib/evaluate";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isFlagEnabled } from "@/lib/flags";
 import { localDate } from "@/lib/dates";
 
 export type ActionResult = { ok?: boolean; error?: string };
@@ -50,6 +51,51 @@ export async function reviewAlert(input: unknown): Promise<ActionResult> {
   if (error) return { error: error.message };
   if (!data) return { error: "forbidden" };
   await audit("alert.review", "alerts", parsed.data.alert_id, { status: parsed.data.status });
+
+  // Phase 9: the athlete sees that the coach reacted to their signal.
+  try {
+    const admin = createAdminClient();
+    const { data: aRow } = await admin
+      .from("athletes")
+      .select("profile_id, group_memberships(group_id)")
+      .eq("id", data.athlete_id)
+      .maybeSingle();
+    const aProf = aRow?.profile_id as string | undefined;
+    const gIds = ((aRow?.group_memberships as { group_id: string }[] | null) ?? []).map((g) => g.group_id);
+    if (aProf && (await isFlagEnabled("push", gIds))) {
+      const { data: aProfile } = await admin
+        .from("profiles")
+        .select("preferred_language")
+        .eq("id", aProf)
+        .maybeSingle();
+      const lang = (aProfile?.preferred_language as string | undefined) ?? "ru";
+      const t =
+        {
+          ru: { title: "RallyMonitor", body: "Тренер посмотрел твой сигнал — всё под контролем" },
+          en: { title: "RallyMonitor", body: "Your coach reviewed your signal — all good" },
+          ro: { title: "RallyMonitor", body: "Antrenorul a văzut semnalul tău — totul e în regulă" },
+        }[lang] ?? { title: "RallyMonitor", body: "Coach reviewed your signal" };
+      const { data: ins } = await admin
+        .from("notifications")
+        .upsert(
+          {
+            profile_id: aProf,
+            kind: "alert_reviewed",
+            title: t.title,
+            body: t.body,
+            dedup_key: `alert_reviewed:${parsed.data.alert_id}`,
+          },
+          { onConflict: "dedup_key", ignoreDuplicates: true },
+        )
+        .select("id");
+      if (ins?.length) {
+        const { sendPushToProfile } = await import("@/lib/push");
+        await sendPushToProfile(admin, aProf, { title: t.title, body: t.body, url: "/athlete" });
+      }
+    }
+  } catch (e) {
+    console.error("alert_reviewed_notify_failed", e);
+  }
   revalidatePath("/coach");
   revalidatePath("/coach/alerts");
   return { ok: true };

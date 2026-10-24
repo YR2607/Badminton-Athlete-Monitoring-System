@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { localDate, localDayUtcBounds, localMinutesOfDay, localWeekday } from "@/lib/dates";
-import type { Athlete, GroupMembership, Profile, TrainingSchedule } from "@/lib/types";
+import { flagEnabled } from "@/lib/flags";
+import { sendPushToProfile } from "@/lib/push";
+import type { Athlete, FeatureFlag, GroupMembership, Profile, TrainingSchedule } from "@/lib/types";
 
 /**
  * Reminder generator. Invoke from an external scheduler (Vercel Cron, cron-job.org,
@@ -41,7 +43,7 @@ export async function GET(req: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const [profiles, athletes, memberships, schedules, missingRule] = await Promise.all([
+  const [profiles, athletes, memberships, schedules, missingRule, flagsRes] = await Promise.all([
     admin.from("profiles").select("*").eq("role", "athlete"),
     admin.from("athletes").select("*").eq("status", "active"),
     admin.from("group_memberships").select("*").is("left_at", null),
@@ -52,6 +54,7 @@ export async function GET(req: NextRequest) {
       .eq("code", "missing_morning")
       .eq("enabled", true)
       .maybeSingle(),
+    admin.from("feature_flags").select("key, enabled, group_ids"),
   ]);
   const readError = profiles.error ?? athletes.error ?? memberships.error ?? schedules.error;
   if (readError) {
@@ -59,6 +62,13 @@ export async function GET(req: NextRequest) {
   }
 
   const profById = new Map(((profiles.data as Profile[] | null) ?? []).map((p) => [p.id, p]));
+  const flags = (flagsRes.data as FeatureFlag[] | null) ?? [];
+  const memberGroups = (athleteId: string) =>
+    ((memberships.data as GroupMembership[] | null) ?? [])
+      .filter((m) => m.athlete_id === athleteId)
+      .map((m) => m.group_id);
+  const pushFor = (athleteId: string) => flagEnabled(flags, "push", memberGroups(athleteId));
+  let pushed = 0;
   const missingAfter =
     Number((missingRule.data?.params as { after_local_hour?: number } | null)?.after_local_hour ?? 12) * 60;
   let created = 0;
@@ -91,7 +101,12 @@ export async function GET(req: NextRequest) {
         },
         { onConflict: "dedup_key", ignoreDuplicates: true },
       ).select("id");
-      if (!error) created += inserted?.length ?? 0;
+      if (!error && inserted?.length) {
+        created += inserted.length;
+        if (pushFor(a.id)) {
+          pushed += await sendPushToProfile(admin, profile.id, { title: t.title, body: t.body, url: "/athlete" });
+        }
+      }
     }
 
     // missing_morning alert rule: no check-in after the configured local hour.
@@ -141,11 +156,20 @@ export async function GET(req: NextRequest) {
             },
             { onConflict: "dedup_key", ignoreDuplicates: true },
           ).select("id");
-          if (!error) created += inserted?.length ?? 0;
+          if (!error && inserted?.length) {
+            created += inserted.length;
+            if (pushFor(a.id)) {
+              pushed += await sendPushToProfile(admin, profile.id, {
+                title: t.title,
+                body: t.body,
+                url: "/athlete/training",
+              });
+            }
+          }
         }
       }
     }
   }
 
-  return NextResponse.json({ ok: true, notifications_created: created });
+  return NextResponse.json({ ok: true, notifications_created: created, pushes_sent: pushed });
 }

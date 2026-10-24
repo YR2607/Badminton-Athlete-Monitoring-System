@@ -99,6 +99,14 @@ const ro: Dictionary = {
     monthChart: "Ultimele 30 de zile",
     painNotice:
       "Ai raportat durere sau simptome neobișnuite. Spune antrenorului înainte de antrenament. Dacă durerea e ascuțită, există umflătură sau e greu să te miști — spune unui adult și mergi la medic.",
+    streak: "{n} zile la rând completezi chestionarul — obicei excelent!",
+    sleepInsight: "Interesant: când dormi 8.5+ ore, starea ta e în medie cu {d} puncte mai bună",
+  },
+  push: {
+    bannerTitle: "Memento-uri pentru chestionare",
+    bannerBody: "Aplicația îți va reaminti chestionarul de dimineață și cel de după antrenament",
+    enable: "Activează",
+    later: "Mai târziu",
   },
   dashboard: {
     zLabel: "Abatere față de normă",
