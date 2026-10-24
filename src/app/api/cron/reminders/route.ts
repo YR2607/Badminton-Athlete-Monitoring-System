@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { localDate, localDayUtcBounds, localMinutesOfDay, localWeekday } from "@/lib/dates";
 import { flagEnabled } from "@/lib/flags";
 import { sendPushToProfile } from "@/lib/push";
+import type { PlanOverride } from "@/lib/load";
 import type { Athlete, FeatureFlag, GroupMembership, Profile, TrainingSchedule } from "@/lib/types";
 
 /**
@@ -43,11 +44,20 @@ export async function GET(req: NextRequest) {
   }
 
   const admin = createAdminClient();
-  const [profiles, athletes, memberships, schedules, missingRule, flagsRes] = await Promise.all([
+  // Overrides are date-keyed; athlete-local "today" spans up to two UTC dates.
+  const utcNow = new Date();
+  const ovFrom = localDate(new Date(utcNow.getTime() - 86400000), "UTC");
+  const ovTo = localDate(new Date(utcNow.getTime() + 86400000), "UTC");
+  const [profiles, athletes, memberships, schedules, planOverrides, missingRule, flagsRes] = await Promise.all([
     admin.from("profiles").select("*").eq("role", "athlete"),
     admin.from("athletes").select("*").eq("status", "active"),
     admin.from("group_memberships").select("*").is("left_at", null),
     admin.from("training_schedules").select("*").eq("active", true),
+    admin
+      .from("session_plan_overrides")
+      .select("*")
+      .gte("plan_date", ovFrom)
+      .lte("plan_date", ovTo),
     admin
       .from("alert_rules")
       .select("severity, params")
@@ -127,10 +137,29 @@ export async function GET(req: NextRequest) {
       .filter((m) => m.athlete_id === a.id)
       .map((m) => m.group_id);
     const wd = localWeekday(now, tz);
-    const todays = ((schedules.data as TrainingSchedule[] | null) ?? []).filter(
-      (s) => myGroups.includes(s.group_id) && s.weekday === wd,
+    // Per-date overrides REPLACE the template for that date: a cancelled one
+    // removes the day's sessions, an active one provides its own start_time
+    // (falling back to the weekday's template start, then 19:00).
+    const myOv = ((planOverrides.data as PlanOverride[] | null) ?? []).filter(
+      (o) => myGroups.includes((o as { group_id?: string }).group_id!) && o.plan_date === today,
+    ) as (PlanOverride & { group_id: string })[];
+    const overriddenGroups = new Set(myOv.map((o) => o.group_id));
+    const allSchedules = (schedules.data as TrainingSchedule[] | null) ?? [];
+    const todays = allSchedules.filter(
+      (s) => myGroups.includes(s.group_id) && s.weekday === wd && !overriddenGroups.has(s.group_id),
     );
-    if (todays.length > 0) {
+    const startTimes = [
+      ...todays.map((s) => s.start_time),
+      ...myOv
+        .filter((o) => !o.cancelled)
+        .map(
+          (o) =>
+            o.start_time ??
+            allSchedules.find((s) => s.group_id === o.group_id && s.weekday === wd)?.start_time ??
+            "19:00",
+        ),
+    ];
+    if (startTimes.length > 0) {
       // "session already logged today" — today in the athlete's timezone,
       // translated to real UTC instants (not a UTC-midnight slice).
       const day = localDayUtcBounds(today, tz);
@@ -143,7 +172,8 @@ export async function GET(req: NextRequest) {
         .limit(1)
         .maybeSingle();
       if (!session) {
-        const [h, m] = todays[0].start_time.split(":").map(Number);
+        const earliest = startTimes.slice().sort()[0];
+        const [h, m] = earliest.split(":").map(Number);
         if (minutesNow >= h * 60 + m + 90) {
           const t = text("post_training_reminder", profile.preferred_language);
           const { data: inserted, error } = await admin.from("notifications").upsert(

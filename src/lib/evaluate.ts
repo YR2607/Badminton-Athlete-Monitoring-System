@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildSnapshot, dailyConditionSeries, computeBaseline, postsByLocalDate, rollingNorm, rollingItemNorms, itemZScores, zScore, SD_FLOOR_SCORE, ROLLING_WINDOW_DAYS } from "@/lib/readiness";
 import { evaluateAlerts } from "@/lib/alerts";
-import { dailyLoads, acwrEwma, type ScheduleInput, type SessionInput } from "@/lib/load";
+import { dailyLoads, acwrEwma, type PlanOverride, type ScheduleInput, type SessionInput } from "@/lib/load";
 import { evaluateRecommendations } from "@/lib/recommendations";
 import { decimalAge, growthVelocity, khamisRoche } from "@/lib/growth";
 import { flagEnabled } from "@/lib/flags";
@@ -71,13 +71,21 @@ export async function evaluateAthleteDay(
     ]);
 
   const groupId = membership?.group_id ?? null;
-  const { data: schedules } = groupId
-    ? await admin
-        .from("training_schedules")
-        .select("weekday, planned_minutes, planned_rpe")
-        .eq("group_id", groupId)
-        .eq("active", true)
-    : { data: null };
+  const [{ data: schedules }, { data: planOverrides }] = groupId
+    ? await Promise.all([
+        admin
+          .from("training_schedules")
+          .select("weekday, planned_minutes, planned_rpe")
+          .eq("group_id", groupId)
+          .eq("active", true),
+        admin
+          .from("session_plan_overrides")
+          .select("plan_date, cancelled, start_time, planned_minutes, planned_rpe")
+          .eq("group_id", groupId)
+          .gte("plan_date", from)
+          .lte("plan_date", date),
+      ])
+    : [{ data: null }, { data: null }];
 
   // Check-ins are bucketed by the session's local date, not submitted_at —
   // a backfilled questionnaire belongs to the day it describes.
@@ -117,6 +125,7 @@ export async function evaluateAthleteDay(
     dateRange(from, date),
     sessionInputs,
     ((schedules as TrainingSchedule[] | null) ?? []) as ScheduleInput[],
+    (planOverrides as PlanOverride[] | null) ?? [],
   );
   const flagRows = (flags as FeatureFlag[] | null) ?? [];
   const groupIds = groupId ? [groupId] : [];

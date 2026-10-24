@@ -85,6 +85,55 @@ export async function deleteSchedule(id: string): Promise<ActionResult> {
   return { ok: true };
 }
 
+/** Per-date plan override: adjust minutes/RPE, cancel or add a session. */
+export async function savePlanOverride(input: {
+  group_id: string;
+  plan_date: string; // YYYY-MM-DD
+  cancelled: boolean;
+  start_time?: string | null;
+  planned_minutes?: number | null;
+  planned_rpe?: number | null;
+}): Promise<ActionResult> {
+  const me = await requireAdmin();
+  if (!me) return { error: "forbidden" };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.plan_date)) return { error: "validation" };
+  if (input.planned_minutes != null && (input.planned_minutes < 1 || input.planned_minutes > 600))
+    return { error: "validation" };
+  if (input.planned_rpe != null && (input.planned_rpe < 0 || input.planned_rpe > 10))
+    return { error: "validation" };
+  const admin = createAdminClient();
+  const { error } = await admin.from("session_plan_overrides").upsert(
+    {
+      group_id: input.group_id,
+      plan_date: input.plan_date,
+      cancelled: input.cancelled,
+      start_time: input.start_time ?? null,
+      planned_minutes: input.cancelled ? null : (input.planned_minutes ?? null),
+      planned_rpe: input.cancelled ? null : (input.planned_rpe ?? null),
+    },
+    { onConflict: "group_id,plan_date" },
+  );
+  if (error) return { error: error.message };
+  await audit("plan_override.upsert", "session_plan_overrides", null, input as Record<string, unknown>);
+  revalidatePath("/admin/groups");
+  return { ok: true };
+}
+
+/** Remove a per-date override — the weekly template applies again. */
+export async function deletePlanOverride(groupId: string, planDate: string): Promise<ActionResult> {
+  const me = await requireAdmin();
+  if (!me) return { error: "forbidden" };
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("session_plan_overrides")
+    .delete()
+    .eq("group_id", groupId)
+    .eq("plan_date", planDate);
+  if (error) return { error: error.message };
+  revalidatePath("/admin/groups");
+  return { ok: true };
+}
+
 export async function setAthleteStatus(
   athleteId: string,
   status: "active" | "inactive" | "archived",

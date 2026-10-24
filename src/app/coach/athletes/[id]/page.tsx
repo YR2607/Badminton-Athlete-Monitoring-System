@@ -8,7 +8,7 @@ import { conditionScore, dailyConditionSeries, postsByLocalDate } from "@/lib/re
 import { pendingPostCheckins } from "@/lib/athlete-status";
 import { allAthleteIds } from "@/lib/coach-data";
 import { isFlagEnabled } from "@/lib/flags";
-import { dailyLoads, type SessionInput } from "@/lib/load";
+import { dailyLoads, type PlanOverride, type SessionInput } from "@/lib/load";
 import { AthleteDashboard } from "@/components/dashboard/athlete-dashboard";
 import { RecList } from "./rec-list";
 import { GrowthPanel } from "./growth-panel";
@@ -360,7 +360,7 @@ export default async function AthleteDetailPage({
   let dashLoads: ReturnType<typeof dailyLoads> = [];
   if (dashboardOn && (srpeOn || zscoreOn)) {
     const since40 = addDays(today, -39);
-    const [{ data: dSnaps }, { data: dSessions }, { data: dSchedules }] = await Promise.all([
+    const [{ data: dSnaps }, { data: dSessions }, { data: dSchedules }, { data: dOverrides }] = await Promise.all([
       supabase
         .from("readiness_snapshots")
         .select("*")
@@ -379,6 +379,14 @@ export default async function AthleteDetailPage({
             .eq("group_id", membership.group_id)
             .eq("active", true)
         : Promise.resolve({ data: null }),
+      membership?.group_id
+        ? supabase
+            .from("session_plan_overrides")
+            .select("plan_date, cancelled, start_time, planned_minutes, planned_rpe")
+            .eq("group_id", membership.group_id)
+            .gte("plan_date", since40)
+            .lte("plan_date", today)
+        : Promise.resolve({ data: null }),
     ]);
     dashSnaps = (dSnaps as ReadinessSnapshot[]) ?? [];
     const inputs: SessionInput[] = (
@@ -392,6 +400,7 @@ export default async function AthleteDetailPage({
       dateRange(since40, today),
       inputs,
       (dSchedules ?? []) as { weekday: number; planned_minutes: number | null; planned_rpe: number | null }[],
+      (dOverrides ?? []) as PlanOverride[],
     );
   }
 

@@ -33,36 +33,90 @@ export function weekdayOf(date: string): number {
   return new Date(`${date}T12:00:00Z`).getUTCDay();
 }
 
+/** Per-date plan override (session_plan_overrides row). */
+export interface PlanOverride {
+  plan_date: string; // YYYY-MM-DD
+  cancelled: boolean;
+  start_time?: string | null; // "HH:MM" — only meaningful for added sessions
+  planned_minutes: number | null;
+  planned_rpe: number | null;
+}
+
+export interface EffectivePlan {
+  scheduled: boolean;
+  planned: number | null; // planned AU
+  planned_minutes: number | null;
+  planned_rpe: number | null;
+}
+
+/**
+ * Resolve the plan for one date: a matching override wins over the weekly
+ * template; a cancelled override means no session that day.
+ */
+export function plannedForDate(
+  date: string,
+  schedules: ScheduleInput[],
+  overrides?: PlanOverride[] | Map<string, PlanOverride>,
+): EffectivePlan {
+  const list = overrides instanceof Map ? [...overrides.values()] : (overrides ?? []);
+  const o = list.find((x) => x.plan_date === date);
+  if (o) {
+    if (o.cancelled) {
+      return { scheduled: false, planned: null, planned_minutes: null, planned_rpe: null };
+    }
+    const planned =
+      o.planned_minutes != null && o.planned_rpe != null
+        ? o.planned_minutes * o.planned_rpe
+        : null;
+    return {
+      scheduled: true,
+      planned,
+      planned_minutes: o.planned_minutes,
+      planned_rpe: o.planned_rpe,
+    };
+  }
+  const wd = weekdayOf(date);
+  const rows = schedules.filter((s) => s.weekday === wd);
+  const parts = rows
+    .map((s) =>
+      s.planned_minutes != null && s.planned_rpe != null
+        ? s.planned_minutes * s.planned_rpe
+        : null,
+    )
+    .filter((v): v is number => v !== null);
+  return {
+    scheduled: rows.length > 0,
+    planned: parts.length > 0 ? parts.reduce((a, b) => a + b, 0) : null,
+    planned_minutes: rows.find((s) => s.planned_minutes != null)?.planned_minutes ?? null,
+    planned_rpe: rows.find((s) => s.planned_rpe != null)?.planned_rpe ?? null,
+  };
+}
+
 /**
  * Day-by-day load for a date range. A day counts as `scheduled` when any
- * active schedule row matches its weekday; `planned` sums planned loads.
+ * active schedule row matches its weekday (or an override adds one);
+ * `planned` sums planned loads.
  */
 export function dailyLoads(
   dates: string[],
   sessions: SessionInput[],
   schedules: ScheduleInput[],
+  overrides?: PlanOverride[],
 ): DayLoad[] {
+  const ovByDate = new Map((overrides ?? []).map((o) => [o.plan_date, o]));
   const byDate = new Map<string, number>();
   for (const s of sessions) {
     if (s.rpe == null || s.minutes == null) continue;
     byDate.set(s.date, (byDate.get(s.date) ?? 0) + s.rpe * s.minutes);
   }
   return dates.map((date) => {
-    const wd = weekdayOf(date);
-    const rows = schedules.filter((s) => s.weekday === wd);
-    const plannedParts = rows
-      .map((s) =>
-        s.planned_minutes != null && s.planned_rpe != null
-          ? s.planned_minutes * s.planned_rpe
-          : null,
-      )
-      .filter((v): v is number => v !== null);
+    const plan = plannedForDate(date, schedules, ovByDate);
     return {
       date,
-      scheduled: rows.length > 0,
+      scheduled: plan.scheduled,
       hasData: byDate.has(date),
       load: byDate.get(date) ?? 0,
-      planned: plannedParts.length > 0 ? plannedParts.reduce((a, b) => a + b, 0) : null,
+      planned: plan.planned,
     };
   });
 }

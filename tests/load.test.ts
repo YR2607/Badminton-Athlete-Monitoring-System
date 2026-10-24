@@ -46,6 +46,27 @@ describe("dailyLoads", () => {
     expect(out[0].scheduled).toBe(true);
     expect(out[0].planned).toBeNull();
   });
+
+  it("applies a per-date override: changed values replace the template", () => {
+    const out = dailyLoads(["2026-10-26"], [], schedules, [
+      { plan_date: "2026-10-26", cancelled: false, planned_minutes: 60, planned_rpe: 8 },
+    ]);
+    expect(out[0]).toMatchObject({ scheduled: true, planned: 480 });
+  });
+
+  it("applies a cancelled override: scheduled day becomes a rest day", () => {
+    const out = dailyLoads(["2026-10-26"], [], schedules, [
+      { plan_date: "2026-10-26", cancelled: true, planned_minutes: null, planned_rpe: null },
+    ]);
+    expect(out[0]).toMatchObject({ scheduled: false, planned: null });
+  });
+
+  it("applies an added-day override on a non-template weekday", () => {
+    const out = dailyLoads(["2026-10-25"], [], schedules, [
+      { plan_date: "2026-10-25", cancelled: false, planned_minutes: 45, planned_rpe: 4 },
+    ]);
+    expect(out[0]).toMatchObject({ scheduled: true, planned: 180 });
+  });
 });
 
 describe("ewma", () => {

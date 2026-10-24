@@ -730,6 +730,13 @@ const en: Dictionary = {
     startTime: "Start time",
     plannedMinutes: "Duration, min (planned)",
     plannedRpe: "Difficulty 0–10 (planned)",
+    weekPlan: "7-day plan",
+    weekPlanHint:
+      "Adjust the load for specific dates — the weekly template stays unchanged.",
+    trainingOn: "Training",
+    restDay: "Rest day",
+    overrideBadge: "edited",
+    resetDay: "Reset",
     auditLog: "Audit log",
     action: "Action",
     actor: "Actor",

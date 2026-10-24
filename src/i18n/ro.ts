@@ -730,6 +730,13 @@ const ro: Dictionary = {
     startTime: "Ora începerii",
     plannedMinutes: "Durată, min (plan)",
     plannedRpe: "Dificultate 0–10 (plan)",
+    weekPlan: "Plan pe 7 zile",
+    weekPlanHint:
+      "Ajustați sarcina pentru date concrete — șablonul săptămânal rămâne neschimbat.",
+    trainingOn: "Antrenament",
+    restDay: "Zi liberă",
+    overrideBadge: "modificat",
+    resetDay: "Resetează",
     auditLog: "Jurnal de acțiuni",
     action: "Acțiune",
     actor: "Cine",

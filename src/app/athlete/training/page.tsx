@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getDictionary } from "@/i18n";
 import { localDate, todayInTz, addDays } from "@/lib/dates";
 import { isFlagEnabled } from "@/lib/flags";
-import { weekdayOf } from "@/lib/load";
+import { plannedForDate, type PlanOverride } from "@/lib/load";
 import { TrainingForm } from "@/components/forms/training-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2 } from "lucide-react";
@@ -33,7 +33,7 @@ export default async function TrainingPage() {
   ]);
 
   const groupId = membership?.group_id ?? null;
-  const [srpe, { data: schedules }] = await Promise.all([
+  const [srpe, { data: schedules }, { data: planOverrides }] = await Promise.all([
     isFlagEnabled("srpe", groupId ? [groupId] : []),
     groupId
       ? supabase
@@ -42,13 +42,20 @@ export default async function TrainingPage() {
           .eq("group_id", groupId)
           .eq("active", true)
       : Promise.resolve({ data: null }),
+    groupId
+      ? supabase
+          .from("session_plan_overrides")
+          .select("plan_date, cancelled, start_time, planned_minutes, planned_rpe")
+          .eq("group_id", groupId)
+          .in("plan_date", [yesterday, today])
+      : Promise.resolve({ data: null }),
   ]);
 
   const rows = (schedules as TrainingSchedule[] | null) ?? [];
-  const todayRows = rows.filter((s) => s.weekday === weekdayOf(today));
-  const yesterdayRows = rows.filter((s) => s.weekday === weekdayOf(yesterday));
-  const defaultMinutes =
-    todayRows.find((s) => s.planned_minutes != null)?.planned_minutes ?? undefined;
+  const overrides = (planOverrides as PlanOverride[] | null) ?? [];
+  const todayPlan = plannedForDate(today, rows, overrides);
+  const yesterdayPlan = plannedForDate(yesterday, rows, overrides);
+  const defaultMinutes = todayPlan.planned_minutes ?? undefined;
 
   const doneToday = ((posts as PostTrainingCheckin[]) ?? []).some(
     (p) => localDate(new Date(p.submitted_at), profile.timezone) === today,
@@ -74,7 +81,7 @@ export default async function TrainingPage() {
         dict={dict}
         srpe={srpe}
         defaultMinutes={defaultMinutes}
-        allowYesterday={yesterdayRows.length > 0}
+        allowYesterday={yesterdayPlan.scheduled}
       />
     </div>
   );

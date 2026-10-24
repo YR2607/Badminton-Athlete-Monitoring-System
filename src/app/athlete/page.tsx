@@ -6,7 +6,7 @@ import { addDays, localDate, todayInTz } from "@/lib/dates";
 import { dailyConditionSeries, postsByLocalDate, bandForScore } from "@/lib/readiness";
 import { bandAdviceKey } from "@/lib/alerts";
 import { isFlagEnabled } from "@/lib/flags";
-import { dailyLoads, type SessionInput } from "@/lib/load";
+import { dailyLoads, plannedForDate, type PlanOverride, type ScheduleInput, type SessionInput } from "@/lib/load";
 import { dateRange } from "@/lib/dates";
 import { AthleteDashboard } from "@/components/dashboard/athlete-dashboard";
 import { EventsPanel } from "@/components/events-panel";
@@ -42,15 +42,27 @@ export default async function AthleteHome() {
   );
 
   const groupIds = (memberships ?? []).map((m) => m.group_id);
-  const { data: schedules } = groupIds.length
-    ? await supabase
-        .from("training_schedules")
-        .select("weekday, planned_minutes, planned_rpe")
-        .in("group_id", groupIds)
-        .eq("active", true)
-    : { data: [] };
-  const todayWeekday = new Date(`${today}T12:00:00Z`).getUTCDay();
-  const scheduledToday = (schedules ?? []).some((s) => s.weekday === todayWeekday);
+  const [{ data: schedules }, { data: planOverrides }] = groupIds.length
+    ? await Promise.all([
+        supabase
+          .from("training_schedules")
+          .select("weekday, planned_minutes, planned_rpe")
+          .in("group_id", groupIds)
+          .eq("active", true),
+        supabase
+          .from("session_plan_overrides")
+          .select("plan_date, cancelled, start_time, planned_minutes, planned_rpe")
+          .in("group_id", groupIds)
+          .gte("plan_date", addDays(today, -40))
+          .lte("plan_date", today),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const overrides = (planOverrides as PlanOverride[] | null) ?? [];
+  const scheduledToday = plannedForDate(
+    today,
+    (schedules ?? []) as ScheduleInput[],
+    overrides,
+  ).scheduled;
 
   const morningDone = !!todayCheckin;
   const postDone = posts.length > 0;
@@ -113,6 +125,7 @@ export default async function AthleteHome() {
         planned_minutes: s.planned_minutes,
         planned_rpe: s.planned_rpe,
       })),
+      overrides,
     );
   }
 

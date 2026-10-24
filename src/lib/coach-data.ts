@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { todayInTz, addDays, localDate, localWeekday } from "@/lib/dates";
+import { todayInTz, addDays, localDate } from "@/lib/dates";
+import { plannedForDate, type PlanOverride } from "@/lib/load";
 import {
   computeBaseline,
   dailyConditionSeries,
@@ -133,6 +134,22 @@ export async function coachDashboard(
     list.push(s);
     schedulesByGroup.set(s.group_id, list);
   }
+  // Per-date plan overrides — a cancelled day must not flag a missed session.
+  // Athlete-local "yesterday" can span two calendar dates across timezones.
+  const { data: planOverrides } = scopedGroupIds.length
+    ? await supabase
+        .from("session_plan_overrides")
+        .select("group_id, plan_date, cancelled, planned_minutes, planned_rpe")
+        .in("group_id", scopedGroupIds)
+        .gte("plan_date", addDays(coachToday, -2))
+        .lte("plan_date", coachToday)
+    : { data: [] as PlanOverride[] };
+  const overridesByGroup = new Map<string, PlanOverride[]>();
+  for (const o of (planOverrides as (PlanOverride & { group_id: string })[] | null) ?? []) {
+    const list = overridesByGroup.get(o.group_id) ?? [];
+    list.push(o);
+    overridesByGroup.set(o.group_id, list);
+  }
 
   const checkinsByAthlete = new Map<string, MorningCheckin[]>();
   for (const c of (checkins as MorningCheckin[] | null) ?? []) {
@@ -209,10 +226,13 @@ export async function coachDashboard(
     ).length;
     const group = groupOfAthlete.get(a.id) ?? null;
     const sched = group ? (schedulesByGroup.get(group.id) ?? []) : [];
+    const schedOv = (group ? (overridesByGroup.get(group.id) ?? []) : []).filter(
+      (o) => o.plan_date === yesterday,
+    );
     const scheduledMissedYesterday =
-      sched.length === 0
+      sched.length === 0 && schedOv.length === 0
         ? null
-        : sched.some((s) => s.weekday === localWeekday(new Date(`${yesterday}T12:00:00Z`), athleteTz)) &&
+        : plannedForDate(yesterday, sched, schedOv).scheduled &&
           !aSessions.some((s) => localDate(new Date(s.started_at), athleteTz) === yesterday);
     const pendingPostCount = pendingPostCheckins(aSessions, aPosts, now).length;
 

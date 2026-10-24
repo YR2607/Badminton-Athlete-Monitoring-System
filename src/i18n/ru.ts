@@ -732,6 +732,13 @@ const ru = {
     startTime: "Время начала",
     plannedMinutes: "Длительность, мин (план)",
     plannedRpe: "Тяжесть 0–10 (план)",
+    weekPlan: "План на 7 дней",
+    weekPlanHint:
+      "Уточните нагрузку на конкретные даты — шаблон по дням недели не меняется.",
+    trainingOn: "Тренировка",
+    restDay: "Выходной",
+    overrideBadge: "изменено",
+    resetDay: "Сброс",
     auditLog: "Журнал действий",
     action: "Действие",
     actor: "Кто",
