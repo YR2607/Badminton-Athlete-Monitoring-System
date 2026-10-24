@@ -403,12 +403,12 @@ const en: Dictionary = {
     surveysWeekly: "weekly",
     surveysScale: "1–10 scale",
     surveysPainNote:
-      "if pain is reported — where, side, severity (1–10), when it started, when it hurts, symptoms",
+      "if pain is reported — where, side, severity (1–10), when it started, on which movements, swelling and limited movement",
     surveysRpeNote: "effort scale 0–10, anchors: 0 rest · 3 moderate · 7 very hard · 10 max",
     surveysOstrcNote:
       "for each selected zone — 4 questions, answers from 'no problems' to 'could not participate'; answering 'no problems' ends the questionnaire",
     surveysOstrcExtra:
-      "optional: when it started, days missed, who was told, comment",
+      "optional: when it started, days missed, who was told, missed for other reasons, comment",
     surveysZoneWord: "the zone",
     title: "How the metrics work",
     subtitle: "What each number means and where it comes from.",

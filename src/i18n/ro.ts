@@ -403,12 +403,12 @@ const ro: Dictionary = {
     surveysWeekly: "săptămânal",
     surveysScale: "scară 1–10",
     surveysPainNote:
-      "dacă este raportată durere — unde, parte, intensitate (1–10), când a început, când doare, simptome",
+      "dacă este raportată durere — unde, parte, intensitate (1–10), când a început, la ce mișcări, edem și limitarea mișcării",
     surveysRpeNote: "scară de efort 0–10, repere: 0 odihnă · 3 moderat · 7 foarte greu · 10 maxim",
     surveysOstrcNote:
       "pentru fiecare zonă selectată — 4 întrebări, de la «nicio problemă» până la «nu am putut participa»; răspunsul «fără probleme» încheie chestionarul",
     surveysOstrcExtra:
-      "opțional: când a început, zile ratate, cui i-a spus, comentariu",
+      "opțional: când a început, zile ratate, cui i-a spus, absențe din alte motive, comentariu",
     surveysZoneWord: "zona",
     title: "Cum se calculează indicatorii",
     subtitle: "Ce înseamnă fiecare cifră și de unde provine.",

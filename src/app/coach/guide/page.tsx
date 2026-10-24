@@ -64,6 +64,7 @@ export default async function CoachGuidePage() {
                 <span>{dict.morning.sleepHours}</span>
                 <span className="shrink-0 text-xs">{dict.morning.sleepHoursUnit}</span>
               </li>
+              <li>{dict.morning.symptomsQuestion}</li>
               <li>{dict.morning.painQuestion}</li>
               <li className="text-xs">{g.surveysPainNote}</li>
             </ul>
