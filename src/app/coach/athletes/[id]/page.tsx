@@ -7,6 +7,9 @@ import { addDays, dateRange, localDate, resolveRange, todayInTz, type RangeKey }
 import { conditionScore, dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
 import { pendingPostCheckins } from "@/lib/athlete-status";
 import { allAthleteIds } from "@/lib/coach-data";
+import { isFlagEnabled } from "@/lib/flags";
+import { dailyLoads, type SessionInput } from "@/lib/load";
+import { AthleteDashboard } from "@/components/dashboard/athlete-dashboard";
 import { AthleteSwitcher, type NavAthlete } from "./athlete-switcher";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -191,6 +194,50 @@ export default async function AthleteDetailPage({
 
   const rangeKeys: RangeKey[] = ["7d", "14d", "30d", "90d", "month", "prev_month"];
 
+  // ---- Phase 7 analytics blocks (flag-gated by the athlete's group) ----
+  const athleteGroupIds = membership?.group_id ? [membership.group_id] : [];
+  const dashboardOn = await isFlagEnabled("athlete_dashboard", athleteGroupIds);
+  const srpeOn = await isFlagEnabled("srpe", athleteGroupIds);
+  const zscoreOn = await isFlagEnabled("zscore_baseline", athleteGroupIds);
+  let dashSnaps: ReadinessSnapshot[] = [];
+  let dashLoads: ReturnType<typeof dailyLoads> = [];
+  if (dashboardOn && (srpeOn || zscoreOn)) {
+    const since40 = addDays(today, -39);
+    const [{ data: dSnaps }, { data: dSessions }, { data: dSchedules }] = await Promise.all([
+      supabase
+        .from("readiness_snapshots")
+        .select("*")
+        .eq("athlete_id", a.id)
+        .gte("snapshot_date", addDays(today, -29))
+        .order("snapshot_date", { ascending: true }),
+      supabase
+        .from("training_sessions")
+        .select("started_at, session_rpe, duration_minutes")
+        .eq("athlete_id", a.id)
+        .gte("started_at", `${since40}T00:00:00Z`),
+      membership?.group_id
+        ? supabase
+            .from("training_schedules")
+            .select("weekday, planned_minutes, planned_rpe")
+            .eq("group_id", membership.group_id)
+            .eq("active", true)
+        : Promise.resolve({ data: null }),
+    ]);
+    dashSnaps = (dSnaps as ReadinessSnapshot[]) ?? [];
+    const inputs: SessionInput[] = (
+      (dSessions as { started_at: string; session_rpe: number | null; duration_minutes: number | null }[] | null) ?? []
+    ).map((s) => ({
+      date: localDate(new Date(s.started_at), tz),
+      rpe: s.session_rpe,
+      minutes: s.duration_minutes,
+    }));
+    dashLoads = dailyLoads(
+      dateRange(since40, today),
+      inputs,
+      (dSchedules ?? []) as { weekday: number; planned_minutes: number | null; planned_rpe: number | null }[],
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -335,6 +382,16 @@ export default async function AthleteDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      {dashboardOn && (srpeOn || zscoreOn) && (
+        <AthleteDashboard
+          dict={dict}
+          snapshots={dashSnaps}
+          loads={dashLoads}
+          srpe={srpeOn}
+          zscore={zscoreOn}
+        />
+      )}
 
       <div className="flex flex-wrap gap-1">
           {rangeKeys.map((k) => (
