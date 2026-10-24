@@ -176,6 +176,28 @@ export interface Alert {
   resolution_note: string | null;
 }
 
+export interface FieldTest {
+  id: string;
+  code: string;
+  name: { ru?: string; en?: string; ro?: string };
+  unit: string;
+  higher_better: boolean;
+  instruction: { ru?: string; en?: string; ro?: string };
+  sort_order: number;
+  active: boolean;
+}
+
+export interface FieldTestResult {
+  id: string;
+  athlete_id: string;
+  test_id: string;
+  test_date: string;
+  value: number;
+  attempt: number;
+  entered_by: string | null;
+  created_at: string;
+}
+
 export type EventKind = "competition" | "camp" | "school" | "illness" | "vacation" | "other";
 
 export interface CalendarEvent {

@@ -120,6 +120,26 @@ export const calendarEventSchema = z
   })
   .refine((s) => s.end_date >= s.start_date, { message: "end_date before start_date" });
 
+export const fieldTestResultSchema = z.object({
+  athlete_id: z.string().uuid(),
+  test_id: z.string().uuid(),
+  test_date: z.string().date(),
+  value: z.number().finite(),
+  attempt: z.number().int().min(1).max(9).default(1),
+});
+
+export const fieldTestSchema = z.object({
+  code: z.string().trim().regex(/^[a-z0-9_]{2,40}$/),
+  name_ru: z.string().trim().min(1).max(120),
+  name_en: z.string().trim().min(1).max(120),
+  name_ro: z.string().trim().min(1).max(120),
+  unit: z.string().trim().min(1).max(12),
+  higher_better: z.boolean(),
+  instruction_ru: z.string().trim().max(2000).optional(),
+  instruction_en: z.string().trim().max(2000).optional(),
+  instruction_ro: z.string().trim().max(2000).optional(),
+});
+
 export const growthMeasurementSchema = z.object({
   athlete_id: z.string().uuid(),
   measured_on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),

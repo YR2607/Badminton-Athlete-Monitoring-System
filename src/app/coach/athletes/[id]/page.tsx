@@ -13,6 +13,7 @@ import { AthleteDashboard } from "@/components/dashboard/athlete-dashboard";
 import { RecList } from "./rec-list";
 import { GrowthPanel } from "./growth-panel";
 import { EventsPanel } from "@/components/events-panel";
+import { TestsPanel } from "./tests-panel";
 import { decimalAge, growthVelocity, khamisRoche, maturationCategory } from "@/lib/growth";
 import { AthleteSwitcher, type NavAthlete } from "./athlete-switcher";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -235,6 +236,64 @@ export default async function AthleteDetailPage({
           .limit(30);
     const { data: ev } = await evQuery;
     eventRows = (ev as import("@/lib/types").CalendarEvent[] | null) ?? [];
+  }
+
+  // ---- Phase 6: field tests (flag 'field_tests') ----
+  const testsOn = await isFlagEnabled("field_tests", athleteGroupIds);
+  let fieldTests: import("@/lib/types").FieldTest[] = [];
+  let testResults: import("@/lib/types").FieldTestResult[] = [];
+  const groupMedian: Record<string, number> = {};
+  if (testsOn) {
+    const [{ data: tRows }, { data: rRows }] = await Promise.all([
+      supabase.from("field_tests").select("*").eq("active", true).order("sort_order"),
+      supabase
+        .from("field_test_results")
+        .select("*")
+        .eq("athlete_id", a.id)
+        .order("test_date", { ascending: false })
+        .limit(200),
+    ]);
+    fieldTests = (tRows as import("@/lib/types").FieldTest[] | null) ?? [];
+    testResults = (rRows as import("@/lib/types").FieldTestResult[] | null) ?? [];
+
+    // Group median per test: latest best value of each group-mate.
+    if (membership?.group_id) {
+      const { data: mates } = await supabase
+        .from("group_memberships")
+        .select("athlete_id")
+        .eq("group_id", membership.group_id)
+        .is("left_at", null);
+      const mateIds = ((mates as { athlete_id: string }[] | null) ?? []).map((m) => m.athlete_id);
+      if (mateIds.length) {
+        const { data: allRes } = await supabase
+          .from("field_test_results")
+          .select("athlete_id, test_id, test_date, value")
+          .in("athlete_id", mateIds);
+        const rows = (allRes as import("@/lib/types").FieldTestResult[] | null) ?? [];
+        for (const t of fieldTests) {
+          const latestByAthlete = new Map<string, number>();
+          const latestDate = new Map<string, string>();
+          for (const r of rows.filter((x) => x.test_id === t.id)) {
+            const cur = latestDate.get(r.athlete_id);
+            if (cur === undefined || r.test_date > cur) {
+              latestDate.set(r.athlete_id, r.test_date);
+              latestByAthlete.set(r.athlete_id, r.value);
+            } else if (r.test_date === cur) {
+              const prev = latestByAthlete.get(r.athlete_id)!;
+              latestByAthlete.set(
+                r.athlete_id,
+                t.higher_better ? Math.max(prev, r.value) : Math.min(prev, r.value),
+              );
+            }
+          }
+          const vals = [...latestByAthlete.values()].sort((x, y) => x - y);
+          if (vals.length) {
+            const mid = Math.floor(vals.length / 2);
+            groupMedian[t.id] = vals.length % 2 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2;
+          }
+        }
+      }
+    }
   }
 
   // ---- Phase 4: growth (flag 'growth') ----
@@ -468,6 +527,17 @@ export default async function AthleteDetailPage({
           athleteId={a.id}
           groupId={membership?.group_id ?? null}
           mode="staff"
+        />
+      )}
+
+      {testsOn && fieldTests.length > 0 && (
+        <TestsPanel
+          dict={dict}
+          lang={me.preferred_language}
+          athleteId={a.id}
+          tests={fieldTests}
+          results={testResults}
+          groupMedian={groupMedian}
         />
       )}
 
