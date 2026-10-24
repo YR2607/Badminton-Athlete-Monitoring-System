@@ -184,3 +184,11 @@ export interface ConsentRecord {
   recorded_at: string;
   revoked_at: string | null;
 }
+
+export interface FeatureFlag {
+  key: string;
+  description: string;
+  enabled: boolean;
+  group_ids: string[];
+  updated_at: string;
+}

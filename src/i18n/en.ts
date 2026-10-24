@@ -73,6 +73,7 @@ const en: Dictionary = {
     report: "Report",
     notifications: "Notifications",
     guide: "Guide",
+    features: "Features",
     more: "More",
   },
   athleteHome: {
@@ -478,6 +479,22 @@ const en: Dictionary = {
     allActions: "All actions",
     sortNewest: "Newest first",
     sortOldest: "Oldest first",
+    features: {
+      title: "Features",
+      allGroups: "Enabled for all groups",
+      selectedGroups: "Only for groups:",
+      items: {
+        srpe: "Session load (RPE × minutes)",
+        zscore_baseline: "Personal z-score baselines",
+        athlete_dashboard: "Athlete analytics dashboard",
+        ostrc: "Weekly overuse questionnaire (OSTRC)",
+        recommendations: "Coach recommendations",
+        growth: "Growth & maturation tracking",
+        events: "Event calendar",
+        field_tests: "Field tests",
+        push: "Push reminders",
+      },
+    },
   },
   export: {
     title: "Data export",

@@ -44,6 +44,7 @@ export function navGroups(role: AppRole, d: Dictionary): { primary: NavItem[]; o
       { href: "/admin", label: d.nav.home },
       { href: "/coach/guide", label: d.nav.guide },
       { href: "/admin/groups", label: d.nav.groups },
+      { href: "/admin/features", label: d.nav.features },
       { href: "/admin/rules", label: d.nav.rules },
       { href: "/admin/audit", label: d.nav.audit },
     ],

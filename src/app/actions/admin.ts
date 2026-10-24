@@ -146,3 +146,21 @@ export async function recordConsent(
 }
 
 export type { AlertSeverity };
+
+export async function setFeatureFlag(
+  key: string,
+  enabled: boolean,
+  groupIds: string[],
+): Promise<ActionResult> {
+  const me = await requireAdmin();
+  if (!me) return { error: "forbidden" };
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("feature_flags")
+    .update({ enabled, group_ids: groupIds, updated_at: new Date().toISOString() })
+    .eq("key", key);
+  if (error) return { error: error.message };
+  await audit("feature_flag.update", "feature_flags", null, { key, enabled, groupIds });
+  revalidatePath("/admin/features");
+  return { ok: true };
+}

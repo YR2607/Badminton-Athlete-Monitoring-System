@@ -74,6 +74,7 @@ const ru = {
     report: "Отчёт",
     notifications: "Уведомления",
     guide: "Справка",
+    features: "Функции",
     more: "Ещё",
   },
   athleteHome: {
@@ -480,6 +481,22 @@ const ru = {
     allActions: "Все действия",
     sortNewest: "Сначала новые",
     sortOldest: "Сначала старые",
+    features: {
+      title: "Функции",
+      allGroups: "Включено для всех групп",
+      selectedGroups: "Только для групп:",
+      items: {
+        srpe: "Нагрузка тренировок (RPE × минуты)",
+        zscore_baseline: "Личные нормы по z-score",
+        athlete_dashboard: "Аналитический дашборд спортсмена",
+        ostrc: "Еженедельная анкета перегрузок (OSTRC)",
+        recommendations: "Рекомендации тренеру",
+        growth: "Рост и биологическое созревание",
+        events: "Календарь событий",
+        field_tests: "Полевые тесты",
+        push: "Push-напоминания",
+      },
+    },
   },
   export: {
     title: "Экспорт данных",

@@ -73,6 +73,7 @@ const ro: Dictionary = {
     report: "Raport",
     notifications: "Notificări",
     guide: "Ghid",
+    features: "Funcții",
     more: "Mai mult",
   },
   athleteHome: {
@@ -478,6 +479,22 @@ const ro: Dictionary = {
     allActions: "Toate acțiunile",
     sortNewest: "Mai întâi noile",
     sortOldest: "Mai întâi vechile",
+    features: {
+      title: "Funcții",
+      allGroups: "Activat pentru toate grupele",
+      selectedGroups: "Doar pentru grupele:",
+      items: {
+        srpe: "Sarcina antrenamentelor (RPE × minute)",
+        zscore_baseline: "Norme personale z-score",
+        athlete_dashboard: "Tablou analitic al sportivului",
+        ostrc: "Chestionar săptămânal de suprasolicitare (OSTRC)",
+        recommendations: "Recomandări pentru antrenor",
+        growth: "Creștere și maturizare biologică",
+        events: "Calendar de evenimente",
+        field_tests: "Teste de teren",
+        push: "Notificări push",
+      },
+    },
   },
   export: {
     title: "Export de date",

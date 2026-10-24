@@ -19,6 +19,7 @@ const ICONS: Record<string, string> = {
   settings: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zm8 4h-2m-4-8V2m-4 2v2M4 12h2m4 8v-2m-6.4-9.4 1.4 1.4m9.2 9.2 1.4 1.4m0-12-1.4 1.4M4.6 18.6 6 17.2",
   export: "M12 3v12m0 0 4-4m-4 4-4-4M4 17v4h16v-4",
   analytics: "M4 20V10m6 10V4m6 16v-7m4 7H2",
+  features: "M4 6h4v4H4zM4 14h4v4H4zM12 6h8M12 10h8M12 14h8M12 18h8",
   more: "M5 6h14M5 12h14M5 18h14",
 };
 
@@ -33,6 +34,7 @@ export function iconKey(href: string): string {
   if (href.includes("audit")) return "audit";
   if (href.includes("settings")) return "settings";
   if (href.includes("export")) return "export";
+  if (href.includes("features")) return "features";
   if (href.includes("analytics")) return "analytics";
   return "home";
 }
