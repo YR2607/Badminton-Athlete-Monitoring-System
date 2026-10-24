@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { AppRole, Athlete, Profile } from "@/lib/types";
@@ -13,7 +14,8 @@ export function homeForRole(role: AppRole): string {
   }
 }
 
-export async function getCurrentProfile(): Promise<Profile | null> {
+/** Per-request memoized — layout and page share one auth+profile round trip. */
+export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -25,7 +27,7 @@ export async function getCurrentProfile(): Promise<Profile | null> {
     .eq("user_id", user.id)
     .maybeSingle();
   return (data as Profile | null) ?? null;
-}
+});
 
 export async function requireRole(roles: AppRole | AppRole[]): Promise<Profile> {
   const allowed = Array.isArray(roles) ? roles : [roles];
@@ -35,7 +37,7 @@ export async function requireRole(roles: AppRole | AppRole[]): Promise<Profile> 
   return profile;
 }
 
-export async function getCurrentAthlete(): Promise<Athlete | null> {
+export const getCurrentAthlete = cache(async (): Promise<Athlete | null> => {
   const supabase = await createClient();
   const profile = await getCurrentProfile();
   if (!profile) return null;
@@ -45,7 +47,7 @@ export async function getCurrentAthlete(): Promise<Athlete | null> {
     .eq("profile_id", profile.id)
     .maybeSingle();
   return (data as Athlete | null) ?? null;
-}
+});
 
 /** Audit a sensitive action. Non-blocking; failures are logged, not thrown. */
 export async function audit(
