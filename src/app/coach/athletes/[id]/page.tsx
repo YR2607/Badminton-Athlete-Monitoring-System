@@ -147,8 +147,22 @@ export default async function AthleteDetailPage({
     sessions: ssInRange.length,
   };
 
-  // Calendar: every day in range; filled check-in vs missed.
+  // Calendar: every day in range; morning + evening check-in dots per day.
   const filledDates = new Set(ck.map((c) => c.checkin_date));
+  const painDates = new Set(
+    ck.filter((c) => c.pain_status !== "none").map((c) => c.checkin_date),
+  );
+  const postDates = new Set(
+    postsByLocalDate(
+      ((postCheckins as PostTrainingCheckin[]) ?? []).filter(
+        (p) => localDate(new Date(p.submitted_at), tz) <= range.to,
+      ),
+      tz,
+    ).map((e) => e.date),
+  );
+  const sessionDates = new Set(
+    ss.map((s) => localDate(new Date(s.started_at), tz)),
+  );
   const calDays = dateRange(range.from, range.to).slice(-35);
 
   // ---- "Today" block: independent of the selected range ----
@@ -665,23 +679,61 @@ export default async function AthleteDetailPage({
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-1">
-            {calDays.map((day) => (
-              <Link
-                key={day}
-                href={`/coach/athletes/${a.id}/day/${day}`}
-                title={day}
-                className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded text-[10px]",
-                  filledDates.has(day)
-                    ? "bg-ok/15 text-ok"
-                    : day < today
-                      ? "bg-danger/10 text-danger"
-                      : "bg-foreground/5 text-muted",
-                )}
-              >
-                {day.slice(8)}
-              </Link>
-            ))}
+            {calDays.map((day) => {
+              const morning = filledDates.has(day);
+              const pain = painDates.has(day);
+              const evening = postDates.has(day);
+              const hadSession = sessionDates.has(day);
+              return (
+                <Link
+                  key={day}
+                  href={`/coach/athletes/${a.id}/day/${day}`}
+                  title={day}
+                  className={cn(
+                    "flex h-9 w-8 flex-col items-center justify-center rounded text-[10px]",
+                    morning
+                      ? "bg-ok/15 text-ok"
+                      : day < today
+                        ? "bg-danger/10 text-danger"
+                        : "bg-foreground/5 text-muted",
+                  )}
+                >
+                  <span>{day.slice(8)}</span>
+                  <span className="mt-0.5 flex gap-1">
+                    <span
+                      title={`${day} · ${dict.analytics.dotMorning}`}
+                      className={cn(
+                        "h-1.5 w-1.5 rounded-full",
+                        pain
+                          ? "bg-danger"
+                          : morning
+                            ? "bg-ok"
+                            : day <= today
+                              ? "bg-danger/40"
+                              : "bg-foreground/15",
+                      )}
+                    />
+                    <span
+                      title={`${day} · ${dict.analytics.dotEvening}`}
+                      className={cn(
+                        "h-1.5 w-1.5 rounded-full",
+                        evening
+                          ? "bg-accent"
+                          : hadSession
+                            ? "bg-warn/70"
+                            : "bg-foreground/15",
+                      )}
+                    />
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-ok" /> {dict.analytics.dotMorning}</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-accent" /> {dict.analytics.dotEvening}</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-warn/70" /> {dict.analytics.dotNoSession}</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-danger" /> {dict.analytics.painDay}</span>
           </div>
         </CardContent>
       </Card>
