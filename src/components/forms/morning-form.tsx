@@ -56,6 +56,7 @@ export function MorningForm({
   const d = dict.morning;
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [missing, setMissing] = useState<Set<string>>(new Set());
   const {
     control,
     register,
@@ -92,11 +93,26 @@ export function MorningForm({
     painStatus === "acute_instability" || watch("swelling") || watch("movement_limitation");
 
   async function onSubmit(values: FormValues) {
+    const required: (keyof FormValues)[] = [
+      "sleep_score",
+      "recovery_score",
+      "fatigue_score",
+      "muscle_soreness_score",
+      "stress_score",
+      "mood_score",
+    ];
+    const unfilled = new Set(required.filter((k) => values[k] == null));
+    if (unfilled.size > 0) {
+      setMissing(unfilled);
+      toast.error(dict.common.fillAllScales);
+      return;
+    }
     const parsed = schema.safeParse(values);
     if (!parsed.success) {
       toast.error(dict.common.error);
       return;
     }
+    setMissing(new Set());
     setBusy(true);
     try {
       const res = await submitMorningCheckin({
@@ -122,7 +138,12 @@ export function MorningForm({
     low: string,
     high: string,
   ) => (
-    <Card>
+    <Card
+      className={cn(
+        "transition-colors",
+        missing.has(name) && "border-danger ring-1 ring-danger/50",
+      )}
+    >
       <CardContent className="pt-4">
         <p className="mb-3 font-medium">{label}</p>
         <Controller
@@ -131,7 +152,15 @@ export function MorningForm({
           render={({ field }) => (
             <ScaleInput
               value={field.value as number | undefined}
-              onChange={field.onChange}
+              onChange={(v) => {
+                field.onChange(v);
+                setMissing((s) => {
+                  if (!s.has(name)) return s;
+                  const next = new Set(s);
+                  next.delete(name);
+                  return next;
+                });
+              }}
               lowLabel={low}
               highLabel={high}
             />
@@ -305,6 +334,11 @@ export function MorningForm({
         </div>
       )}
 
+      {missing.size > 0 && (
+        <p className="text-center text-sm font-medium text-danger">
+          {dict.common.fillAllScales}
+        </p>
+      )}
       <Button type="submit" size="lg" className="w-full" disabled={busy}>
         {busy ? d.submitting : d.submit}
       </Button>

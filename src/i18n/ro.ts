@@ -26,6 +26,7 @@ const ro: Dictionary = {
     comment: "Comentariu",
     optional: "opțional",
     error: "Ceva a mers greșit. Încearcă din nou.",
+    fillAllScales: "Alege o valoare pe fiecare scară — cele lipsă sunt evidențiate",
     noData: "Nu există date pentru perioada selectată",
     noResults: "Nimic găsit",
     insufficientData: "Date insuficiente deocamdată",

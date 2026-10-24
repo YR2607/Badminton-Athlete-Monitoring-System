@@ -51,6 +51,7 @@ export function TrainingForm({
   const dm = dict.morning;
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [missing, setMissing] = useState<Set<string>>(new Set());
   const { control, register, handleSubmit, watch, setValue } = useForm<FormValues>({
     defaultValues: {
       pain_status: "none",
@@ -65,11 +66,23 @@ export function TrainingForm({
   const rpe = watch("session_rpe");
 
   async function onSubmit(values: FormValues) {
+    const required: (keyof FormValues)[] = [
+      "overall_feeling",
+      "leg_fatigue",
+      "arm_shoulder_fatigue",
+    ];
+    const unfilled = new Set(required.filter((k) => values[k] == null));
+    if (unfilled.size > 0) {
+      setMissing(unfilled);
+      toast.error(dict.common.fillAllScales);
+      return;
+    }
     const parsed = schema.safeParse(values);
     if (!parsed.success) {
       toast.error(dict.common.error);
       return;
     }
+    setMissing(new Set());
     setBusy(true);
     try {
       const res = await submitEveningCheckin({
@@ -99,13 +112,31 @@ export function TrainingForm({
   }
 
   const scale = (name: keyof FormValues, label: string, low: string, high: string) => (
-    <div>
+    <div
+      className={cn(
+        "-mx-2 rounded-lg px-2 py-1 transition-colors",
+        missing.has(name) && "bg-danger/10 ring-1 ring-danger/50",
+      )}
+    >
       <p className="mb-2 text-sm font-medium">{label}</p>
       <Controller
         control={control}
         name={name}
         render={({ field }) => (
-          <ScaleInput value={field.value as number | undefined} onChange={field.onChange} lowLabel={low} highLabel={high} />
+          <ScaleInput
+            value={field.value as number | undefined}
+            onChange={(v) => {
+              field.onChange(v);
+              setMissing((s) => {
+                if (!s.has(name)) return s;
+                const next = new Set(s);
+                next.delete(name);
+                return next;
+              });
+            }}
+            lowLabel={low}
+            highLabel={high}
+          />
         )}
       />
     </div>
@@ -257,6 +288,11 @@ export function TrainingForm({
         </div>
       )}
 
+      {missing.size > 0 && (
+        <p className="text-center text-sm font-medium text-danger">
+          {dict.common.fillAllScales}
+        </p>
+      )}
       <Button type="submit" size="lg" className="w-full" disabled={busy}>
         {busy ? dict.morning.submitting : dict.common.save}
       </Button>

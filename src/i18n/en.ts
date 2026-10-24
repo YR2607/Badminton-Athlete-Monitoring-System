@@ -26,6 +26,7 @@ const en: Dictionary = {
     comment: "Comment",
     optional: "optional",
     error: "Something went wrong. Please try again.",
+    fillAllScales: "Pick a value on every scale — missing ones are highlighted",
     noData: "No data for the selected period",
     noResults: "Nothing found",
     insufficientData: "Not enough data yet",
