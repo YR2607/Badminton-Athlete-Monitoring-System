@@ -161,6 +161,20 @@ export interface Alert {
   resolution_note: string | null;
 }
 
+export interface Recommendation {
+  id: string;
+  athlete_id: string;
+  rec_date: string;
+  rule_key: string;
+  severity: "info" | "reduce" | "talk" | "rest" | "medical";
+  inputs: Record<string, unknown>;
+  decision: "pending" | "accepted" | "modified" | "rejected";
+  decided_by: string | null;
+  decided_at: string | null;
+  coach_comment: string | null;
+  created_at: string;
+}
+
 export interface CoachNote {
   id: string;
   athlete_id: string;

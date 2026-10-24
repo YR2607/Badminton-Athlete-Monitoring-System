@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile, audit } from "@/lib/auth";
-import { coachNoteSchema, alertReviewSchema } from "@/lib/validation";
+import { coachNoteSchema, alertReviewSchema, recommendationReviewSchema } from "@/lib/validation";
 import { evaluateAthleteDay } from "@/lib/evaluate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { localDate } from "@/lib/dates";
@@ -52,6 +52,35 @@ export async function reviewAlert(input: unknown): Promise<ActionResult> {
   await audit("alert.review", "alerts", parsed.data.alert_id, { status: parsed.data.status });
   revalidatePath("/coach");
   revalidatePath("/coach/alerts");
+  return { ok: true };
+}
+
+/** Coach decision on a recommendation: accepted / modified / rejected. */
+export async function reviewRecommendation(input: unknown): Promise<ActionResult> {
+  const parsed = recommendationReviewSchema.safeParse(input);
+  if (!parsed.success) return { error: "validation" };
+  const profile = await getCurrentProfile();
+  if (!profile || !["coach", "admin"].includes(profile.role)) return { error: "forbidden" };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("recommendations")
+    .update({
+      decision: parsed.data.decision,
+      decided_by: profile.id,
+      decided_at: new Date().toISOString(),
+      coach_comment: parsed.data.coach_comment?.trim() || null,
+    })
+    .eq("id", parsed.data.recommendation_id)
+    .eq("decision", "pending") // decisions are final once made
+    .select("id, athlete_id")
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!data) return { error: "forbidden" };
+  await audit("recommendation.review", "recommendations", parsed.data.recommendation_id, {
+    decision: parsed.data.decision,
+  });
+  revalidatePath(`/coach/athletes/${data.athlete_id}`);
   return { ok: true };
 }
 

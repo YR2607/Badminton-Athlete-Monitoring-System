@@ -92,5 +92,11 @@ export const alertReviewSchema = z.object({
   resolution_note: z.string().max(2000).optional(),
 });
 
+export const recommendationReviewSchema = z.object({
+  recommendation_id: z.string().uuid(),
+  decision: z.enum(["accepted", "modified", "rejected"]),
+  coach_comment: z.string().max(2000).optional(),
+});
+
 export type MorningCheckinInput = z.infer<typeof morningCheckinSchema>;
 export type PostTrainingInput = z.infer<typeof postTrainingSchema>;

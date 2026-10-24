@@ -1,7 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildSnapshot, dailyConditionSeries, computeBaseline, postsByLocalDate, rollingNorm, rollingItemNorms, itemZScores, zScore, SD_FLOOR_SCORE, ROLLING_WINDOW_DAYS } from "@/lib/readiness";
 import { evaluateAlerts } from "@/lib/alerts";
-import { dailyLoads, type ScheduleInput, type SessionInput } from "@/lib/load";
+import { dailyLoads, acwrEwma, type ScheduleInput, type SessionInput } from "@/lib/load";
+import { evaluateRecommendations } from "@/lib/recommendations";
 import { flagEnabled } from "@/lib/flags";
 import { addDays, dateRange, localDate, localDayUtcBounds } from "@/lib/dates";
 import type { AlertRule, FeatureFlag, MorningCheckin, PostTrainingCheckin, TrainingSchedule, TrainingSession } from "@/lib/types";
@@ -165,6 +166,30 @@ export async function evaluateAthleteDay(
     scoreNorm,
     zscoreEnabled,
   });
+
+  // ---- Phase 8: coach recommendations (flag 'recommendations') ----
+  const recsEnabled = flagEnabled(flagRows, "recommendations", groupIds);
+  if (recsEnabled) {
+    const acwr = acwrEwma(loads.map((d) => d.load));
+    const candidates2 = evaluateRecommendations({
+      z: zscoreEnabled ? zToday : null,
+      acwr: loadEnabled ? (acwr?.ratio ?? null) : null,
+      itemZ,
+      acutePain: candidates.some((c) => c.rule_code === "acute_pain"),
+    });
+    if (candidates2.length > 0) {
+      await admin.from("recommendations").upsert(
+        candidates2.map((r) => ({
+          athlete_id: athleteId,
+          rec_date: date,
+          rule_key: r.rule_key,
+          severity: r.severity,
+          inputs: r.inputs,
+        })),
+        { onConflict: "athlete_id,rec_date,rule_key", ignoreDuplicates: true },
+      );
+    }
+  }
 
   for (const a of candidates) {
     await admin.rpc("record_alert", {

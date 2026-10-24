@@ -10,6 +10,7 @@ import { allAthleteIds } from "@/lib/coach-data";
 import { isFlagEnabled } from "@/lib/flags";
 import { dailyLoads, type SessionInput } from "@/lib/load";
 import { AthleteDashboard } from "@/components/dashboard/athlete-dashboard";
+import { RecList } from "./rec-list";
 import { AthleteSwitcher, type NavAthlete } from "./athlete-switcher";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +26,7 @@ import type {
   PostTrainingCheckin,
   Profile,
   ReadinessSnapshot,
+  Recommendation,
   TrainingSession,
 } from "@/lib/types";
 
@@ -199,6 +201,16 @@ export default async function AthleteDetailPage({
   const dashboardOn = await isFlagEnabled("athlete_dashboard", athleteGroupIds);
   const srpeOn = await isFlagEnabled("srpe", athleteGroupIds);
   const zscoreOn = await isFlagEnabled("zscore_baseline", athleteGroupIds);
+  const recsOn = await isFlagEnabled("recommendations", athleteGroupIds);
+  const { data: recRows } = recsOn
+    ? await supabase
+        .from("recommendations")
+        .select("*")
+        .eq("athlete_id", a.id)
+        .gte("rec_date", addDays(today, -13))
+        .order("rec_date", { ascending: false })
+    : { data: null };
+  const recs = (recRows as Recommendation[] | null) ?? [];
   let dashSnaps: ReadinessSnapshot[] = [];
   let dashLoads: ReturnType<typeof dailyLoads> = [];
   if (dashboardOn && (srpeOn || zscoreOn)) {
@@ -392,6 +404,8 @@ export default async function AthleteDetailPage({
           zscore={zscoreOn}
         />
       )}
+
+      {recsOn && <RecList recs={recs} dict={dict} />}
 
       <div className="flex flex-wrap gap-1">
           {rangeKeys.map((k) => (
