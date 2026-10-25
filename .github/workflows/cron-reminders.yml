@@ -22,14 +22,17 @@ jobs:
       - name: Call reminders endpoint
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          APP_URL: ${{ vars.APP_URL }}
+          APP_URL: ${{ vars.APP_URL || 'https://badminton-athlete-monitoring-system.vercel.app' }}
         run: |
           set -euo pipefail
-          : "${APP_URL:?set vars.APP_URL to the deployment origin}"
-          : "${CRON_SECRET:?set secrets.CRON_SECRET}"
-          code=$(curl -sS -o /tmp/cron-body -w "%{http_code}" \
+          : "${CRON_SECRET:?set secrets.CRON_SECRET to match the Vercel env var}"
+          echo "Pinging ${APP_URL}/api/cron/reminders"
+          code=$(curl -sS --max-time 20 -o /tmp/cron-body -w "%{http_code}" \
             -H "Authorization: Bearer ${CRON_SECRET}" \
             "${APP_URL}/api/cron/reminders")
           echo "HTTP ${code}"
           cat /tmp/cron-body
+          if [ "${code}" = "403" ]; then
+            echo "::error::CRON_SECRET in GitHub secrets does not match the Vercel env var"
+          fi
           test "${code}" = "200"
