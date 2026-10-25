@@ -26,3 +26,7 @@ RUN_RLS_TESTS=1 SUPABASE_URL=... SUPABASE_SECRET_KEY=... \
 - Даты: календарные даты считаем в таймзоне профиля через `lib/dates.ts`
   (`localDate`, `todayInTz`), не через `toISOString().slice(0,10)`.
 - DB: миграции в `supabase/migrations/`; после изменений `supabase db push`.
+
+## Bundle analysis
+
+`npm run analyze` — builds and opens the bundle analyzer reports.
