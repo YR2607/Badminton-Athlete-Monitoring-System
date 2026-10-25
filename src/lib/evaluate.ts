@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildSnapshot, dailyConditionSeries, computeBaseline, postsByLocalDate, rollingNorm, rollingItemNorms, itemZScores, zScore, SD_FLOOR_SCORE, ROLLING_WINDOW_DAYS } from "@/lib/readiness";
 import { evaluateAlerts } from "@/lib/alerts";
+import { ALERT_PUSH_TITLES } from "@/lib/alert-texts";
 import { dailyLoads, acwrEwma, type PlanOverride, type ScheduleInput, type SessionInput } from "@/lib/load";
 import { evaluateRecommendations } from "@/lib/recommendations";
 import { decimalAge, growthVelocity, khamisRoche } from "@/lib/growth";
@@ -285,14 +286,9 @@ export async function evaluateAthleteDay(
     ]);
     const athleteName =
       athProfile?.display_name ?? (athleteRow as Athlete | null)?.athlete_code ?? "";
-    const TITLES: Record<string, { priority: string; regular: string }> = {
-      ru: { priority: "Приоритетный сигнал", regular: "Новый сигнал" },
-      en: { priority: "Priority alert", regular: "New alert" },
-      ro: { priority: "Semnal prioritar", regular: "Semnal nou" },
-    };
     for (const c of coaches ?? []) {
       const lang = c.preferred_language ?? "ru";
-      const t = TITLES[lang] ?? TITLES.ru;
+      const t = ALERT_PUSH_TITLES[lang] ?? ALERT_PUSH_TITLES.ru;
       const ruleNames = getDictionary(lang).rules.items as Record<
         string,
         { name: string }

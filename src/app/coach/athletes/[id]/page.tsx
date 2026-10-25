@@ -3,12 +3,10 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
-import { addDays, dateRange, localDate, resolveRange, todayInTz, type RangeKey } from "@/lib/dates";
+import { addDays, dateRange, localDate, type RangeKey } from "@/lib/dates";
 import { conditionScore, dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
 import { pendingPostCheckins } from "@/lib/athlete-status";
-import { allAthleteIds } from "@/lib/coach-data";
-import { isFlagEnabled } from "@/lib/flags";
-import { dailyLoads, type PlanOverride, type SessionInput } from "@/lib/load";
+import { getAthleteDetail } from "@/lib/athlete-detail";
 import { AthleteDashboard } from "@/components/dashboard/athlete-dashboard";
 import { RecList } from "./rec-list";
 import { GrowthPanel } from "./growth-panel";
@@ -16,7 +14,7 @@ import { EventsPanel } from "@/components/events-panel";
 import { OstrcHeatmap } from "@/components/ostrc-heatmap";
 import { TestsPanel } from "./tests-panel";
 import { decimalAge, growthVelocity, khamisRoche, maturationCategory } from "@/lib/growth";
-import { AthleteSwitcher, type NavAthlete } from "./athlete-switcher";
+import { AthleteSwitcher } from "./athlete-switcher";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart } from "@/components/charts/series-chart";
@@ -25,14 +23,10 @@ import { AlertList } from "./alert-list";
 import { cn } from "@/lib/utils";
 import type {
   Alert,
-  Athlete,
   CoachNote,
   MorningCheckin,
   PostTrainingCheckin,
   Profile,
-  ReadinessSnapshot,
-  Recommendation,
-  GrowthMeasurement,
   TrainingSession,
 } from "@/lib/types";
 
@@ -57,58 +51,53 @@ export default async function AthleteDetailPage({
   const dd = dict.athleteDetail;
   const supabase = await createClient();
 
-  // RLS: returns null unless this athlete is assigned to the coach.
-  const { data: athlete } = await supabase.from("athletes").select("*").eq("id", id).maybeSingle();
-  if (!athlete) notFound();
-  const a = athlete as Athlete;
-
-  const [{ data: aProfile }, { data: membership }] = await Promise.all([
-    supabase.from("profiles").select("*").eq("id", a.profile_id).maybeSingle(),
-    supabase
-      .from("group_memberships")
-      .select("group_id, group:groups(name)")
-      .eq("athlete_id", a.id)
-      .is("left_at", null)
-      .maybeSingle(),
-  ]);
-  const tz = ((aProfile as Profile | null)?.timezone) ?? me.timezone;
-  const today = todayInTz(tz);
-  const groupName = (membership as { group?: { name: string } } | null)?.group?.name ?? "—";
-
-  const range = resolveRange((sp.range as RangeKey) || "30d", tz, { from: sp.from, to: sp.to });
-
-  // Athletes the viewer can jump between in the profile switcher.
-  const navIds = me.role === "coach" ? await allAthleteIds(supabase) : null;
-  let navQuery = supabase.from("athletes").select("id, athlete_code, profile_id");
-  if (navIds) navQuery = navQuery.in("id", navIds.length ? navIds : ["00000000-0000-0000-0000-000000000000"]);
-  const { data: navRows } = await navQuery;
-  const navProfileIds = ((navRows as Pick<Athlete, "id" | "athlete_code" | "profile_id">[]) ?? []).map(
-    (x) => x.profile_id,
-  );
-  const { data: navProfiles } = navProfileIds.length
-    ? await supabase.from("profiles").select("id, display_name").in("id", navProfileIds)
-    : { data: [] as { id: string; display_name: string }[] };
-  const navNameById = new Map((navProfiles ?? []).map((p) => [p.id, p.display_name]));
-  const navAthletes: NavAthlete[] = (
-    (navRows as Pick<Athlete, "id" | "athlete_code" | "profile_id">[]) ?? []
-  )
-    .map((x) => ({ id: x.id, name: navNameById.get(x.profile_id) ?? x.athlete_code }))
-    .sort((x, y) => x.name.localeCompare(y.name));
-
-  const [{ data: checkins }, { data: sessions }, { data: postCheckins }, { data: todayCheckin }, { data: recentSessions }, { data: recentPosts }, { data: snapshots }, { data: alerts }, { data: notes }, { data: consents }] =
-    await Promise.all([
-      supabase.from("morning_checkins").select("*").eq("athlete_id", a.id).gte("checkin_date", addDays(range.from, -30)).order("checkin_date"),
-      supabase.from("training_sessions").select("*").eq("athlete_id", a.id).gte("started_at", `${addDays(range.from, -14)}T00:00:00Z`).order("started_at"),
-      supabase.from("post_training_checkins").select("*").eq("athlete_id", a.id).gte("submitted_at", `${addDays(range.from, -30)}T00:00:00Z`),
-      // "Today" block is independent of the selected range — its own window.
-      supabase.from("morning_checkins").select("*").eq("athlete_id", a.id).eq("checkin_date", today).maybeSingle(),
-      supabase.from("training_sessions").select("*").eq("athlete_id", a.id).gte("started_at", `${addDays(today, -14)}T00:00:00Z`),
-      supabase.from("post_training_checkins").select("*").eq("athlete_id", a.id).gte("submitted_at", `${addDays(today, -14)}T00:00:00Z`),
-      supabase.from("readiness_snapshots").select("*").eq("athlete_id", a.id).order("snapshot_date", { ascending: false }).limit(1),
-      supabase.from("alerts").select("*").eq("athlete_id", a.id).order("triggered_at", { ascending: false }).limit(50),
-      supabase.from("coach_notes").select("*").eq("athlete_id", a.id).order("created_at", { ascending: false }).limit(50),
-      supabase.from("consent_records").select("*").eq("athlete_id", a.id).order("recorded_at", { ascending: false }),
-    ]);
+  // RLS: null unless this athlete is assigned to the coach.
+  const data = await getAthleteDetail(supabase, id, {
+    role: me.role,
+    timezone: me.timezone,
+    range: sp.range,
+    from: sp.from,
+    to: sp.to,
+  });
+  if (!data) notFound();
+  const {
+    a,
+    aProfile,
+    membership,
+    groupName,
+    tz,
+    today,
+    range,
+    navAthletes,
+    dashboardOn,
+    srpeOn,
+    zscoreOn,
+    recsOn,
+    eventsOn,
+    ostrcOn,
+    testsOn,
+    growthOn,
+    checkins,
+    sessions,
+    postCheckins,
+    todayCheckin,
+    recentSessions,
+    recentPosts,
+    latestSnap,
+    alerts,
+    notes,
+    consents,
+    recs,
+    eventRows,
+    ostrcZones,
+    ostrcRows,
+    fieldTests,
+    testResults,
+    groupMedian,
+    growthMs,
+    dashSnaps,
+    dashLoads,
+  } = data;
 
   const ck = ((checkins as MorningCheckin[]) ?? []).filter(
     (c) => c.checkin_date >= addDays(range.from, -30) && c.checkin_date <= range.to,
@@ -119,7 +108,6 @@ export default async function AthleteDetailPage({
   );
   const ssInRange = ss.filter((s) => localDate(new Date(s.started_at), tz) >= range.from);
 
-  const latestSnap = (snapshots as ReadinessSnapshot[] | null)?.[0] ?? null;
   const series = dailyConditionSeries(
     ck.filter((c) => c.checkin_date <= range.to),
     postsByLocalDate(
@@ -216,130 +204,6 @@ export default async function AthleteDetailPage({
 
   const rangeKeys: RangeKey[] = ["7d", "14d", "30d", "90d", "month", "prev_month"];
 
-  // ---- Phase 7 analytics blocks (flag-gated by the athlete's group) ----
-  const athleteGroupIds = membership?.group_id ? [membership.group_id] : [];
-  const dashboardOn = await isFlagEnabled("athlete_dashboard", athleteGroupIds);
-  const srpeOn = await isFlagEnabled("srpe", athleteGroupIds);
-  const zscoreOn = await isFlagEnabled("zscore_baseline", athleteGroupIds);
-  const recsOn = await isFlagEnabled("recommendations", athleteGroupIds);
-  const { data: recRows } = recsOn
-    ? await supabase
-        .from("recommendations")
-        .select("*")
-        .eq("athlete_id", a.id)
-        .gte("rec_date", addDays(today, -13))
-        .order("rec_date", { ascending: false })
-    : { data: null };
-  const recs = (recRows as Recommendation[] | null) ?? [];
-
-  // ---- Phase 5: context calendar (flag 'events') ----
-  const eventsOn = await isFlagEnabled("events", athleteGroupIds);
-  let eventRows: import("@/lib/types").CalendarEvent[] = [];
-  if (eventsOn) {
-    const evQuery = membership?.group_id
-      ? supabase
-          .from("calendar_events")
-          .select("*")
-          .or(`athlete_id.eq.${a.id},group_id.eq.${membership.group_id}`)
-          .order("start_date", { ascending: false })
-          .limit(30)
-      : supabase
-          .from("calendar_events")
-          .select("*")
-          .eq("athlete_id", a.id)
-          .order("start_date", { ascending: false })
-          .limit(30);
-    const { data: ev } = await evQuery;
-    eventRows = (ev as import("@/lib/types").CalendarEvent[] | null) ?? [];
-  }
-
-  // ---- Phase 3: OSTRC-O2 (flag 'ostrc') ----
-  const ostrcOn = await isFlagEnabled("ostrc", athleteGroupIds);
-  let ostrcZones: import("@/lib/types").OstrcZone[] = [];
-  let ostrcRows: import("@/lib/types").OstrcResponse[] = [];
-  if (ostrcOn) {
-    const [{ data: zRows }, { data: oRows }] = await Promise.all([
-      supabase.from("ostrc_zones").select("*").eq("active", true).order("sort_order"),
-      supabase
-        .from("ostrc_responses")
-        .select("*")
-        .eq("athlete_id", a.id)
-        .order("week_start_date", { ascending: false })
-        .limit(60),
-    ]);
-    ostrcZones = (zRows as import("@/lib/types").OstrcZone[] | null) ?? [];
-    ostrcRows = (oRows as import("@/lib/types").OstrcResponse[] | null) ?? [];
-  }
-
-  // ---- Phase 6: field tests (flag 'field_tests') ----
-  const testsOn = await isFlagEnabled("field_tests", athleteGroupIds);
-  let fieldTests: import("@/lib/types").FieldTest[] = [];
-  let testResults: import("@/lib/types").FieldTestResult[] = [];
-  const groupMedian: Record<string, number> = {};
-  if (testsOn) {
-    const [{ data: tRows }, { data: rRows }] = await Promise.all([
-      supabase.from("field_tests").select("*").eq("active", true).order("sort_order"),
-      supabase
-        .from("field_test_results")
-        .select("*")
-        .eq("athlete_id", a.id)
-        .order("test_date", { ascending: false })
-        .limit(200),
-    ]);
-    fieldTests = (tRows as import("@/lib/types").FieldTest[] | null) ?? [];
-    testResults = (rRows as import("@/lib/types").FieldTestResult[] | null) ?? [];
-
-    // Group median per test: latest best value of each group-mate.
-    if (membership?.group_id) {
-      const { data: mates } = await supabase
-        .from("group_memberships")
-        .select("athlete_id")
-        .eq("group_id", membership.group_id)
-        .is("left_at", null);
-      const mateIds = ((mates as { athlete_id: string }[] | null) ?? []).map((m) => m.athlete_id);
-      if (mateIds.length) {
-        const { data: allRes } = await supabase
-          .from("field_test_results")
-          .select("athlete_id, test_id, test_date, value")
-          .in("athlete_id", mateIds);
-        const rows = (allRes as import("@/lib/types").FieldTestResult[] | null) ?? [];
-        for (const t of fieldTests) {
-          const latestByAthlete = new Map<string, number>();
-          const latestDate = new Map<string, string>();
-          for (const r of rows.filter((x) => x.test_id === t.id)) {
-            const cur = latestDate.get(r.athlete_id);
-            if (cur === undefined || r.test_date > cur) {
-              latestDate.set(r.athlete_id, r.test_date);
-              latestByAthlete.set(r.athlete_id, r.value);
-            } else if (r.test_date === cur) {
-              const prev = latestByAthlete.get(r.athlete_id)!;
-              latestByAthlete.set(
-                r.athlete_id,
-                t.higher_better ? Math.max(prev, r.value) : Math.min(prev, r.value),
-              );
-            }
-          }
-          const vals = [...latestByAthlete.values()].sort((x, y) => x - y);
-          if (vals.length) {
-            const mid = Math.floor(vals.length / 2);
-            groupMedian[t.id] = vals.length % 2 ? vals[mid] : (vals[mid - 1] + vals[mid]) / 2;
-          }
-        }
-      }
-    }
-  }
-
-  // ---- Phase 4: growth (flag 'growth') ----
-  const growthOn = await isFlagEnabled("growth", athleteGroupIds);
-  let growthMs: GrowthMeasurement[] = [];
-  if (growthOn) {
-    const { data: gRows } = await supabase
-      .from("growth_measurements")
-      .select("*")
-      .eq("athlete_id", a.id)
-      .order("measured_on", { ascending: true });
-    growthMs = (gRows as GrowthMeasurement[]) ?? [];
-  }
   const gLast = growthMs.at(-1) ?? null;
   const gVelocity = growthVelocity(
     growthMs.map((g) => ({ measured_on: g.measured_on, height_cm: g.height_cm, weight_kg: g.weight_kg })),
@@ -356,53 +220,6 @@ export default async function AthleteDetailPage({
           decimalAge(a.birth_date, today),
         )
       : null;
-  let dashSnaps: ReadinessSnapshot[] = [];
-  let dashLoads: ReturnType<typeof dailyLoads> = [];
-  if (dashboardOn && (srpeOn || zscoreOn)) {
-    const since40 = addDays(today, -39);
-    const [{ data: dSnaps }, { data: dSessions }, { data: dSchedules }, { data: dOverrides }] = await Promise.all([
-      supabase
-        .from("readiness_snapshots")
-        .select("*")
-        .eq("athlete_id", a.id)
-        .gte("snapshot_date", addDays(today, -29))
-        .order("snapshot_date", { ascending: true }),
-      supabase
-        .from("training_sessions")
-        .select("started_at, session_rpe, duration_minutes")
-        .eq("athlete_id", a.id)
-        .gte("started_at", `${since40}T00:00:00Z`),
-      membership?.group_id
-        ? supabase
-            .from("training_schedules")
-            .select("weekday, planned_minutes, planned_rpe")
-            .eq("group_id", membership.group_id)
-            .eq("active", true)
-        : Promise.resolve({ data: null }),
-      membership?.group_id
-        ? supabase
-            .from("session_plan_overrides")
-            .select("plan_date, cancelled, start_time, planned_minutes, planned_rpe")
-            .eq("group_id", membership.group_id)
-            .gte("plan_date", since40)
-            .lte("plan_date", today)
-        : Promise.resolve({ data: null }),
-    ]);
-    dashSnaps = (dSnaps as ReadinessSnapshot[]) ?? [];
-    const inputs: SessionInput[] = (
-      (dSessions as { started_at: string; session_rpe: number | null; duration_minutes: number | null }[] | null) ?? []
-    ).map((s) => ({
-      date: localDate(new Date(s.started_at), tz),
-      rpe: s.session_rpe,
-      minutes: s.duration_minutes,
-    }));
-    dashLoads = dailyLoads(
-      dateRange(since40, today),
-      inputs,
-      (dSchedules ?? []) as { weekday: number; planned_minutes: number | null; planned_rpe: number | null }[],
-      (dOverrides ?? []) as PlanOverride[],
-    );
-  }
 
   return (
     <div className="space-y-4">

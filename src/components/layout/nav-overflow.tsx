@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Menu } from "lucide-react";
 import { isActive, type NavItem } from "@/components/layout/bottom-nav";
 
 /** Desktop overflow: secondary nav items behind a hamburger menu. */
 export function NavOverflow({ items, label }: { items: NavItem[]; label: string }) {
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  // Open state is the pathname it was opened on — navigation closes it.
+  const [openAt, setOpenAt] = useState<string | null>(null);
+  const open = openAt === pathname;
+  const setOpen = useCallback((v: boolean) => setOpenAt(v ? pathname : null), [pathname]);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,10 +29,7 @@ export function NavOverflow({ items, label }: { items: NavItem[]; label: string 
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
-
-  // Close on navigation
-  useEffect(() => setOpen(false), [pathname]);
+  }, [open, setOpen]);
 
   if (items.length === 0) return null;
   const hasActive = items.some((i) => isActive(pathname, i.href));
@@ -40,7 +40,7 @@ export function NavOverflow({ items, label }: { items: NavItem[]; label: string 
         type="button"
         aria-label={label}
         aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(!open)}
         className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm ${
           hasActive ? "text-foreground" : "text-muted"
         } hover:bg-foreground/5 hover:text-foreground`}
