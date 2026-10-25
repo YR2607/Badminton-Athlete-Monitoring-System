@@ -221,7 +221,7 @@ export default async function AnalyticsPage({
                             <td key={c.date} className="py-1.5 text-center">
                               <Link
                                 href={`/coach/athletes/${s.athleteId}/day/${c.date}`}
-                                className="inline-flex gap-0.5"
+                                className="inline-flex gap-0.5 rounded transition-transform hover:scale-125"
                               >
                                 <span
                                   className={cn(
@@ -335,7 +335,7 @@ export default async function AnalyticsPage({
                       <Link
                         key={c.date}
                         href={`/coach/athletes/${single.athleteId}/day/${c.date}`}
-                        className="flex items-center gap-3 py-2 text-sm active:bg-foreground/[0.03]"
+                        className="-mx-1 flex items-center gap-3 rounded-lg px-1 py-2 text-sm transition-colors hover:bg-foreground/5"
                       >
                         <span className="w-20 shrink-0 font-medium">{c.date}</span>
                         <span className="flex shrink-0 gap-0.5">

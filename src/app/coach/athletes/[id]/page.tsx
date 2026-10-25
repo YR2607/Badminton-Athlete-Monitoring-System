@@ -699,7 +699,7 @@ export default async function AthleteDetailPage({
                   href={`/coach/athletes/${a.id}/day/${day}`}
                   title={day}
                   className={cn(
-                    "flex h-9 w-8 flex-col items-center justify-center rounded text-[10px]",
+                    "flex h-9 w-8 flex-col items-center justify-center rounded text-[10px] transition-shadow hover:ring-1 hover:ring-accent/50",
                     morning
                       ? "bg-ok/15 text-ok"
                       : day < today

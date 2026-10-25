@@ -4,13 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Menu } from "lucide-react";
-import type { NavItem } from "@/components/layout/bottom-nav";
-
-function isActive(pathname: string, href: string): boolean {
-  if (pathname === href) return true;
-  if (href === "/coach") return pathname.startsWith("/coach/athletes");
-  return pathname.startsWith(href + "/");
-}
+import { isActive, type NavItem } from "@/components/layout/bottom-nav";
 
 /** Desktop overflow: secondary nav items behind a hamburger menu. */
 export function NavOverflow({ items, label }: { items: NavItem[]; label: string }) {

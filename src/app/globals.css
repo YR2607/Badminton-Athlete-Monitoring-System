@@ -78,6 +78,19 @@ body {
   color: var(--foreground);
 }
 
+/* Pressable affordance: native buttons/summaries/selects get the pointer. */
+button:not(:disabled),
+summary,
+select:not(:disabled),
+[type="checkbox"]:not(:disabled),
+[type="radio"]:not(:disabled) {
+  cursor: pointer;
+}
+button:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
 @media print {
   .no-print {
     display: none !important;

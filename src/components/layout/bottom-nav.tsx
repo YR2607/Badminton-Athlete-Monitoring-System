@@ -56,7 +56,7 @@ function NavIcon({ href, className }: { href: string; className?: string }) {
   );
 }
 
-function isActive(pathname: string, href: string): boolean {
+export function isActive(pathname: string, href: string): boolean {
   if (pathname === href) return true;
   // /coach also matches athlete profile pages, but not sibling sections
   if (href === "/coach") return pathname.startsWith("/coach/athletes");

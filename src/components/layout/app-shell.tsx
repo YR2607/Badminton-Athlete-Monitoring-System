@@ -81,15 +81,7 @@ export async function AppShell({
             {dict.app.name}
           </Link>
           <nav className="hidden md:flex items-center gap-1 ml-4">
-            {primary.map((i) => (
-              <Link
-                key={i.href}
-                href={i.href}
-                className="rounded-lg px-3 py-2 text-sm text-muted hover:bg-foreground/5 hover:text-foreground"
-              >
-                {i.label}
-              </Link>
-            ))}
+            <NavLinks items={primary} />
             <NavOverflow items={overflow} label={dict.nav.more} />
           </nav>
           <div className="ml-auto flex items-center gap-2">
