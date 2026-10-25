@@ -5,6 +5,7 @@ import type { Dictionary } from "@/i18n";
 import type { AppRole } from "@/lib/types";
 import { signOut } from "@/app/actions/auth";
 import { NotificationsBell } from "@/components/layout/notifications-bell";
+import { NavOverflow } from "@/components/layout/nav-overflow";
 import { BottomNav, type NavItem } from "@/components/layout/bottom-nav";
 import { PushSubscribe } from "@/components/push-subscribe";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -71,7 +72,6 @@ export async function AppShell({
   children: React.ReactNode;
 }) {
   const { primary, overflow } = navGroups(role, dict);
-  const items = [...primary, ...overflow];
   const impersonating = (await cookies()).has("rm-impersonating");
   return (
     <div className="min-h-full flex flex-col">
@@ -81,7 +81,7 @@ export async function AppShell({
             {dict.app.name}
           </Link>
           <nav className="hidden md:flex items-center gap-1 ml-4">
-            {items.map((i) => (
+            {primary.map((i) => (
               <Link
                 key={i.href}
                 href={i.href}
@@ -90,6 +90,7 @@ export async function AppShell({
                 {i.label}
               </Link>
             ))}
+            <NavOverflow items={overflow} label={dict.nav.more} />
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <ThemeToggle label={dict.common.theme} />
