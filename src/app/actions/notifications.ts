@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 export async function markAllRead() {
@@ -19,4 +20,5 @@ export async function markAllRead() {
     .update({ read_at: new Date().toISOString() })
     .eq("profile_id", profile.id)
     .is("read_at", null);
+  revalidatePath("/", "layout");
 }
