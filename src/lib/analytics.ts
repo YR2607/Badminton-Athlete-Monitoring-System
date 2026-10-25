@@ -73,11 +73,18 @@ export function athleteStats(
 
   const scores = dailyConditionSeries(checkins, posts);
 
+  // Fill rate counts BOTH questionnaires: morning every day, evening on
+  // days a session was recorded — a 100% rate requires both.
+  const sessionDays = cells.filter((c) => c.hadSession).length;
+  const eveningFilled = cells.filter((c) => c.evening).length;
+  const expectedItems = days.length + sessionDays;
+  const filledItems = checkins.length + eveningFilled;
+
   return {
     athleteId,
-    filled: checkins.length,
-    expected: days.length,
-    rate: days.length ? Math.round((checkins.length / days.length) * 100) : 0,
+    filled: filledItems,
+    expected: expectedItems,
+    rate: expectedItems ? Math.round((filledItems / expectedItems) * 100) : 0,
     avgSleep: avg(checkins.map((c) => c.sleep_score)),
     avgRecovery: avg(checkins.map((c) => c.recovery_score)),
     avgFatigue: avg(checkins.map((c) => c.fatigue_score)),

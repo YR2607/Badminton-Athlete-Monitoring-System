@@ -96,8 +96,8 @@ describe("periodSummary", () => {
     const s = periodSummary([a, b]);
     expect(s.athletes).toBe(2);
     expect(s.checkinsFilled).toBe(4);
-    expect(s.checkinsExpected).toBe(6);
-    expect(s.fillRate).toBe(67);
+    expect(s.checkinsExpected).toBe(7);
+    expect(s.fillRate).toBe(57);
     expect(s.sessions).toBe(1);
     expect(s.alerts).toBe(1);
   });
