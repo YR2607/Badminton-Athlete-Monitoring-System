@@ -6,6 +6,7 @@ import type { AppRole } from "@/lib/types";
 import { signOut } from "@/app/actions/auth";
 import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { NavOverflow } from "@/components/layout/nav-overflow";
+import { NavLinks } from "@/components/layout/nav-links";
 import { BottomNav, type NavItem } from "@/components/layout/bottom-nav";
 import { PushSubscribe } from "@/components/push-subscribe";
 import { ThemeToggle } from "@/components/theme-toggle";
