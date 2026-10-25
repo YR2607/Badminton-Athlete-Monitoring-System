@@ -75,7 +75,7 @@ export function AnalyticsFilters({
             onClick={() => push({ range: k })}
             className={cn(
               "rounded-lg px-3 py-2 text-sm",
-              current.range === k ? "bg-accent text-accent-foreground" : "bg-foreground/5",
+              current.range === k ? "bg-accent text-white" : "bg-foreground/5",
             )}
           >
             {dict.ranges[k]}

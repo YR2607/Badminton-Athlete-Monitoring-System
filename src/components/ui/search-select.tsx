@@ -78,7 +78,7 @@ export function SearchSelect({
       </button>
 
       {open && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-border bg-surface shadow-xl shadow-black/40">
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
           <div className="border-b border-border p-2">
             <input
               ref={inputRef}

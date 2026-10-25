@@ -37,7 +37,7 @@ export default async function AdminGroupsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-3xl font-bold tracking-tight">{dict.nav.groups}</h1>
+      <h1 className="text-xl font-bold">{dict.nav.groups}</h1>
       <GroupsManager
         dict={dict}
         groups={(groups as Group[]) ?? []}

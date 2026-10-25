@@ -2,11 +2,11 @@ import { cn } from "@/lib/utils";
 import type { HTMLAttributes } from "react";
 
 const tones = {
-  neutral: "border-foreground/20 bg-foreground/8 text-foreground/80",
-  ok: "border-ok/40 bg-ok/12 text-ok",
-  warn: "border-warn/40 bg-warn/12 text-warn",
-  danger: "border-danger/40 bg-danger/12 text-danger",
-  accent: "border-accent/40 bg-accent/12 text-accent",
+  neutral: "bg-foreground/8 text-foreground",
+  ok: "bg-ok/10 text-ok",
+  warn: "bg-warn/10 text-warn",
+  danger: "bg-danger/10 text-danger",
+  accent: "bg-accent/10 text-accent",
 };
 
 export function Badge({
@@ -17,7 +17,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap",
+        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap",
         tones[tone],
         className,
       )}

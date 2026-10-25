@@ -15,7 +15,7 @@ export default async function AdminAuditPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-3xl font-bold tracking-tight">{dict.admin.auditLog}</h1>
+      <h1 className="text-xl font-bold">{dict.admin.auditLog}</h1>
       <AuditTable rows={(data as AuditRow[]) ?? []} dict={dict} />
     </div>
   );

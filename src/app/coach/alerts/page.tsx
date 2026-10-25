@@ -37,7 +37,7 @@ export default async function CoachAlertsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-3xl font-bold tracking-tight">{dict.alerts.title}</h1>
+      <h1 className="text-xl font-bold">{dict.alerts.title}</h1>
       <AlertList alerts={(alerts as Alert[]) ?? []} dict={dict} athletes={options} />
     </div>
   );

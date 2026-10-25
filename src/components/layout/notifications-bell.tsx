@@ -1,4 +1,4 @@
-import { Bell, Check } from "lucide-react";
+import { Bell } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 import { markAllRead } from "@/app/actions/notifications";
@@ -25,24 +25,24 @@ export async function NotificationsBell() {
 
   return (
     <details className="relative">
-      <summary className="relative list-none cursor-pointer rounded-lg p-2 text-muted hover:bg-foreground/5 hover:text-foreground">
+      <summary className="relative list-none cursor-pointer rounded-lg p-2 text-muted hover:bg-foreground/5">
         <Bell size={18} />
-        <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-background">
+        <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">
           {unread.length}
         </span>
       </summary>
-      <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-1rem)] rounded-xl border border-border bg-surface p-3 shadow-xl shadow-black/40">
+      <div className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-1rem)] rounded-xl border border-border bg-surface p-3 shadow-lg">
         <ul className="max-h-72 space-y-2 overflow-y-auto">
           {unread.map((n) => (
-            <li key={n.id} className="rounded-lg border border-border/60 bg-field p-2.5 text-sm">
+            <li key={n.id} className="rounded-lg bg-foreground/5 p-2 text-sm">
               <p className="font-medium">{n.title}</p>
               {n.body ? <p className="text-xs text-muted">{n.body}</p> : null}
             </li>
           ))}
         </ul>
         <form action={markAllRead} className="mt-2">
-          <button className="flex w-full items-center justify-center rounded-lg bg-surface-2 py-1.5 text-xs font-medium hover:bg-surface-2/70">
-            <Check size={14} />
+          <button className="w-full rounded-lg bg-foreground/5 py-1.5 text-xs hover:bg-foreground/10">
+            ✓
           </button>
         </form>
       </div>

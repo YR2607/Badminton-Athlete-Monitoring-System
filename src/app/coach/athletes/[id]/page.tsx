@@ -408,7 +408,7 @@ export default async function AthleteDetailPage({
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">
+          <h1 className="text-xl font-bold">
             {(aProfile as Profile | null)?.display_name ?? a.athlete_code}
           </h1>
           <p className="text-sm text-muted">
@@ -432,7 +432,7 @@ export default async function AthleteDetailPage({
               <p className="text-xs text-muted">{dd.today.morningScore}</p>
               <p
                 className={cn(
-                  "score-num text-3xl font-bold leading-tight",
+                  "text-2xl font-bold tabular-nums leading-tight",
                   todayScore === null
                     ? "text-muted"
                     : todayScore >= 70
@@ -622,7 +622,7 @@ export default async function AthleteDetailPage({
               href={`/coach/athletes/${a.id}?range=${k}`}
               className={cn(
                 "rounded-lg px-2.5 py-1.5 text-xs",
-                (sp.range ?? "30d") === k ? "bg-accent text-accent-foreground" : "bg-foreground/5",
+                (sp.range ?? "30d") === k ? "bg-accent text-white" : "bg-foreground/5",
               )}
             >
               {dict.ranges[k]}
@@ -643,7 +643,7 @@ export default async function AthleteDetailPage({
             <CardContent className="pt-3 pb-3">
               <p
                 className={cn(
-                  "score-num text-2xl font-bold",
+                  "text-lg font-bold",
                   tone && v !== null && (v >= 70 ? "text-ok" : v >= 45 ? "text-warn" : "text-danger"),
                 )}
               >
@@ -727,7 +727,7 @@ export default async function AthleteDetailPage({
                       className={cn(
                         "h-1.5 w-1.5 rounded-full",
                         evening
-                          ? "bg-accent-2"
+                          ? "bg-accent"
                           : hadSession
                             ? "bg-warn/70"
                             : "bg-foreground/15",
@@ -740,7 +740,7 @@ export default async function AthleteDetailPage({
           </div>
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-ok" /> {dict.analytics.dotMorning}</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-accent-2" /> {dict.analytics.dotEvening}</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-accent" /> {dict.analytics.dotEvening}</span>
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-warn/70" /> {dict.analytics.dotNoSession}</span>
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-danger" /> {dict.analytics.painDay}</span>
           </div>
@@ -758,7 +758,7 @@ export default async function AthleteDetailPage({
             ) : (
               <SeriesLineChart
                 data={inRangeSeries}
-                series={[{ key: "score", label: dict.history.readiness, color: "#b9f22e" }]}
+                series={[{ key: "score", label: dict.history.readiness, color: "#2563eb" }]}
                 domain={[0, 100]}
                 reference={latestSnap?.baseline_avg != null ? { y: Number(latestSnap.baseline_avg) } : undefined}
               />
@@ -778,9 +778,9 @@ export default async function AthleteDetailPage({
               <SeriesLineChart
                 data={wellbeing}
                 series={[
-                  { key: "sleep", label: dict.history.sleep, color: "#b9f22e" },
-                  { key: "fatigue", label: dict.history.fatigue, color: "#fbbf24" },
-                  { key: "soreness", label: dict.history.soreness, color: "#f87171" },
+                  { key: "sleep", label: dict.history.sleep, color: "#2563eb" },
+                  { key: "fatigue", label: dict.history.fatigue, color: "#d97706" },
+                  { key: "soreness", label: dict.history.soreness, color: "#dc2626" },
                 ]}
                 domain={[1, 5]}
               />

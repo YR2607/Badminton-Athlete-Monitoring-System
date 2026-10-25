@@ -48,7 +48,7 @@ export default async function OstrcPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="font-display text-3xl font-bold tracking-tight">{dict.ostrc.title}</h1>
+      <h1 className="text-xl font-bold">{dict.ostrc.title}</h1>
       {consent?.status !== "granted" ? (
         <Card>
           <CardContent className="pt-4 text-sm text-muted">{dict.ostrc.consentRequired}</CardContent>

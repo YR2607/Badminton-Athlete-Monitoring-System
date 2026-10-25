@@ -155,7 +155,7 @@ export default async function AnalyticsPage({
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="font-display text-3xl font-bold tracking-tight">{d.title}</h1>
+        <h1 className="text-xl font-bold">{d.title}</h1>
         <p className="text-sm text-muted">{d.hint}</p>
       </div>
 
@@ -181,7 +181,7 @@ export default async function AnalyticsPage({
             {statCards.map(([label, value, dl, invert, hint]) => (
               <Card key={label as string}>
                 <CardContent className="pt-3 pb-3">
-                  <p className="score-num text-2xl font-bold">
+                  <p className="text-lg font-bold tabular-nums">
                     {value} <Delta d={dl} invert={invert} />
                   </p>
                   <p className="text-xs text-muted" title={hint}>{label}</p>
@@ -238,7 +238,7 @@ export default async function AnalyticsPage({
                                   className={cn(
                                     "inline-block h-3 w-3 rounded-full",
                                     c.evening
-                                      ? "bg-accent-2"
+                                      ? "bg-accent"
                                       : c.hadSession
                                         ? "bg-warn/60"
                                         : "bg-foreground/15",
@@ -256,7 +256,7 @@ export default async function AnalyticsPage({
                 </div>
                 <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
                   <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-ok" /> {d.dotMorning}</span>
-                  <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-accent-2" /> {d.dotEvening}</span>
+                  <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-accent" /> {d.dotEvening}</span>
                   <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-warn/60" /> {d.dotNoSession}</span>
                   <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-foreground/15" /> {d.missed}</span>
                   <span className="flex items-center gap-1"><span className="h-3 w-3 rounded-full bg-danger" /> {d.painDay}</span>
@@ -286,7 +286,7 @@ export default async function AnalyticsPage({
                           <span
                             title={dict.common.readinessHint}
                             className={cn(
-                              "shrink-0 score-num text-2xl font-bold leading-none",
+                              "shrink-0 text-lg font-bold tabular-nums",
                               s.avgReadiness === null
                                 ? "text-muted"
                                 : s.avgReadiness >= 70
@@ -351,7 +351,7 @@ export default async function AnalyticsPage({
                             className={cn(
                               "h-3 w-3 rounded-full",
                               c.evening
-                                ? "bg-accent-2"
+                                ? "bg-accent"
                                 : c.hadSession
                                   ? "bg-warn/60"
                                   : "bg-foreground/15",

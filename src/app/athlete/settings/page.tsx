@@ -7,7 +7,7 @@ export default async function SettingsPage() {
   const dict = getDictionary(profile.preferred_language);
   return (
     <div className="mx-auto max-w-md space-y-4">
-      <h1 className="font-display text-3xl font-bold tracking-tight">{dict.nav.settings}</h1>
+      <h1 className="text-xl font-bold">{dict.nav.settings}</h1>
       <SettingsForm dict={dict} profile={profile} />
     </div>
   );

@@ -33,7 +33,7 @@ export default async function CoachGuidePage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="font-display text-3xl font-bold tracking-tight">{g.title}</h1>
+        <h1 className="text-xl font-bold">{g.title}</h1>
         <p className="text-sm text-muted">{g.subtitle}</p>
       </div>
 
