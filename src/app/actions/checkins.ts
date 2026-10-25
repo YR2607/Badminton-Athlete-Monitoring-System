@@ -116,6 +116,57 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
       ? new Date().toISOString()
       : `${sessionDate}T18:00:00Z`; // placeholder time for backfilled sessions
 
+  // Rapid double/triple taps: an evening check-in submitted for the same
+  // session day within the last 10 minutes is an update, not a new session.
+  const { data: recentPost } = await supabase
+    .from("post_training_checkins")
+    .select("id, training_session_id")
+    .eq("athlete_id", athlete.id)
+    .gte("submitted_at", new Date(Date.now() - 10 * 60 * 1000).toISOString())
+    .order("submitted_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (recentPost) {
+    const { data: recentSession } = await supabase
+      .from("training_sessions")
+      .select("started_at")
+      .eq("id", recentPost.training_session_id)
+      .maybeSingle();
+    if (
+      recentSession &&
+      localDate(new Date(recentSession.started_at), profile.timezone) === sessionDate
+    ) {
+      await supabase
+        .from("training_sessions")
+        .update({
+          session_rpe: srpeOn ? (parsed.data.session_rpe ?? null) : null,
+          duration_minutes: srpeOn ? (parsed.data.session_minutes ?? null) : null,
+        })
+        .eq("id", recentPost.training_session_id);
+      await supabase
+        .from("post_training_checkins")
+        .update({
+          overall_feeling: parsed.data.overall_feeling,
+          leg_fatigue: parsed.data.leg_fatigue,
+          arm_shoulder_fatigue: parsed.data.arm_shoulder_fatigue,
+          pain_status: parsed.data.pain_status,
+          pain_location: parsed.data.pain_location || null,
+          pain_side: parsed.data.pain_side ?? null,
+          pain_triggers: parsed.data.pain_triggers,
+          notes: parsed.data.notes || null,
+        })
+        .eq("id", recentPost.id);
+      try {
+        await evaluateAthleteDay(createAdminClient(), athlete.id, sessionDate, profile.timezone);
+      } catch (e) {
+        console.error("evaluate_failed", e);
+      }
+      await audit("checkin.post.update", "post_training_checkins", recentPost.training_session_id, {});
+      revalidatePath("/athlete");
+      return { ok: true };
+    }
+  }
+
   const { data: inserted, error: sErr } = await supabase
     .from("training_sessions")
     .insert({
