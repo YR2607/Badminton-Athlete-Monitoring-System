@@ -5,6 +5,7 @@ import { getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { addDays, dateRange, localDate, type RangeKey } from "@/lib/dates";
 import { conditionScore, dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
+import { dayStatuses } from "@/lib/checkins";
 import { pendingPostCheckins } from "@/lib/athlete-status";
 import { getAthleteDetail } from "@/lib/athlete-detail";
 import { AthleteDashboard } from "@/components/dashboard/athlete-dashboard";
@@ -108,14 +109,15 @@ export default async function AthleteDetailPage({
   );
   const ssInRange = ss.filter((s) => localDate(new Date(s.started_at), tz) >= range.from);
 
+  const rangePostEntries = postsByLocalDate(
+    ((postCheckins as PostTrainingCheckin[]) ?? []).filter(
+      (p) => localDate(new Date(p.submitted_at), tz) <= range.to,
+    ),
+    tz,
+  );
   const series = dailyConditionSeries(
     ck.filter((c) => c.checkin_date <= range.to),
-    postsByLocalDate(
-      ((postCheckins as PostTrainingCheckin[]) ?? []).filter(
-        (p) => localDate(new Date(p.submitted_at), tz) <= range.to,
-      ),
-      tz,
-    ),
+    rangePostEntries,
   );
   const inRangeSeries = series.filter((p) => p.date >= range.from);
 
@@ -136,22 +138,16 @@ export default async function AthleteDetailPage({
   };
 
   // Calendar: every day in range; morning + evening check-in dots per day.
-  const filledDates = new Set(ck.map((c) => c.checkin_date));
-  const painDates = new Set(
-    ck.filter((c) => c.pain_status !== "none").map((c) => c.checkin_date),
-  );
-  const postDates = new Set(
-    postsByLocalDate(
-      ((postCheckins as PostTrainingCheckin[]) ?? []).filter(
-        (p) => localDate(new Date(p.submitted_at), tz) <= range.to,
-      ),
-      tz,
-    ).map((e) => e.date),
-  );
-  const sessionDates = new Set(
-    ss.map((s) => localDate(new Date(s.started_at), tz)),
-  );
   const calDays = dateRange(range.from, range.to).slice(-35);
+  const calStatus = new Map(
+    dayStatuses({
+      days: calDays,
+      checkins: ck,
+      postEntries: rangePostEntries,
+      sessions: ss,
+      tz,
+    }).map((s) => [s.date, s]),
+  );
 
   // ---- "Today" block: independent of the selected range ----
   const tCheckin = (todayCheckin as MorningCheckin | null) ?? null;
@@ -506,10 +502,11 @@ export default async function AthleteDetailPage({
         <CardContent>
           <div className="flex flex-wrap gap-1">
             {calDays.map((day) => {
-              const morning = filledDates.has(day);
-              const pain = painDates.has(day);
-              const evening = postDates.has(day);
-              const hadSession = sessionDates.has(day);
+              const st = calStatus.get(day);
+              const morning = st?.morning != null;
+              const pain = st?.hasPain === true;
+              const evening = st?.evening != null;
+              const hadSession = st?.hadSession === true;
               return (
                 <Link
                   key={day}

@@ -1,5 +1,6 @@
 import type { Alert, MorningCheckin, PostTrainingCheckin, TrainingSession } from "@/lib/types";
 import { dailyConditionSeries } from "@/lib/readiness";
+import { dayStatuses } from "@/lib/checkins";
 
 /**
  * Period analytics: check-in completion and aggregated wellbeing stats.
@@ -55,19 +56,20 @@ export function athleteStats(
   alerts: Alert[],
   posts: { date: string; post: Pick<PostTrainingCheckin, "overall_feeling" | "leg_fatigue" | "arm_shoulder_fatigue"> }[] = [],
 ): AthletePeriodStats {
-  const byDate = new Map(checkins.map((c) => [c.checkin_date, c]));
-  const postDates = new Set(posts.map((p) => p.date));
-  const sessionDates = new Set(sessions.map((s) => s.started_at.slice(0, 10)));
-  const cells: DayCell[] = days.map((date) => {
-    const c = byDate.get(date);
-    return {
-      date,
-      filled: !!c,
-      hasPain: c ? c.pain_status !== "none" : false,
-      evening: postDates.has(date),
-      hadSession: sessionDates.has(date),
-    };
-  });
+  // Session dates keep their historical UTC bucketing (started_at.slice(0,10))
+  // — athleteStats is timezone-agnostic, so the caller pre-buckets.
+  const cells: DayCell[] = dayStatuses({
+    days,
+    checkins,
+    postEntries: posts,
+    sessionDates: sessions.map((s) => s.started_at.slice(0, 10)),
+  }).map((d) => ({
+    date: d.date,
+    filled: d.morning !== null,
+    hasPain: d.hasPain,
+    evening: d.evening !== null,
+    hadSession: d.hadSession,
+  }));
 
   const scores = dailyConditionSeries(checkins, posts);
 

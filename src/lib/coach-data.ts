@@ -7,6 +7,7 @@ import {
   postsByLocalDate,
   type Baseline,
 } from "@/lib/readiness";
+import { dayStatuses, sessionLocalDates } from "@/lib/checkins";
 import {
   acuteMorningFlags,
   acutePostFlags,
@@ -190,6 +191,7 @@ export async function coachDashboard(
     const aPosts = postsByAthlete.get(a.id) ?? [];
     const postEntries = postsByLocalDate(aPosts, athleteTz);
     const postByDate = new Map(postEntries.map((e) => [e.date, e.post]));
+    const aSessionDates = sessionLocalDates(aSessions, athleteTz);
     const series = dailyConditionSeries(list, postEntries);
 
     const todayC = list.find((c) => c.checkin_date === today) ?? null;
@@ -233,7 +235,7 @@ export async function coachDashboard(
       sched.length === 0 && schedOv.length === 0
         ? null
         : plannedForDate(yesterday, sched, schedOv).scheduled &&
-          !aSessions.some((s) => localDate(new Date(s.started_at), athleteTz) === yesterday);
+          !aSessionDates.has(yesterday);
     const pendingPostCount = pendingPostCheckins(aSessions, aPosts, now).length;
 
     const status = athleteStatus({
@@ -268,17 +270,17 @@ export async function coachDashboard(
       scheduledMissedYesterday,
       pendingPostCount,
       missedYesterday: !list.some((c) => c.checkin_date === yesterday),
-      checkinDots: Array.from({ length: 7 }, (_, i) => {
-        const date = addDays(today, i - 6);
-        return {
-          date,
-          morning: list.some((c) => c.checkin_date === date),
-          evening: postByDate.has(date),
-          hadSession: aSessions.some(
-            (s) => localDate(new Date(s.started_at), athleteTz) === date,
-          ),
-        };
-      }),
+      checkinDots: dayStatuses({
+        days: Array.from({ length: 7 }, (_, i) => addDays(today, i - 6)),
+        checkins: list,
+        postEntries,
+        sessionDates: aSessionDates,
+      }).map((d) => ({
+        date: d.date,
+        morning: d.morning !== null,
+        evening: d.evening !== null,
+        hadSession: d.hadSession,
+      })),
       series: series.filter((s) => s.date >= since14),
     };
   });

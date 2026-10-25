@@ -7,6 +7,7 @@ import { evaluateRecommendations } from "@/lib/recommendations";
 import { decimalAge, growthVelocity, khamisRoche } from "@/lib/growth";
 import { flagEnabled } from "@/lib/flags";
 import { addDays, dateRange, localDate, localDayUtcBounds } from "@/lib/dates";
+import { sessionDateByIdMap } from "@/lib/checkins";
 import { getDictionary } from "@/i18n";
 import type { AlertRule, Athlete, FeatureFlag, GrowthMeasurement, MorningCheckin, PostTrainingCheckin, TrainingSchedule, TrainingSession } from "@/lib/types";
 
@@ -90,11 +91,9 @@ export async function evaluateAthleteDay(
 
   // Check-ins are bucketed by the session's local date, not submitted_at —
   // a backfilled questionnaire belongs to the day it describes.
-  const sessionDateById = new Map(
-    ((sessions as TrainingSession[] | null) ?? []).map((s) => [
-      s.id,
-      localDate(new Date(s.started_at), timezone),
-    ]),
+  const sessionDateById = sessionDateByIdMap(
+    (sessions as TrainingSession[] | null) ?? [],
+    timezone,
   );
 
   const todayCheckin =

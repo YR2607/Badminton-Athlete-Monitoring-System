@@ -1,8 +1,9 @@
 import { getCurrentAthlete, getCurrentProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getDictionary } from "@/i18n";
-import { localDate, todayInTz, addDays } from "@/lib/dates";
+import { todayInTz, addDays } from "@/lib/dates";
 import { isFlagEnabled } from "@/lib/flags";
+import { dayStatuses } from "@/lib/checkins";
 import { plannedForDate, type PlanOverride } from "@/lib/load";
 import { TrainingForm } from "@/components/forms/training-form";
 import { Card, CardContent } from "@/components/ui/card";
@@ -57,9 +58,12 @@ export default async function TrainingPage() {
   const yesterdayPlan = plannedForDate(yesterday, rows, overrides);
   const defaultMinutes = todayPlan.planned_minutes ?? undefined;
 
-  const doneToday = ((posts as PostTrainingCheckin[]) ?? []).some(
-    (p) => localDate(new Date(p.submitted_at), profile.timezone) === today,
-  );
+  const [todayStatus] = dayStatuses({
+    days: [today],
+    posts: (posts as PostTrainingCheckin[]) ?? [],
+    tz: profile.timezone,
+  });
+  const doneToday = todayStatus.evening !== null;
 
   return (
     <div className="mx-auto max-w-lg space-y-5">

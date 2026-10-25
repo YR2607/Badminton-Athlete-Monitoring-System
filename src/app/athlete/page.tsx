@@ -4,6 +4,7 @@ import { getCurrentAthlete, getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { addDays, localDate, todayInTz } from "@/lib/dates";
 import { dailyConditionSeries, postsByLocalDate, bandForScore } from "@/lib/readiness";
+import { dayStatuses } from "@/lib/checkins";
 import { bandAdviceKey } from "@/lib/alerts";
 import { isFlagEnabled } from "@/lib/flags";
 import { dailyLoads, plannedForDate, type PlanOverride, type ScheduleInput, type SessionInput } from "@/lib/load";
@@ -37,9 +38,7 @@ export default async function AthleteHome() {
       supabase.from("group_memberships").select("group_id").eq("athlete_id", athlete.id).is("left_at", null),
     ]);
 
-  const posts = ((postToday as PostTrainingCheckin[]) ?? []).filter(
-    (p) => localDate(new Date(p.submitted_at), tz) === today,
-  );
+  const postEntries = postsByLocalDate((postToday as PostTrainingCheckin[]) ?? [], tz);
 
   const groupIds = (memberships ?? []).map((m) => m.group_id);
   const [{ data: schedules }, { data: planOverrides }] = groupIds.length
@@ -58,14 +57,16 @@ export default async function AthleteHome() {
       ])
     : [{ data: [] }, { data: [] }];
   const overrides = (planOverrides as PlanOverride[] | null) ?? [];
-  const scheduledToday = plannedForDate(
-    today,
-    (schedules ?? []) as ScheduleInput[],
-    overrides,
-  ).scheduled;
-
-  const morningDone = !!todayCheckin;
-  const postDone = posts.length > 0;
+  const schedInputs = (schedules ?? []) as ScheduleInput[];
+  const [todayStatus] = dayStatuses({
+    days: [today],
+    checkins: todayCheckin ? [todayCheckin as MorningCheckin] : [],
+    postEntries,
+    scheduledFor: (date) => plannedForDate(date, schedInputs, overrides).scheduled,
+  });
+  const scheduledToday = todayStatus.scheduled === true;
+  const morningDone = todayStatus.morning !== null;
+  const postDone = todayStatus.evening !== null;
   const doneCount = (morningDone ? 1 : 0) + (postDone ? 1 : 0);
 
   const snap = snapshot as ReadinessSnapshot | null;
@@ -83,7 +84,7 @@ export default async function AthleteHome() {
 
   const series = dailyConditionSeries(
     (recent as MorningCheckin[]) ?? [],
-    postsByLocalDate((postToday as PostTrainingCheckin[]) ?? [], tz),
+    postEntries,
   );
   const chart7 = series.filter((p) => p.date >= addDays(today, -6));
   const chart30 = series;
