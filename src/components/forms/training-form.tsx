@@ -33,13 +33,24 @@ const painValues = ["none", "muscle_soreness", "joint_tendon", "acute_instabilit
 const sideKeys = ["sideLeft", "sideRight", "sideBoth", "sideNa"] as const;
 const sideValues = ["left", "right", "both", "na"] as const;
 
+/**
+ * Only the dictionary slices the form renders — passing the whole Dictionary
+ * would serialize ~900 unused keys into the RSC payload.
+ */
+export interface TrainingFormDict {
+  postTraining: Dictionary["postTraining"];
+  morning: Dictionary["morning"];
+  common: Dictionary["common"];
+  athleteHome: Pick<Dictionary["athleteHome"], "painNotice">;
+}
+
 export function TrainingForm({
   dict,
   srpe,
   defaultMinutes,
   allowYesterday,
 }: {
-  dict: Dictionary;
+  dict: TrainingFormDict;
   /** sRPE feature flag: show RPE + minutes fields */
   srpe: boolean;
   /** Prefill from the group schedule */

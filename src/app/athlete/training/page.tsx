@@ -82,7 +82,12 @@ export default async function TrainingPage() {
       )}
 
       <TrainingForm
-        dict={dict}
+        dict={{
+          postTraining: dict.postTraining,
+          morning: dict.morning,
+          common: dict.common,
+          athleteHome: { painNotice: dict.athleteHome.painNotice },
+        }}
         srpe={srpe}
         defaultMinutes={defaultMinutes}
         allowYesterday={yesterdayPlan.scheduled}

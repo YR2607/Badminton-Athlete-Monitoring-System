@@ -32,6 +32,13 @@ export default async function MorningPage() {
     membership?.group_id ? [membership.group_id] : [],
   );
 
+  // Only the slices the client form uses — keeps the RSC payload small.
+  const formDict = {
+    morning: dict.morning,
+    common: dict.common,
+    athleteHome: { painNotice: dict.athleteHome.painNotice },
+  };
+
   return (
     <div className="mx-auto max-w-lg">
       <h1 className="text-xl font-bold">{dict.morning.title}</h1>
@@ -43,10 +50,10 @@ export default async function MorningPage() {
               {dict.morning.alreadyFilled} — {dict.common.edit.toLowerCase()}:
             </CardContent>
           </Card>
-          <MorningForm dict={dict} checkinDate={today} existing={existing as MorningCheckin} showSleepHours={zscoreOn} />
+          <MorningForm dict={formDict} checkinDate={today} existing={existing as MorningCheckin} showSleepHours={zscoreOn} />
         </>
       ) : (
-        <MorningForm dict={dict} checkinDate={today} showSleepHours={zscoreOn} />
+        <MorningForm dict={formDict} checkinDate={today} showSleepHours={zscoreOn} />
       )}
     </div>
   );

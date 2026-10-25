@@ -42,13 +42,23 @@ const triggerValues = ["walking", "jumping", "lunges", "rest"] as const;
 const sideKeys = ["sideLeft", "sideRight", "sideBoth", "sideNa"] as const;
 const sideValues = ["left", "right", "both", "na"] as const;
 
+/**
+ * Only the dictionary slices the form renders — passing the whole Dictionary
+ * would serialize ~900 unused keys into the RSC payload.
+ */
+export interface MorningFormDict {
+  morning: Dictionary["morning"];
+  common: Dictionary["common"];
+  athleteHome: Pick<Dictionary["athleteHome"], "painNotice">;
+}
+
 export function MorningForm({
   dict,
   checkinDate,
   existing,
   showSleepHours = false,
 }: {
-  dict: Dictionary;
+  dict: MorningFormDict;
   checkinDate: string;
   existing?: MorningCheckin | null;
   showSleepHours?: boolean;

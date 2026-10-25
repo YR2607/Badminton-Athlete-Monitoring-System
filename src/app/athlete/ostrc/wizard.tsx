@@ -36,6 +36,15 @@ const emptyZone = (): ZoneAnswers => ({
 
 const INFORMED_KEYS = ["coach", "parents", "doctor"] as const;
 
+/**
+ * Only the dictionary slices the wizard renders — passing the whole
+ * Dictionary would serialize ~900 unused keys into the RSC payload.
+ */
+export interface OstrcWizardDict {
+  ostrc: Dictionary["ostrc"];
+  common: Pick<Dictionary["common"], "error">;
+}
+
 export function OstrcWizard({
   dict,
   lang,
@@ -43,7 +52,7 @@ export function OstrcWizard({
   week,
   done,
 }: {
-  dict: Dictionary;
+  dict: OstrcWizardDict;
   lang: string;
   zones: OstrcZone[];
   week: string;

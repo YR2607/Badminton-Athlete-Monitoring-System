@@ -55,7 +55,7 @@ export default async function OstrcPage() {
         </Card>
       ) : (
         <OstrcWizard
-          dict={dict}
+          dict={{ ostrc: dict.ostrc, common: { error: dict.common.error } }}
           lang={profile.preferred_language}
           zones={(zones as OstrcZone[] | null) ?? []}
           week={week}
