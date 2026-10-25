@@ -17,7 +17,7 @@ export async function NotificationsBell() {
 
   if (unread.length === 0) {
     return (
-      <span className="p-2 text-muted/50" aria-hidden>
+      <span className="p-2 text-ink-foreground/40" aria-hidden>
         <Bell size={18} />
       </span>
     );
@@ -25,7 +25,7 @@ export async function NotificationsBell() {
 
   return (
     <details className="relative">
-      <summary className="relative list-none cursor-pointer rounded-lg p-2 text-muted hover:bg-foreground/5">
+      <summary className="relative list-none cursor-pointer rounded-lg p-2 text-ink-foreground/70 hover:bg-white/10">
         <Bell size={18} />
         <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">
           {unread.length}

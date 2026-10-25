@@ -211,9 +211,9 @@ export function MorningForm({
                 type="button"
                 onClick={() => setValue("pain_status", v, { shouldDirty: true })}
                 className={cn(
-                  "rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
+                  "rounded-xl border px-3 py-2.5 text-left text-sm transition-colors",
                   painStatus === v
-                    ? "border-accent bg-accent/5 font-medium"
+                    ? "border-accent-strong/60 bg-accent/20 font-semibold"
                     : "border-border hover:bg-foreground/5",
                 )}
               >
@@ -245,9 +245,9 @@ export function MorningForm({
                           type="button"
                           onClick={() => field.onChange(v)}
                           className={cn(
-                            "rounded-lg border px-2 py-2 text-xs",
+                            "rounded-xl border px-2 py-2 text-xs",
                             field.value === v
-                              ? "border-accent bg-accent/5 font-medium"
+                              ? "border-accent-strong/60 bg-accent/20 font-semibold"
                               : "border-border",
                           )}
                         >
@@ -288,9 +288,9 @@ export function MorningForm({
                         )
                       }
                       className={cn(
-                        "rounded-lg border px-2 py-2 text-xs",
+                        "rounded-xl border px-2 py-2 text-xs",
                         triggers.includes(v)
-                          ? "border-accent bg-accent/5 font-medium"
+                          ? "border-accent-strong/60 bg-accent/20 font-semibold"
                           : "border-border",
                       )}
                     >

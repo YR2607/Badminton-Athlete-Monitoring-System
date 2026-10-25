@@ -89,13 +89,13 @@ export default async function HistoryPage({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">{h.title}</h1>
+        <h1 className="font-display text-xl font-bold tracking-tight">{h.title}</h1>
         <div className="flex gap-1">
           {[7, 14, 30, 90].map((n) => (
             <a
               key={n}
               href={`/athlete/history?days=${n}`}
-              className={`rounded-lg px-3 py-1.5 text-sm ${days === n ? "bg-accent text-white" : "bg-foreground/5"}`}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium ${days === n ? "bg-accent text-accent-foreground" : "bg-foreground/5"}`}
             >
               {n}
             </a>
@@ -138,7 +138,7 @@ export default async function HistoryPage({
           ) : (
             <SeriesLineChart
               data={readinessSeries}
-              series={[{ key: "score", label: h.readiness, color: "#2563eb" }]}
+              series={[{ key: "score", label: h.readiness, color: "#4c7c0b" }]}
               domain={[0, 100]}
             />
           )}
@@ -158,7 +158,7 @@ export default async function HistoryPage({
             <SeriesLineChart
               data={wellbeingSeries}
               series={[
-                { key: "sleep", label: h.sleep, color: "#2563eb" },
+                { key: "sleep", label: h.sleep, color: "#4c7c0b" },
                 { key: "fatigue", label: h.fatigue, color: "#d97706" },
                 { key: "soreness", label: h.soreness, color: "#dc2626" },
               ]}

@@ -152,7 +152,7 @@ export function EventsPanel({
                 key={s}
                 type="button"
                 onClick={() => setF({ ...f, scope: s })}
-                className={`rounded-lg px-2.5 py-1.5 ${f.scope === s ? "bg-accent text-white" : "bg-foreground/5"}`}
+                className={`rounded-full px-3 py-1.5 text-xs font-medium ${f.scope === s ? "bg-accent text-accent-foreground" : "bg-foreground/5"}`}
               >
                 {s === "athlete" ? d.scopeAthlete : d.scopeGroup}
               </button>

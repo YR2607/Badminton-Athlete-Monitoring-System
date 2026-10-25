@@ -148,7 +148,7 @@ export function UserTable({
 
   const nameCell = (p: Row) =>
     p.athlete ? (
-      <Link href={`/coach/athletes/${p.athlete.id}`} className="font-medium text-accent hover:underline">
+      <Link href={`/coach/athletes/${p.athlete.id}`} className="font-medium text-accent-strong hover:underline">
         {p.display_name}
       </Link>
     ) : (

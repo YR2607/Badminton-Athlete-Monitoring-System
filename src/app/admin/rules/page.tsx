@@ -12,7 +12,7 @@ export default async function AdminRulesPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">{dict.nav.rules}</h1>
+      <h1 className="font-display text-xl font-bold tracking-tight">{dict.nav.rules}</h1>
       <RulesEditor dict={dict} rules={(rules as AlertRule[]) ?? []} />
     </div>
   );

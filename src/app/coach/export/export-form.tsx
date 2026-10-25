@@ -92,7 +92,7 @@ export function ExportForm({
         </label>
         <a
           href={href}
-          className="inline-flex min-h-11 w-full items-center justify-center rounded-lg bg-accent px-4 text-sm font-medium text-accent-foreground hover:bg-accent/90"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-accent px-4 text-sm font-semibold text-accent-foreground hover:bg-accent/90"
         >
           {d.download}
         </a>

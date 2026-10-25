@@ -140,7 +140,7 @@ export function CoachTable({
             <Link
               key={r.athlete.id}
               href={`/coach/athletes/${r.athlete.id}`}
-              className="rounded-xl border border-border bg-surface p-3 transition-colors hover:border-accent/40 active:bg-foreground/[0.03]"
+              className="rounded-2xl border border-border bg-surface p-3 shadow-[0_1px_2px_rgba(27,33,15,0.05)] transition-colors hover:border-accent-strong/50 active:bg-foreground/[0.03]"
             >
               <div className="mb-2 flex flex-wrap items-center gap-1.5">
                 <Badge tone={statusTone(r.status)}>{d.status[r.status]}</Badge>
@@ -165,7 +165,7 @@ export function CoachTable({
                     <>
                       <p
                         title={dict.common.readinessHint}
-                        className={cn("text-xl font-bold tabular-nums leading-none", readinessTone(r.todayScore))}
+                        className={cn("font-display text-xl font-bold tabular-nums leading-none", readinessTone(r.todayScore))}
                       >
                         {Math.round(r.todayScore)}
                       </p>
@@ -196,7 +196,7 @@ export function CoachTable({
               )}
 
               <div className="mt-2 flex items-end justify-between gap-2">
-                <span className={cn("text-accent", !spark.length && "invisible")}>
+                <span className={cn("text-accent-strong", !spark.length && "invisible")}>
                   <Sparkline points={spark} width={96} height={26} />
                 </span>
                 <span className="flex flex-col items-end gap-0.5">
@@ -219,7 +219,7 @@ export function CoachTable({
                           className={cn(
                             "inline-block h-2.5 w-2.5 rounded-full border",
                             cd.evening
-                              ? "border-accent bg-accent"
+                              ? "border-accent-strong bg-accent"
                               : cd.hadSession
                                 ? "border-warn bg-warn/30"
                                 : "border-border bg-transparent",

@@ -79,28 +79,38 @@ export function BottomNav({
   return (
     <>
       <nav
-        className="fixed inset-x-3 bottom-3 z-30 rounded-2xl border border-border bg-surface/95 shadow-lg backdrop-blur md:hidden"
+        className="fixed inset-x-3 bottom-3 z-30 rounded-2xl bg-ink text-ink-foreground shadow-[0_10px_30px_-8px_rgba(22,27,12,0.55)] md:hidden"
         style={{ bottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
       >
         <div className="flex">
-          {primary.map((i) => (
-            <Link
-              key={i.href}
-              href={i.href}
-              className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 ${
-                isActive(pathname, i.href) ? "text-accent" : "text-muted"
-              }`}
-            >
-              <NavIcon href={i.href} />
-              <span className="max-w-full truncate px-1 text-[10px] leading-tight">{i.label}</span>
-            </Link>
-          ))}
+          {primary.map((i) => {
+            const active = isActive(pathname, i.href);
+            return (
+              <Link
+                key={i.href}
+                href={i.href}
+                className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 transition-colors ${
+                  active ? "text-accent" : "text-ink-foreground/55"
+                }`}
+              >
+                <span
+                  aria-hidden
+                  className={`h-0.5 w-6 rounded-full ${active ? "bg-accent" : "bg-transparent"}`}
+                />
+                <NavIcon href={i.href} />
+                <span className="max-w-full truncate px-1 text-[10px] leading-tight font-medium">
+                  {i.label}
+                </span>
+              </Link>
+            );
+          })}
           {overflow.length > 0 && (
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-muted"
+              className="flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-ink-foreground/55"
             >
+              <span aria-hidden className="h-0.5 w-6 rounded-full bg-transparent" />
               <svg
                 viewBox="0 0 24 24"
                 className="h-5 w-5"
@@ -133,7 +143,7 @@ export function BottomNav({
                 href={i.href}
                 onClick={() => setOpen(false)}
                 className={`flex items-center gap-3 rounded-xl px-4 py-3.5 text-[15px] ${
-                  isActive(pathname, i.href) ? "bg-accent/10 text-accent" : "text-foreground"
+                  isActive(pathname, i.href) ? "bg-accent/30 font-semibold" : "text-foreground"
                 }`}
               >
                 <NavIcon href={i.href} className="h-5 w-5 text-muted" />

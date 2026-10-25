@@ -80,32 +80,32 @@ export default async function CoachDashboard({
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">{d.dashboard}</h1>
+        <h1 className="font-display text-xl font-bold tracking-tight">{d.dashboard}</h1>
         <p className="text-sm text-muted">{d.dashboardHint}</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Card>
           <CardContent className="pt-4">
-            <p className="text-2xl font-bold">{rows.length}</p>
+            <p className="font-display text-2xl font-bold tabular-nums">{rows.length}</p>
             <p className="text-xs text-muted">{d.athletesInGroup}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-2xl font-bold text-ok">{filled}</p>
+            <p className="font-display text-2xl font-bold tabular-nums text-ok">{filled}</p>
             <p className="text-xs text-muted">{d.filledToday}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-2xl font-bold text-warn">{rows.length - filled}</p>
+            <p className="font-display text-2xl font-bold tabular-nums text-warn">{rows.length - filled}</p>
             <p className="text-xs text-muted">{d.sumNoToday}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-2xl font-bold text-danger">{priority}</p>
+            <p className="font-display text-2xl font-bold tabular-nums text-danger">{priority}</p>
             <p className="text-xs text-muted">
               {d.sumPriority} · {d.openAlerts}: {openAlerts.length}
             </p>
@@ -113,13 +113,13 @@ export default async function CoachDashboard({
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-2xl font-bold text-warn">{declining}</p>
+            <p className="font-display text-2xl font-bold tabular-nums text-warn">{declining}</p>
             <p className="text-xs text-muted">{d.sumDeclining}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-2xl font-bold">{pendingPosts}</p>
+            <p className="font-display text-2xl font-bold tabular-nums">{pendingPosts}</p>
             <p className="text-xs text-muted">{d.sumPendingPost}</p>
           </CardContent>
         </Card>

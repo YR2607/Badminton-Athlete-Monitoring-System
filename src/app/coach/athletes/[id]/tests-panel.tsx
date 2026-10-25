@@ -154,7 +154,7 @@ export function TestsPanel({
             </div>
             <SeriesLineChart
               data={series}
-              series={[{ key: "value", label: `${test?.name[lang as Lang] || test?.name.en}, ${test?.unit}`, color: "#2563eb" }]}
+              series={[{ key: "value", label: `${test?.name[lang as Lang] || test?.name.en}, ${test?.unit}`, color: "#4c7c0b" }]}
               reference={median !== null ? { y: median, label: d.groupMedian } : undefined}
             />
           </>

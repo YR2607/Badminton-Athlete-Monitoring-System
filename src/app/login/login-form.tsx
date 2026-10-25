@@ -14,7 +14,8 @@ export function LoginForm({ dict }: { dict: Dictionary }) {
   const [showReset, setShowReset] = useState(false);
 
   return (
-    <Card>
+    <Card className="overflow-hidden">
+      <div aria-hidden className="h-1.5 bg-accent" />
       <CardContent className="pt-6">
         {showReset ? (
           <form action={resetAction} className="space-y-4">

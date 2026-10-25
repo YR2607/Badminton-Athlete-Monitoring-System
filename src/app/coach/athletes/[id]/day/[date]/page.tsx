@@ -186,10 +186,10 @@ export default async function AthleteDayPage({
   return (
     <div className="space-y-4">
       <div>
-        <Link href={`/coach/athletes/${a.id}`} className="text-sm text-accent">
+        <Link href={`/coach/athletes/${a.id}`} className="text-sm text-accent-strong">
           ← {d.backToAthlete}
         </Link>
-        <h1 className="mt-1 text-xl font-bold">
+        <h1 className="mt-1 font-display text-xl font-bold tracking-tight">
           {(aProfile as Profile | null)?.display_name ?? a.athlete_code} · {date}
         </h1>
       </div>
@@ -208,7 +208,7 @@ export default async function AthleteDayPage({
               <p
                 title={dict.common.readinessHint}
                 className={cn(
-                  "text-2xl font-bold tabular-nums leading-none",
+                  "font-display text-2xl font-bold tabular-nums leading-none",
                   dayScore >= 70 ? "text-ok" : dayScore >= 45 ? "text-warn" : "text-danger",
                 )}
               >

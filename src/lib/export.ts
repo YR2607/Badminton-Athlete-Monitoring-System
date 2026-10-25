@@ -342,7 +342,7 @@ export function buildHtmlReport(b: ExportBundle, title: string): string {
       .map((r) => `<tr>${r.map((x) => `<td>${escapeHtml(String(x ?? ""))}</td>`).join("")}</tr>`)
       .join("")}</tbody></table>`;
   return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title>
-<style>body{font-family:system-ui,sans-serif;color:#17233b;margin:24px}h1{font-size:20px}h2{font-size:14px;margin-top:20px}table{border-collapse:collapse;width:100%;font-size:11px}td,th{border:1px solid #e3e8f0;padding:4px 6px;text-align:left}th{background:#f6f8fb}</style>
+<style>body{font-family:system-ui,sans-serif;color:#1b210f;margin:24px}h1{font-size:20px}h2{font-size:14px;margin-top:20px}table{border-collapse:collapse;width:100%;font-size:11px}td,th{border:1px solid #dde1c8;padding:4px 6px;text-align:left}th{background:#eef0e0}</style>
 </head><body>
 <h1>${escapeHtml(title)}</h1>
 <p>Generated: ${escapeHtml(b.generatedAt)} · TZ: ${escapeHtml(b.timezone)} · Range: ${escapeHtml(b.rangeFrom)} – ${escapeHtml(b.rangeTo)}</p>

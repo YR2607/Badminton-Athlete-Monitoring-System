@@ -155,7 +155,7 @@ export default async function AnalyticsPage({
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">{d.title}</h1>
+        <h1 className="font-display text-xl font-bold tracking-tight">{d.title}</h1>
         <p className="text-sm text-muted">{d.hint}</p>
       </div>
 
@@ -181,7 +181,7 @@ export default async function AnalyticsPage({
             {statCards.map(([label, value, dl, invert, hint]) => (
               <Card key={label as string}>
                 <CardContent className="pt-3 pb-3">
-                  <p className="text-lg font-bold tabular-nums">
+                  <p className="font-display text-lg font-bold tabular-nums">
                     {value} <Delta d={dl} invert={invert} />
                   </p>
                   <p className="text-xs text-muted" title={hint}>{label}</p>
@@ -213,7 +213,7 @@ export default async function AnalyticsPage({
                       {stats.map((s) => (
                         <tr key={s.athleteId} className="border-t border-border/50">
                           <td className="sticky left-0 max-w-32 truncate bg-surface py-1.5 pr-2 font-medium">
-                            <Link href={`/coach/athletes/${s.athleteId}`} className="text-accent">
+                            <Link href={`/coach/athletes/${s.athleteId}`} className="text-accent-strong">
                               {nameOf(s.athleteId)}
                             </Link>
                           </td>
@@ -274,7 +274,7 @@ export default async function AnalyticsPage({
                 const a = scoped.find((x) => x.id === s.athleteId)!;
                 return (
                   <Link key={s.athleteId} href={`/coach/athletes/${s.athleteId}`} className="block">
-                    <Card className="transition-colors hover:border-accent/50">
+                    <Card className="transition-colors hover:border-accent-strong/50">
                       <CardContent className="space-y-2 pt-4">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex min-w-0 items-center gap-2">
@@ -286,7 +286,7 @@ export default async function AnalyticsPage({
                           <span
                             title={dict.common.readinessHint}
                             className={cn(
-                              "shrink-0 text-lg font-bold tabular-nums",
+                              "shrink-0 font-display text-lg font-bold tabular-nums",
                               s.avgReadiness === null
                                 ? "text-muted"
                                 : s.avgReadiness >= 70

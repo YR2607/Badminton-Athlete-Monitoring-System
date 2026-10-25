@@ -85,7 +85,7 @@ export function FeaturesManager({
                         onClick={() => toggleGroup(f, g.id)}
                         className={`rounded-full border px-3 py-1 text-xs ${
                           on
-                            ? "border-accent bg-accent/10 text-accent"
+                            ? "border-accent-strong/60 bg-accent/20 text-accent-strong"
                             : "border-border text-muted"
                         }`}
                       >

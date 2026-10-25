@@ -408,7 +408,7 @@ export default async function AthleteDetailPage({
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-xl font-bold">
+          <h1 className="font-display text-xl font-bold tracking-tight">
             {(aProfile as Profile | null)?.display_name ?? a.athlete_code}
           </h1>
           <p className="text-sm text-muted">
@@ -432,7 +432,7 @@ export default async function AthleteDetailPage({
               <p className="text-xs text-muted">{dd.today.morningScore}</p>
               <p
                 className={cn(
-                  "text-2xl font-bold tabular-nums leading-tight",
+                  "font-display text-2xl font-bold tabular-nums leading-tight",
                   todayScore === null
                     ? "text-muted"
                     : todayScore >= 70
@@ -621,8 +621,8 @@ export default async function AthleteDetailPage({
               key={k}
               href={`/coach/athletes/${a.id}?range=${k}`}
               className={cn(
-                "rounded-lg px-2.5 py-1.5 text-xs",
-                (sp.range ?? "30d") === k ? "bg-accent text-white" : "bg-foreground/5",
+                "rounded-full px-3 py-1.5 text-xs font-medium",
+                (sp.range ?? "30d") === k ? "bg-accent text-accent-foreground" : "bg-foreground/5",
               )}
             >
               {dict.ranges[k]}
@@ -758,7 +758,7 @@ export default async function AthleteDetailPage({
             ) : (
               <SeriesLineChart
                 data={inRangeSeries}
-                series={[{ key: "score", label: dict.history.readiness, color: "#2563eb" }]}
+                series={[{ key: "score", label: dict.history.readiness, color: "#4c7c0b" }]}
                 domain={[0, 100]}
                 reference={latestSnap?.baseline_avg != null ? { y: Number(latestSnap.baseline_avg) } : undefined}
               />
@@ -778,7 +778,7 @@ export default async function AthleteDetailPage({
               <SeriesLineChart
                 data={wellbeing}
                 series={[
-                  { key: "sleep", label: dict.history.sleep, color: "#2563eb" },
+                  { key: "sleep", label: dict.history.sleep, color: "#4c7c0b" },
                   { key: "fatigue", label: dict.history.fatigue, color: "#d97706" },
                   { key: "soreness", label: dict.history.soreness, color: "#dc2626" },
                 ]}

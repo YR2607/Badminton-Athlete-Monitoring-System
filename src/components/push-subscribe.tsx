@@ -87,7 +87,7 @@ export function PushSubscribe({ dict }: { dict: Dictionary }) {
   return (
     <div className="fixed inset-x-4 bottom-24 z-40 mx-auto max-w-md rounded-xl border border-border bg-surface p-3 shadow-lg md:bottom-6">
       <div className="flex items-start gap-3">
-        <Bell className="mt-0.5 shrink-0 text-accent" size={20} />
+        <Bell className="mt-0.5 shrink-0 text-accent-strong" size={20} />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-medium">{d.bannerTitle}</p>
           <p className="text-xs text-muted">{d.bannerBody}</p>
@@ -95,7 +95,7 @@ export function PushSubscribe({ dict }: { dict: Dictionary }) {
             <button
               type="button"
               onClick={subscribe}
-              className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground"
+              className="rounded-xl bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
             >
               {d.enable}
             </button>

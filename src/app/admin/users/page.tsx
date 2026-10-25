@@ -26,7 +26,7 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-bold">{dict.admin.users}</h1>
+      <h1 className="font-display text-xl font-bold tracking-tight">{dict.admin.users}</h1>
       <CreateUserForm dict={dict} groups={(groups as { id: string; name: string }[]) ?? []} />
       <UserTable
         dict={dict}

@@ -131,7 +131,7 @@ export function OstrcWizard({
             onClick={() => setCur({ [key]: o.v } as Partial<ZoneAnswers>)}
             className={cn(
               "rounded-lg border px-3 py-2.5 text-left text-sm",
-              curAnswers[key] === o.v ? "border-accent bg-accent/10 font-medium" : "border-border",
+              curAnswers[key] === o.v ? "border-accent-strong/60 bg-accent/20 font-semibold" : "border-border",
             )}
           >
             {o.label}
@@ -180,7 +180,7 @@ export function OstrcWizard({
                   }
                   className={cn(
                     "rounded-lg border px-3 py-2 text-sm",
-                    picked.includes(z.code) ? "border-accent bg-accent/10 font-medium" : "border-border",
+                    picked.includes(z.code) ? "border-accent-strong/60 bg-accent/20 font-semibold" : "border-border",
                   )}
                 >
                   {zoneName(z)}
@@ -215,7 +215,7 @@ export function OstrcWizard({
                     }
                     className={cn(
                       "rounded-lg border px-3 py-2.5 text-left text-sm",
-                      curAnswers.q1 === o.v ? "border-accent bg-accent/10 font-medium" : "border-border",
+                      curAnswers.q1 === o.v ? "border-accent-strong/60 bg-accent/20 font-semibold" : "border-border",
                     )}
                   >
                     {o.label}
@@ -271,7 +271,7 @@ export function OstrcWizard({
                           className={cn(
                             "rounded-lg border px-2.5 py-1.5 text-xs",
                             curAnswers.informed.includes(k)
-                              ? "border-accent bg-accent/10"
+                              ? "border-accent-strong/60 bg-accent/20"
                               : "border-border",
                           )}
                         >

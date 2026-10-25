@@ -46,13 +46,13 @@ export function SeriesLineChart({
   return (
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e3e8f0" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#dfe2ca" />
         <XAxis dataKey="date" tick={{ fontSize: 11 }} tickMargin={6} />
         <YAxis domain={domain ?? ["auto", "auto"]} tick={{ fontSize: 11 }} />
         <Tooltip />
         {series.length > 1 ? <Legend wrapperStyle={{ fontSize: 12 }} /> : null}
         {reference ? (
-          <ReferenceLine y={reference.y} stroke="#94a3b8" strokeDasharray="4 4" label={reference.label} />
+          <ReferenceLine y={reference.y} stroke="#9aa38a" strokeDasharray="4 4" label={reference.label} />
         ) : null}
         {(markers ?? []).map((m, i) => (
           <ReferenceLine
@@ -97,15 +97,15 @@ export function LoadBarChart({
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e3e8f0" />
+        <CartesianGrid strokeDasharray="3 3" stroke="#dfe2ca" />
         <XAxis dataKey="date" tick={{ fontSize: 11 }} tickMargin={6} />
         <YAxis tick={{ fontSize: 11 }} />
         <Tooltip />
         {plannedLabel ? <Legend wrapperStyle={{ fontSize: 12 }} /> : null}
         {plannedLabel ? (
-          <Bar dataKey="planned" name={plannedLabel} fill="#94a3b8" radius={[3, 3, 0, 0]} isAnimationActive={false} />
+          <Bar dataKey="planned" name={plannedLabel} fill="#9aa38a" radius={[3, 3, 0, 0]} isAnimationActive={false} />
         ) : null}
-        <Bar dataKey="load" name={label} fill="#2563eb" radius={[3, 3, 0, 0]} isAnimationActive={false} />
+        <Bar dataKey="load" name={label} fill="#4c7c0b" radius={[3, 3, 0, 0]} isAnimationActive={false} />
       </BarChart>
     </ResponsiveContainer>
   );

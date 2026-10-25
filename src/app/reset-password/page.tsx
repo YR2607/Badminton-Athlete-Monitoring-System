@@ -8,9 +8,10 @@ export default async function ResetPasswordPage() {
   const dict = getDictionary("ru");
   return (
     <main className="flex min-h-dvh items-center justify-center px-4">
-      <Card className="w-full max-w-sm">
+      <Card className="w-full max-w-sm overflow-hidden">
+        <div aria-hidden className="h-1.5 bg-accent" />
         <CardContent className="pt-6">
-          <h1 className="mb-4 text-lg font-semibold">{dict.auth.newPassword}</h1>
+          <h1 className="mb-4 font-display text-lg font-bold tracking-tight">{dict.auth.newPassword}</h1>
           <form
             action={async (fd) => {
               "use server";

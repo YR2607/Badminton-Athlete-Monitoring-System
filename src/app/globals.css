@@ -1,13 +1,21 @@
 @import "tailwindcss";
 
+/*
+ * RallyMonitor — "Court Volt" design tokens.
+ * Chalk court surface + deep moss-ink chrome + volt-lime accent.
+ * Radius scale: cards 16px, controls 12px, chips pill.
+ */
 :root {
-  --background: #f6f8fb;
-  --surface: #ffffff;
-  --foreground: #17233b;
-  --muted: #5b6b83;
-  --border: #e3e8f0;
-  --accent: #2563eb;
-  --accent-foreground: #ffffff;
+  --background: #eef0e0;
+  --surface: #fbfcf2;
+  --foreground: #1b210f;
+  --muted: #5f6650;
+  --border: #dde1c8;
+  --accent: #a5e011;
+  --accent-foreground: #1b210f;
+  --accent-strong: #4c7c0b;
+  --ink: #161b0c;
+  --ink-foreground: #eef3d6;
   --ok: #16a34a;
   --warn: #d97706;
   --danger: #dc2626;
@@ -21,15 +29,30 @@
   --color-border: var(--border);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-accent-strong: var(--accent-strong);
+  --color-ink: var(--ink);
+  --color-ink-foreground: var(--ink-foreground);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-danger: var(--danger);
-  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: var(--font-manrope), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-unbounded), var(--font-manrope), system-ui, sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+/* Native checkboxes/radios pick up the court accent. */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent-strong);
 }
 
 @media print {

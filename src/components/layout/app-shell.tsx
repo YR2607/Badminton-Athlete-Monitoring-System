@@ -74,9 +74,10 @@ export async function AppShell({
   const impersonating = (await cookies()).has("rm-impersonating");
   return (
     <div className="min-h-full flex flex-col">
-      <header className="sticky top-0 z-30 border-b border-border bg-surface/95 backdrop-blur">
+      <header className="sticky top-0 z-30 bg-ink text-ink-foreground">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
-          <Link href="/" className="font-bold tracking-tight">
+          <Link href="/" className="flex items-center gap-2 font-display text-sm font-bold tracking-wide">
+            <span aria-hidden className="inline-block h-4 w-1.5 -skew-x-12 rounded-[2px] bg-accent" />
             {dict.app.name}
           </Link>
           <nav className="hidden md:flex items-center gap-1 ml-4">
@@ -84,7 +85,7 @@ export async function AppShell({
               <Link
                 key={i.href}
                 href={i.href}
-                className="rounded-lg px-3 py-2 text-sm text-muted hover:bg-foreground/5 hover:text-foreground"
+                className="rounded-lg px-3 py-2 text-sm text-ink-foreground/65 hover:bg-white/10 hover:text-ink-foreground"
               >
                 {i.label}
               </Link>
@@ -92,7 +93,7 @@ export async function AppShell({
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <NotificationsBell />
-            <span className="hidden sm:block text-sm text-muted">{displayName}</span>
+            <span className="hidden sm:block text-sm text-ink-foreground/65">{displayName}</span>
             <form
               action={async () => {
                 "use server";
@@ -100,22 +101,24 @@ export async function AppShell({
                 redirect("/login");
               }}
             >
-              <button className="rounded-lg px-3 py-2 text-sm text-muted hover:bg-foreground/5 hover:text-foreground">
+              <button className="rounded-lg px-3 py-2 text-sm text-ink-foreground/65 hover:bg-white/10 hover:text-ink-foreground">
                 {dict.common.signOut}
               </button>
             </form>
           </div>
         </div>
+        {/* court line: volt strip separating chrome from content */}
+        <div aria-hidden className="h-[3px] bg-accent" />
       </header>
       {impersonating && (
-        <div className="border-b border-accent/30 bg-accent/10">
+        <div className="border-b border-accent-strong/30 bg-accent/20">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2 text-sm">
             <span className="truncate">
               {dict.common.impersonatingBanner} <b>{displayName}</b>
             </span>
             <Link
               href="/auth/impersonation-exit"
-              className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground"
+              className="shrink-0 rounded-xl bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
             >
               {dict.common.exitImpersonation}
             </Link>

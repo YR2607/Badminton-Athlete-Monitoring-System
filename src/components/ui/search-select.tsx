@@ -67,8 +67,8 @@ export function SearchSelect({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "flex min-h-11 w-full items-center justify-between gap-2 rounded-lg border border-border bg-surface px-3 py-2.5 text-left text-base",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+          "flex min-h-11 w-full items-center justify-between gap-2 rounded-xl border border-border bg-surface px-3 py-2.5 text-left text-base",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-strong",
         )}
       >
         <span className={cn("truncate", !selected && !allLabel && "text-muted")}>
@@ -85,7 +85,7 @@ export function SearchSelect({
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder={searchPlaceholder}
-              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="w-full rounded-xl border border-border bg-surface px-3 py-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-strong"
             />
           </div>
           <ul className="max-h-64 overflow-y-auto py-1">
@@ -96,7 +96,7 @@ export function SearchSelect({
                   onClick={() => pick("")}
                   className={cn(
                     "block w-full px-3 py-2.5 text-left text-sm hover:bg-foreground/5",
-                    value === "" && "font-semibold text-accent",
+                    value === "" && "font-semibold text-accent-strong",
                   )}
                 >
                   {allLabel}
@@ -110,7 +110,7 @@ export function SearchSelect({
                   onClick={() => pick(o.id)}
                   className={cn(
                     "block w-full px-3 py-2.5 text-left text-sm hover:bg-foreground/5",
-                    o.id === value && "font-semibold text-accent",
+                    o.id === value && "font-semibold text-accent-strong",
                   )}
                 >
                   {o.label}

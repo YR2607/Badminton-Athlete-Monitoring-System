@@ -202,7 +202,7 @@ export default async function AthleteHome() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">
+        <h1 className="font-display text-xl font-bold tracking-tight">
           {d.greeting}, {profile.display_name}
         </h1>
         <p className="text-sm text-muted">{today}</p>
@@ -280,24 +280,33 @@ export default async function AthleteHome() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-ink bg-ink text-ink-foreground">
         <CardHeader>
-          <CardTitle>{d.readiness}</CardTitle>
+          <CardTitle className="text-ink-foreground/70">{d.readiness}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-4">
             <span
-              className="text-4xl font-bold"
+              className="font-display text-5xl font-bold tabular-nums leading-none"
               style={{
-                color: band === "good" ? "#16a34a" : band === "moderate" ? "#d97706" : band ? "#dc2626" : "#5b6b83",
+                color:
+                  band === "good"
+                    ? "#a5e011"
+                    : band === "moderate"
+                      ? "#fbbf24"
+                      : band
+                        ? "#f87171"
+                        : "#8a9277",
               }}
             >
               {score !== null ? Math.round(score) : "—"}
             </span>
             <div>
-              <p className="text-sm">{adviceText}</p>
+              <p className="text-sm text-ink-foreground/80">{adviceText}</p>
               {snap && snap.confidence === "insufficient" && (
-                <Badge tone="neutral" className="mt-1">{dict.common.insufficientData}</Badge>
+                <Badge tone="neutral" className="mt-1 bg-white/10 text-ink-foreground/80">
+                  {dict.common.insufficientData}
+                </Badge>
               )}
             </div>
           </div>
@@ -356,7 +365,7 @@ export default async function AthleteHome() {
             ) : (
               <SeriesLineChart
                 data={chart7}
-                series={[{ key: "score", label: d.readiness, color: "#2563eb" }]}
+                series={[{ key: "score", label: d.readiness, color: "#4c7c0b" }]}
                 domain={[0, 100]}
                 reference={snap?.baseline_avg != null ? { y: Number(snap.baseline_avg) } : undefined}
               />
@@ -373,7 +382,7 @@ export default async function AthleteHome() {
             ) : (
               <SeriesLineChart
                 data={chart30}
-                series={[{ key: "score", label: d.readiness, color: "#2563eb" }]}
+                series={[{ key: "score", label: d.readiness, color: "#4c7c0b" }]}
                 domain={[0, 100]}
                 reference={snap?.baseline_avg != null ? { y: Number(snap.baseline_avg) } : undefined}
               />
