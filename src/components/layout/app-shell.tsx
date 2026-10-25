@@ -7,6 +7,7 @@ import { signOut } from "@/app/actions/auth";
 import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { BottomNav, type NavItem } from "@/components/layout/bottom-nav";
 import { PushSubscribe } from "@/components/push-subscribe";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 /** primary — mobile bottom tabs; overflow — inside the "More" sheet */
 export function navGroups(role: AppRole, d: Dictionary): { primary: NavItem[]; overflow: NavItem[] } {
@@ -91,6 +92,7 @@ export async function AppShell({
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-2">
+            <ThemeToggle label={dict.common.theme} />
             <NotificationsBell />
             <span className="hidden sm:block text-sm text-muted">{displayName}</span>
             <form

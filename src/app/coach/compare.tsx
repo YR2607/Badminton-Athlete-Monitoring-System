@@ -6,14 +6,14 @@ import { SeriesLineChart, type SeriesDef, type SeriesPoint } from "@/components/
 import { cn } from "@/lib/utils";
 
 const PALETTE = [
-  "#2563eb",
-  "#dc2626",
-  "#059669",
-  "#d97706",
-  "#7c3aed",
-  "#0891b2",
-  "#db2777",
-  "#65a30d",
+  "var(--accent)",
+  "var(--danger)",
+  "var(--chart-3)",
+  "var(--warn)",
+  "var(--chart-5)",
+  "var(--chart-6)",
+  "var(--chart-7)",
+  "var(--chart-8)",
 ];
 
 export interface CompareAthlete {
@@ -57,7 +57,7 @@ export function CompareChart({
     });
     const colorOf = new Map<string, string>();
     const series: SeriesDef[] = [
-      { key: "avg", label: d.groupAvg, color: "#94a3b8", dash: true },
+      { key: "avg", label: d.groupAvg, color: "var(--chart-muted)", dash: true },
     ];
     let i = 0;
     for (const a of athletes) {
@@ -105,7 +105,7 @@ export function CompareChart({
             >
               <span
                 className="inline-block h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: on ? colorOf.get(a.id) : "#cbd5e1" }}
+                style={{ backgroundColor: on ? colorOf.get(a.id) : "var(--border)" }}
               />
               {a.name}
               {a.flagged && <span className="text-danger">!</span>}

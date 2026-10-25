@@ -138,7 +138,7 @@ export default async function HistoryPage({
           ) : (
             <SeriesLineChart
               data={readinessSeries}
-              series={[{ key: "score", label: h.readiness, color: "#2563eb" }]}
+              series={[{ key: "score", label: h.readiness, color: "var(--accent)" }]}
               domain={[0, 100]}
             />
           )}
@@ -158,9 +158,9 @@ export default async function HistoryPage({
             <SeriesLineChart
               data={wellbeingSeries}
               series={[
-                { key: "sleep", label: h.sleep, color: "#2563eb" },
-                { key: "fatigue", label: h.fatigue, color: "#d97706" },
-                { key: "soreness", label: h.soreness, color: "#dc2626" },
+                { key: "sleep", label: h.sleep, color: "var(--accent)" },
+                { key: "fatigue", label: h.fatigue, color: "var(--warn)" },
+                { key: "soreness", label: h.soreness, color: "var(--danger)" },
               ]}
               domain={[1, 5]}
             />

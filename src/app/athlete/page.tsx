@@ -289,7 +289,7 @@ export default async function AthleteHome() {
             <span
               className="text-4xl font-bold"
               style={{
-                color: band === "good" ? "#16a34a" : band === "moderate" ? "#d97706" : band ? "#dc2626" : "#5b6b83",
+                color: band === "good" ? "var(--ok)" : band === "moderate" ? "var(--warn)" : band ? "var(--danger)" : "var(--muted)",
               }}
             >
               {score !== null ? Math.round(score) : "—"}
@@ -356,7 +356,7 @@ export default async function AthleteHome() {
             ) : (
               <SeriesLineChart
                 data={chart7}
-                series={[{ key: "score", label: d.readiness, color: "#2563eb" }]}
+                series={[{ key: "score", label: d.readiness, color: "var(--accent)" }]}
                 domain={[0, 100]}
                 reference={snap?.baseline_avg != null ? { y: Number(snap.baseline_avg) } : undefined}
               />
@@ -373,7 +373,7 @@ export default async function AthleteHome() {
             ) : (
               <SeriesLineChart
                 data={chart30}
-                series={[{ key: "score", label: d.readiness, color: "#2563eb" }]}
+                series={[{ key: "score", label: d.readiness, color: "var(--accent)" }]}
                 domain={[0, 100]}
                 reference={snap?.baseline_avg != null ? { y: Number(snap.baseline_avg) } : undefined}
               />

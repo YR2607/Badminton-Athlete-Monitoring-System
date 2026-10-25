@@ -758,7 +758,7 @@ export default async function AthleteDetailPage({
             ) : (
               <SeriesLineChart
                 data={inRangeSeries}
-                series={[{ key: "score", label: dict.history.readiness, color: "#2563eb" }]}
+                series={[{ key: "score", label: dict.history.readiness, color: "var(--accent)" }]}
                 domain={[0, 100]}
                 reference={latestSnap?.baseline_avg != null ? { y: Number(latestSnap.baseline_avg) } : undefined}
               />
@@ -778,9 +778,9 @@ export default async function AthleteDetailPage({
               <SeriesLineChart
                 data={wellbeing}
                 series={[
-                  { key: "sleep", label: dict.history.sleep, color: "#2563eb" },
-                  { key: "fatigue", label: dict.history.fatigue, color: "#d97706" },
-                  { key: "soreness", label: dict.history.soreness, color: "#dc2626" },
+                  { key: "sleep", label: dict.history.sleep, color: "var(--accent)" },
+                  { key: "fatigue", label: dict.history.fatigue, color: "var(--warn)" },
+                  { key: "soreness", label: dict.history.soreness, color: "var(--danger)" },
                 ]}
                 domain={[1, 5]}
               />
