@@ -159,7 +159,7 @@ export function TrainingForm({
                       className={cn(
                         "min-h-11 rounded-lg border text-sm font-medium",
                         sessionDay === v
-                          ? "border-accent bg-accent/5"
+                          ? "border-accent bg-accent/10"
                           : "border-border hover:bg-foreground/5",
                       )}
                     >
@@ -231,7 +231,7 @@ export function TrainingForm({
                 onClick={() => setValue("pain_status", v)}
                 className={cn(
                   "rounded-lg border px-3 py-2.5 text-left text-sm",
-                  painStatus === v ? "border-accent bg-accent/5 font-medium" : "border-border hover:bg-foreground/5",
+                  painStatus === v ? "border-accent bg-accent/10 font-medium" : "border-border hover:bg-foreground/5",
                 )}
               >
                 {dm[painKeys[i]]}
@@ -258,7 +258,7 @@ export function TrainingForm({
                           onClick={() => field.onChange(v)}
                           className={cn(
                             "rounded-lg border px-2 py-2 text-xs",
-                            field.value === v ? "border-accent bg-accent/5 font-medium" : "border-border",
+                            field.value === v ? "border-accent bg-accent/10 font-medium" : "border-border",
                           )}
                         >
                           {dm[sideKeys[i]]}

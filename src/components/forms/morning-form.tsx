@@ -213,7 +213,7 @@ export function MorningForm({
                 className={cn(
                   "rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
                   painStatus === v
-                    ? "border-accent bg-accent/5 font-medium"
+                    ? "border-accent bg-accent/10 font-medium"
                     : "border-border hover:bg-foreground/5",
                 )}
               >
@@ -247,7 +247,7 @@ export function MorningForm({
                           className={cn(
                             "rounded-lg border px-2 py-2 text-xs",
                             field.value === v
-                              ? "border-accent bg-accent/5 font-medium"
+                              ? "border-accent bg-accent/10 font-medium"
                               : "border-border",
                           )}
                         >
@@ -290,7 +290,7 @@ export function MorningForm({
                       className={cn(
                         "rounded-lg border px-2 py-2 text-xs",
                         triggers.includes(v)
-                          ? "border-accent bg-accent/5 font-medium"
+                          ? "border-accent bg-accent/10 font-medium"
                           : "border-border",
                       )}
                     >

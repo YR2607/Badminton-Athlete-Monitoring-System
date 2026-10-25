@@ -45,3 +45,6 @@ next-env.d.ts
 
 # Supabase CLI link artifacts
 supabase/.temp/
+
+# Impeccable skill workflow artifacts
+.impeccable/

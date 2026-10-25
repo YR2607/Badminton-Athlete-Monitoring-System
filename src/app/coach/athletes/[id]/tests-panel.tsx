@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { X } from "lucide-react";
 import type { Dictionary } from "@/i18n";
 import { addTestResult, deleteTestResult } from "@/app/actions/tests";
 import { Button } from "@/components/ui/button";
@@ -154,7 +155,7 @@ export function TestsPanel({
             </div>
             <SeriesLineChart
               data={series}
-              series={[{ key: "value", label: `${test?.name[lang as Lang] || test?.name.en}, ${test?.unit}`, color: "#2563eb" }]}
+              series={[{ key: "value", label: `${test?.name[lang as Lang] || test?.name.en}, ${test?.unit}`, color: "#b9f22e" }]}
               reference={median !== null ? { y: median, label: d.groupMedian } : undefined}
             />
           </>
@@ -177,13 +178,14 @@ export function TestsPanel({
                       type="button"
                       className="text-danger/70 hover:text-danger"
                       title={d.del}
+                      aria-label={d.del}
                       onClick={async () => {
                         const res = await deleteTestResult(r.id, athleteId);
                         if (res.ok) router.refresh();
                         else toast.error(dict.common.error);
                       }}
                     >
-                      ✕
+                      <X size={14} />
                     </button>
                   </span>
                 </li>

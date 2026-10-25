@@ -38,7 +38,7 @@ export default async function ExportPage() {
 
   return (
     <div className="mx-auto max-w-lg space-y-4">
-      <h1 className="text-xl font-bold">{dict.export.title}</h1>
+      <h1 className="font-display text-3xl font-bold tracking-tight">{dict.export.title}</h1>
       <ExportForm dict={dict} athletes={options} groups={(groups as Group[]) ?? []} />
     </div>
   );

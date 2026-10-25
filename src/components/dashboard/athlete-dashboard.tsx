@@ -90,9 +90,9 @@ export function AthleteDashboard({
               <SeriesLineChart
                 data={corridor}
                 series={[
-                  { key: "score", label: dict.athleteHome.readiness, color: "#2563eb" },
-                  { key: "normHigh", label: d.corrHigh, color: "#94a3b8", dash: true },
-                  { key: "normLow", label: d.corrLow, color: "#94a3b8", dash: true },
+                  { key: "score", label: dict.athleteHome.readiness, color: "#b9f22e" },
+                  { key: "normHigh", label: d.corrHigh, color: "#8fa0bd", dash: true },
+                  { key: "normLow", label: d.corrLow, color: "#8fa0bd", dash: true },
                 ]}
                 domain={[0, 100]}
                 markers={markers}
@@ -170,7 +170,7 @@ export function AthleteDashboard({
                     date: p.date.slice(5),
                     acwr: Math.round((p.acwr ?? 0) * 100) / 100,
                   }))}
-                  series={[{ key: "acwr", label: "ACWR", color: "#7c3aed" }]}
+                  series={[{ key: "acwr", label: "ACWR", color: "#c084fc" }]}
                   domain={[0, "auto"]}
                 />
               )}

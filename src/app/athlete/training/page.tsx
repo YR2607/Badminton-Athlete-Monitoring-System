@@ -64,7 +64,7 @@ export default async function TrainingPage() {
   return (
     <div className="mx-auto max-w-lg space-y-5">
       <div>
-        <h1 className="text-xl font-bold">{dict.postTraining.sessionTitle}</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight">{dict.postTraining.sessionTitle}</h1>
         <p className="text-sm text-muted">{today}</p>
       </div>
 

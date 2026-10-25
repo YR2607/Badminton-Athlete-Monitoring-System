@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Dictionary } from "@/i18n";
 import type { CoachAthleteRow } from "@/lib/coach-data";
 import { STATUS_ORDER, type AthleteStatus } from "@/lib/athlete-status";
+import { TriangleAlert, RefreshCw, CircleDot } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input, Select } from "@/components/ui/input";
 import { Sparkline } from "@/components/charts/sparkline";
@@ -144,9 +145,21 @@ export function CoachTable({
             >
               <div className="mb-2 flex flex-wrap items-center gap-1.5">
                 <Badge tone={statusTone(r.status)}>{d.status[r.status]}</Badge>
-                {r.openAlerts.some((a) => a.severity === "priority") && <Badge tone="danger">!</Badge>}
-                {r.openAlerts.some((a) => a.severity === "review_load") && <Badge tone="warn">↺</Badge>}
-                {r.openAlerts.some((a) => a.severity === "attention") && <Badge tone="accent">•</Badge>}
+                {r.openAlerts.some((a) => a.severity === "priority") && (
+                  <Badge tone="danger" title={dict.alerts.severity.priority}>
+                    <TriangleAlert size={11} strokeWidth={2.5} />
+                  </Badge>
+                )}
+                {r.openAlerts.some((a) => a.severity === "review_load") && (
+                  <Badge tone="warn" title={dict.alerts.severity.review_load}>
+                    <RefreshCw size={11} strokeWidth={2.5} />
+                  </Badge>
+                )}
+                {r.openAlerts.some((a) => a.severity === "attention") && (
+                  <Badge tone="accent" title={dict.alerts.severity.attention}>
+                    <CircleDot size={11} strokeWidth={2.5} />
+                  </Badge>
+                )}
                 {r.hasPain && <Badge tone="danger">{d.hasPain}</Badge>}
                 {r.pendingPostCount > 0 && <Badge tone="warn">{d.pendingPost}</Badge>}
                 {r.scheduledMissedYesterday === true && <Badge tone="warn">{d.schedMissed}</Badge>}
@@ -165,7 +178,7 @@ export function CoachTable({
                     <>
                       <p
                         title={dict.common.readinessHint}
-                        className={cn("text-xl font-bold tabular-nums leading-none", readinessTone(r.todayScore))}
+                        className={cn("score-num text-3xl font-bold leading-none", readinessTone(r.todayScore))}
                       >
                         {Math.round(r.todayScore)}
                       </p>
@@ -196,7 +209,7 @@ export function CoachTable({
               )}
 
               <div className="mt-2 flex items-end justify-between gap-2">
-                <span className={cn("text-accent", !spark.length && "invisible")}>
+                <span className={cn("text-accent-2", !spark.length && "invisible")}>
                   <Sparkline points={spark} width={96} height={26} />
                 </span>
                 <span className="flex flex-col items-end gap-0.5">
@@ -219,7 +232,7 @@ export function CoachTable({
                           className={cn(
                             "inline-block h-2.5 w-2.5 rounded-full border",
                             cd.evening
-                              ? "border-accent bg-accent"
+                              ? "border-accent-2 bg-accent-2"
                               : cd.hadSession
                                 ? "border-warn bg-warn/30"
                                 : "border-border bg-transparent",
@@ -228,8 +241,13 @@ export function CoachTable({
                       </span>
                     ))}
                   </span>
-                  <span className="text-[10px] text-muted">
-                    {d.dotMorning} ● / {d.dotEvening} ●
+                  <span className="flex items-center gap-2 text-[10px] text-muted">
+                    <span className="flex items-center gap-1">
+                      <span className="inline-block h-2 w-2 rounded-full bg-ok" /> {d.dotMorning}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="inline-block h-2 w-2 rounded-full bg-accent-2" /> {d.dotEvening}
+                    </span>
                   </span>
                 </span>
               </div>

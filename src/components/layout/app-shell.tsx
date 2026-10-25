@@ -74,10 +74,17 @@ export async function AppShell({
   const impersonating = (await cookies()).has("rm-impersonating");
   return (
     <div className="min-h-full flex flex-col">
-      <header className="sticky top-0 z-30 border-b border-border bg-surface/95 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
-          <Link href="/" className="font-bold tracking-tight">
-            {dict.app.name}
+          <Link href="/" className="flex items-center gap-2">
+            <span
+              aria-hidden
+              className="h-3.5 w-3.5 bg-accent"
+              style={{ clipPath: "polygon(0 0, 100% 25%, 100% 100%, 0 75%)" }}
+            />
+            <span className="font-display text-lg font-bold uppercase tracking-wide">
+              {dict.app.name}
+            </span>
           </Link>
           <nav className="hidden md:flex items-center gap-1 ml-4">
             {items.map((i) => (
@@ -115,7 +122,7 @@ export async function AppShell({
             </span>
             <Link
               href="/auth/impersonation-exit"
-              className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground"
+              className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
             >
               {dict.common.exitImpersonation}
             </Link>

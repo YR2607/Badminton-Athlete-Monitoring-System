@@ -16,7 +16,7 @@ export default async function AdminFeaturesPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">{dict.admin.features.title}</h1>
+      <h1 className="font-display text-3xl font-bold tracking-tight">{dict.admin.features.title}</h1>
       <FeaturesManager
         dict={dict}
         flags={(flags as FeatureFlag[]) ?? []}

@@ -79,22 +79,30 @@ export function BottomNav({
   return (
     <>
       <nav
-        className="fixed inset-x-3 bottom-3 z-30 rounded-2xl border border-border bg-surface/95 shadow-lg backdrop-blur md:hidden"
+        className="fixed inset-x-3 bottom-3 z-30 overflow-hidden rounded-2xl border border-border bg-surface/95 backdrop-blur md:hidden"
         style={{ bottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
       >
         <div className="flex">
-          {primary.map((i) => (
-            <Link
-              key={i.href}
-              href={i.href}
-              className={`flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 ${
-                isActive(pathname, i.href) ? "text-accent" : "text-muted"
-              }`}
-            >
-              <NavIcon href={i.href} />
-              <span className="max-w-full truncate px-1 text-[10px] leading-tight">{i.label}</span>
-            </Link>
-          ))}
+          {primary.map((i) => {
+            const active = isActive(pathname, i.href);
+            return (
+              <Link
+                key={i.href}
+                href={i.href}
+                className={`relative flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 ${
+                  active ? "text-accent" : "text-muted"
+                }`}
+              >
+                {active && (
+                  <span className="absolute inset-x-4 top-0 h-0.5 bg-accent" aria-hidden />
+                )}
+                <NavIcon href={i.href} />
+                <span className="max-w-full truncate px-1 text-[10px] font-semibold leading-tight">
+                  {i.label}
+                </span>
+              </Link>
+            );
+          })}
           {overflow.length > 0 && (
             <button
               type="button"
@@ -133,10 +141,13 @@ export function BottomNav({
                 href={i.href}
                 onClick={() => setOpen(false)}
                 className={`flex items-center gap-3 rounded-xl px-4 py-3.5 text-[15px] ${
-                  isActive(pathname, i.href) ? "bg-accent/10 text-accent" : "text-foreground"
+                  isActive(pathname, i.href) ? "bg-accent/12 text-accent" : "text-foreground"
                 }`}
               >
-                <NavIcon href={i.href} className="h-5 w-5 text-muted" />
+                <NavIcon
+                  href={i.href}
+                  className={`h-5 w-5 ${isActive(pathname, i.href) ? "text-accent" : "text-muted"}`}
+                />
                 {i.label}
               </Link>
             ))}

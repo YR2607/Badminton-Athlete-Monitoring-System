@@ -1,35 +1,107 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6f8fb;
-  --surface: #ffffff;
-  --foreground: #17233b;
-  --muted: #5b6b83;
-  --border: #e3e8f0;
-  --accent: #2563eb;
-  --accent-foreground: #ffffff;
-  --ok: #16a34a;
-  --warn: #d97706;
-  --danger: #dc2626;
+  /* Rally cockpit — deep arena field, steel hairlines, fluoro court-line lime */
+  --background: #080d18;
+  --surface: #0f1728;
+  --surface-2: #16233c;
+  --field: #0b1120;
+  --foreground: #edf2fa;
+  --muted: #8fa0bd;
+  --border: #233350;
+  --accent: #b9f22e;
+  --accent-foreground: #0d1305;
+  --accent-2: #5cc8f5;
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --danger: #f87171;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-field: var(--field);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
   --color-border: var(--border);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-accent-2: var(--accent-2);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
   --color-danger: var(--danger);
-  --font-sans: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: var(--font-sofia), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-sofia-cond), var(--font-sofia), system-ui, sans-serif;
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+}
+
+/* Browser surfaces themed from the palette */
+::selection {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+input,
+textarea {
+  caret-color: var(--accent);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-2) transparent;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--surface-2);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Scoreboard numerals: condensed display face with tabular figures */
+.score-num {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Faint court-line markings — the hall's painted service lines under the UI.
+   Used on the login screen; kept at low alpha so it stays a ground, not a picture. */
+.court-lines {
+  position: relative;
+}
+.court-lines::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.07;
+  background-image:
+    linear-gradient(to right, transparent 0, transparent calc(50% - 1px), #fff calc(50% - 1px), #fff calc(50% + 1px), transparent calc(50% + 1px)),
+    linear-gradient(to bottom, transparent 0, transparent 34%, #fff 34%, #fff calc(34% + 2px), transparent calc(34% + 2px)),
+    linear-gradient(to bottom, transparent 0, transparent 66%, #fff 66%, #fff calc(66% + 2px), transparent calc(66% + 2px));
+  border: 2px solid #fff;
+  border-radius: 2px;
+  margin: 6vh 8vw;
+  inset: 0;
 }
 
 @media print {
@@ -38,5 +110,6 @@ body {
   }
   body {
     background: #fff;
+    color: #000;
   }
 }

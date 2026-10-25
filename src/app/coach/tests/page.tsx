@@ -43,7 +43,7 @@ export default async function CoachTestsPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">{dict.tests.batchTitle}</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight">{dict.tests.batchTitle}</h1>
         <p className="text-sm text-muted">{dict.tests.batchHint}</p>
       </div>
       <TestsBatchEntry

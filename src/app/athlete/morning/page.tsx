@@ -34,7 +34,7 @@ export default async function MorningPage() {
 
   return (
     <div className="mx-auto max-w-lg">
-      <h1 className="text-xl font-bold">{dict.morning.title}</h1>
+      <h1 className="font-display text-3xl font-bold tracking-tight">{dict.morning.title}</h1>
       <p className="mb-4 text-sm text-muted">{dict.morning.subtitle}</p>
       {existing ? (
         <>

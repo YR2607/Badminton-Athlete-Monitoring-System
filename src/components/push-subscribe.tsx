@@ -85,7 +85,7 @@ export function PushSubscribe({ dict }: { dict: Dictionary }) {
   if (state !== "ask") return null;
   const d = dict.push;
   return (
-    <div className="fixed inset-x-4 bottom-24 z-40 mx-auto max-w-md rounded-xl border border-border bg-surface p-3 shadow-lg md:bottom-6">
+    <div className="fixed inset-x-4 bottom-24 z-40 mx-auto max-w-md rounded-xl border border-border bg-surface p-3 shadow-xl shadow-black/40 md:bottom-6">
       <div className="flex items-start gap-3">
         <Bell className="mt-0.5 shrink-0 text-accent" size={20} />
         <div className="min-w-0 flex-1">

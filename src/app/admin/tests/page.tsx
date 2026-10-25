@@ -15,7 +15,7 @@ export default async function AdminTestsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">{dict.tests.adminTitle}</h1>
+      <h1 className="font-display text-3xl font-bold tracking-tight">{dict.tests.adminTitle}</h1>
       <TestsAdmin dict={dict} tests={(tests as FieldTest[] | null) ?? []} />
     </div>
   );

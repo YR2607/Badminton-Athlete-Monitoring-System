@@ -4,7 +4,6 @@ import { getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { coachDashboard } from "@/lib/coach-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { CoachTable } from "./table";
 import { CompareChart, type CompareAthlete } from "./compare";
 
@@ -77,53 +76,35 @@ export default async function CoachDashboard({
     series: r.series,
   }));
 
+  const boardStats: { value: number; label: string; tone?: string }[] = [
+    { value: rows.length, label: d.athletesInGroup },
+    { value: filled, label: d.filledToday, tone: "text-ok" },
+    { value: rows.length - filled, label: d.sumNoToday, tone: "text-warn" },
+    { value: priority, label: `${d.sumPriority} · ${d.openAlerts}: ${openAlerts.length}`, tone: "text-danger" },
+    { value: declining, label: d.sumDeclining, tone: "text-warn" },
+    { value: pendingPosts, label: d.sumPendingPost },
+  ];
+
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">{d.dashboard}</h1>
+        <h1 className="font-display text-3xl font-bold tracking-tight">{d.dashboard}</h1>
         <p className="text-sm text-muted">{d.dashboardHint}</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-2xl font-bold">{rows.length}</p>
-            <p className="text-xs text-muted">{d.athletesInGroup}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-2xl font-bold text-ok">{filled}</p>
-            <p className="text-xs text-muted">{d.filledToday}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-2xl font-bold text-warn">{rows.length - filled}</p>
-            <p className="text-xs text-muted">{d.sumNoToday}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-2xl font-bold text-danger">{priority}</p>
-            <p className="text-xs text-muted">
-              {d.sumPriority} · {d.openAlerts}: {openAlerts.length}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-2xl font-bold text-warn">{declining}</p>
-            <p className="text-xs text-muted">{d.sumDeclining}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-4">
-            <p className="text-2xl font-bold">{pendingPosts}</p>
-            <p className="text-xs text-muted">{d.sumPendingPost}</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* The board: one ruled strip of stat segments, numerals do the triage */}
+      <Card className="overflow-hidden">
+        <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-3 lg:grid-cols-6">
+          {boardStats.map((s) => (
+            <div key={s.label} className="bg-surface px-4 py-3.5">
+              <p className={`score-num text-3xl font-bold leading-none ${s.tone ?? ""}`}>
+                {s.value}
+              </p>
+              <p className="mt-1.5 text-[11px] leading-tight text-muted">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       {ostrcPrev.length > 0 && (
         <Card>
@@ -132,9 +113,9 @@ export default async function CoachDashboard({
             <p className="text-xs text-muted">{dict.ostrc.prevHint}</p>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-3">
+            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-3 lg:grid-cols-4">
               {ostrcPrev.map((z) => (
-                <div key={z.zone} className="rounded-lg border border-border/60 px-3 py-2 text-sm">
+                <div key={z.zone} className="bg-field px-3 py-2.5 text-sm">
                   <p className="font-medium">{z.name}</p>
                   <p className="text-xs text-muted">
                     {dict.ostrc.anyProblem}: <b className={z.anyPct ? "text-warn" : ""}>{z.anyPct}%</b>
@@ -169,10 +150,4 @@ export default async function CoachDashboard({
       </p>
     </div>
   );
-}
-
-export function SeverityBadge({ severity, dict }: { severity: string; dict: ReturnType<typeof getDictionary> }) {
-  const tone =
-    severity === "priority" ? "danger" : severity === "review_load" ? "warn" : severity === "attention" ? "accent" : "neutral";
-  return <Badge tone={tone}>{dict.alerts.severity[severity as keyof typeof dict.alerts.severity] ?? severity}</Badge>;
 }

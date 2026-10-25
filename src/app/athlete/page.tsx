@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart } from "@/components/charts/series-chart";
-import { CheckCircle2, Circle, Sunrise, Sunset } from "lucide-react";
+import { CheckCircle2, Circle, Flame, Sunrise, Sunset } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { MorningCheckin, PostTrainingCheckin, ReadinessSnapshot } from "@/lib/types";
 
@@ -202,7 +202,7 @@ export default async function AthleteHome() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">
+        <h1 className="font-display text-3xl font-bold tracking-tight">
           {d.greeting}, {profile.display_name}
         </h1>
         <p className="text-sm text-muted">{today}</p>
@@ -242,7 +242,7 @@ export default async function AthleteHome() {
               key={row.key}
               className={cn(
                 "flex items-center justify-between gap-3 rounded-xl border p-3",
-                row.done ? "border-ok/30 bg-ok/5" : "border-warn/40 bg-warn/5",
+                row.done ? "border-ok/30 bg-ok/10" : "border-warn/40 bg-warn/10",
               )}
             >
               <div className="flex min-w-0 items-center gap-3">
@@ -285,12 +285,18 @@ export default async function AthleteHome() {
           <CardTitle>{d.readiness}</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-5">
             <span
-              className="text-4xl font-bold"
-              style={{
-                color: band === "good" ? "#16a34a" : band === "moderate" ? "#d97706" : band ? "#dc2626" : "#5b6b83",
-              }}
+              className={cn(
+                "score-num text-6xl font-bold leading-none",
+                band === "good"
+                  ? "text-ok"
+                  : band === "moderate"
+                    ? "text-warn"
+                    : band
+                      ? "text-danger"
+                      : "text-muted",
+              )}
             >
               {score !== null ? Math.round(score) : "—"}
             </span>
@@ -305,7 +311,7 @@ export default async function AthleteHome() {
       </Card>
 
       {ostrcDue && (
-        <Card className="border-accent/40 bg-accent/5">
+        <Card className="border-accent/40 bg-accent/10">
           <CardContent className="flex items-center justify-between gap-3 pt-4">
             <p className="text-sm">{dict.ostrc.homeCard}</p>
             <Link href="/athlete/ostrc">
@@ -319,8 +325,9 @@ export default async function AthleteHome() {
         <Card>
           <CardContent className="space-y-1.5 pt-4 text-sm">
             {streak >= 2 && (
-              <p>
-                🔥 {d.streak.replace("{n}", String(streak))}
+              <p className="flex items-center gap-1.5">
+                <Flame size={15} className="shrink-0 text-warn" />
+                {d.streak.replace("{n}", String(streak))}
               </p>
             )}
             {sleepDiff !== null && (
@@ -356,7 +363,7 @@ export default async function AthleteHome() {
             ) : (
               <SeriesLineChart
                 data={chart7}
-                series={[{ key: "score", label: d.readiness, color: "#2563eb" }]}
+                series={[{ key: "score", label: d.readiness, color: "#b9f22e" }]}
                 domain={[0, 100]}
                 reference={snap?.baseline_avg != null ? { y: Number(snap.baseline_avg) } : undefined}
               />
@@ -373,7 +380,7 @@ export default async function AthleteHome() {
             ) : (
               <SeriesLineChart
                 data={chart30}
-                series={[{ key: "score", label: d.readiness, color: "#2563eb" }]}
+                series={[{ key: "score", label: d.readiness, color: "#b9f22e" }]}
                 domain={[0, 100]}
                 reference={snap?.baseline_avg != null ? { y: Number(snap.baseline_avg) } : undefined}
               />

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { X } from "lucide-react";
 import type { Dictionary } from "@/i18n";
 import { saveCalendarEvent, deleteCalendarEvent, saveOwnEvent, deleteOwnEvent } from "@/app/actions/events";
 import { Button } from "@/components/ui/button";
@@ -152,7 +153,7 @@ export function EventsPanel({
                 key={s}
                 type="button"
                 onClick={() => setF({ ...f, scope: s })}
-                className={`rounded-lg px-2.5 py-1.5 ${f.scope === s ? "bg-accent text-white" : "bg-foreground/5"}`}
+                className={`rounded-lg px-2.5 py-1.5 ${f.scope === s ? "bg-accent text-accent-foreground" : "bg-foreground/5"}`}
               >
                 {s === "athlete" ? d.scopeAthlete : d.scopeGroup}
               </button>
@@ -181,9 +182,10 @@ export function EventsPanel({
                       type="button"
                       className="text-danger/70 hover:text-danger"
                       title={d.del}
+                      aria-label={d.del}
                       onClick={() => remove(ev.id)}
                     >
-                      ✕
+                      <X size={14} />
                     </button>
                   )}
                 </span>
