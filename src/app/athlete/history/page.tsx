@@ -95,7 +95,7 @@ export default async function HistoryPage({
             <a
               key={n}
               href={`/athlete/history?days=${n}`}
-              className={`rounded-lg px-3 py-1.5 text-sm ${days === n ? "bg-accent text-white" : "bg-foreground/5"}`}
+              className={`rounded-lg px-3 py-1.5 text-sm ${days === n ? "bg-accent text-accent-foreground" : "bg-foreground/5"}`}
             >
               {n}
             </a>

@@ -256,7 +256,7 @@ export function CheckinEditor({
                   key={v}
                   type="button"
                   onClick={() => setF((s) => ({ ...s, painSide: v }))}
-                  className={`rounded-lg px-3 py-2 text-sm ${f.painSide === v ? "bg-accent text-white" : "bg-foreground/5"}`}
+                  className={`rounded-lg px-3 py-2 text-sm ${f.painSide === v ? "bg-accent text-accent-foreground" : "bg-foreground/5"}`}
                 >
                   {{ left: m.sideLeft, right: m.sideRight, both: m.sideBoth, na: m.sideNa }[v]}
                 </button>

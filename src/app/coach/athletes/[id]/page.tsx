@@ -622,7 +622,7 @@ export default async function AthleteDetailPage({
               href={`/coach/athletes/${a.id}?range=${k}`}
               className={cn(
                 "rounded-lg px-2.5 py-1.5 text-xs",
-                (sp.range ?? "30d") === k ? "bg-accent text-white" : "bg-foreground/5",
+                (sp.range ?? "30d") === k ? "bg-accent text-accent-foreground" : "bg-foreground/5",
               )}
             >
               {dict.ranges[k]}
