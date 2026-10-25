@@ -32,6 +32,26 @@ export default async function MorningPage() {
     membership?.group_id ? [membership.group_id] : [],
   );
 
+  // Prefill sleep_hours with the athlete's own recent average (rounded to 0.5h)
+  // so morning check-in takes one less tap when sleep duration is steady.
+  let defaultSleepHours: number | undefined;
+  if (zscoreOn && !existing) {
+    const { data: recentSleep } = await supabase
+      .from("morning_checkins")
+      .select("sleep_hours")
+      .eq("athlete_id", athlete.id)
+      .not("sleep_hours", "is", null)
+      .order("checkin_date", { ascending: false })
+      .limit(14);
+    const hrs = ((recentSleep as { sleep_hours: number | null }[] | null) ?? [])
+      .map((r) => r.sleep_hours)
+      .filter((v): v is number => typeof v === "number" && v > 0);
+    if (hrs.length >= 2) {
+      const mean = hrs.reduce((a, b) => a + b, 0) / hrs.length;
+      defaultSleepHours = Math.round(mean * 2) / 2;
+    }
+  }
+
   // Only the slices the client form uses — keeps the RSC payload small.
   const formDict = {
     morning: dict.morning,
@@ -53,7 +73,12 @@ export default async function MorningPage() {
           <MorningForm dict={formDict} checkinDate={today} existing={existing as MorningCheckin} showSleepHours={zscoreOn} />
         </>
       ) : (
-        <MorningForm dict={formDict} checkinDate={today} showSleepHours={zscoreOn} />
+        <MorningForm
+          dict={formDict}
+          checkinDate={today}
+          showSleepHours={zscoreOn}
+          defaultSleepHours={defaultSleepHours}
+        />
       )}
     </div>
   );

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getDictionary } from "@/i18n";
 import { addDays, localDate, todayInTz } from "@/lib/dates";
 import { dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
+import { sessionDateByIdMap } from "@/lib/checkins";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart } from "@/components/charts/series-chart";
@@ -73,9 +74,10 @@ export default async function HistoryPage({
     </tr>
   );
 
+  const sessionDateById = sessionDateByIdMap((sessions as TrainingSession[]) ?? [], tz);
   const readinessSeries = dailyConditionSeries(
     ck,
-    postsByLocalDate((postCheckins as PostTrainingCheckin[]) ?? [], tz),
+    postsByLocalDate((postCheckins as PostTrainingCheckin[]) ?? [], tz, sessionDateById),
   );
   const wellbeingSeries = ck.map((c) => ({
     date: c.checkin_date,
@@ -162,7 +164,7 @@ export default async function HistoryPage({
                 { key: "fatigue", label: h.fatigue, color: "var(--warn)" },
                 { key: "soreness", label: h.soreness, color: "var(--danger)" },
               ]}
-              domain={[1, 5]}
+              domain={[1, 10]}
             />
           )}
         </CardContent>

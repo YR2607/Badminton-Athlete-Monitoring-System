@@ -14,7 +14,7 @@ import type {
 } from "@/lib/types";
 import { localDate } from "@/lib/dates";
 import { normalizeCheckin, readinessScore } from "@/lib/readiness";
-import { acwrSeries, dailyLoads, monotony, strain } from "@/lib/load";
+import { acwrSeries, dailyLoads, monotony, strain, type PlanOverride } from "@/lib/load";
 
 export interface ExportBundle {
   generatedAt: string;
@@ -30,6 +30,7 @@ export interface ExportBundle {
   notes: { athlete_id: string; created_at: string; kind: string; note: string }[];
   /** Phase 10 extras (optional — older callers may omit them). */
   schedules?: TrainingSchedule[];
+  planOverrides?: (PlanOverride & { group_id: string })[];
   athleteGroups?: { athlete_id: string; group_id: string }[];
   growth?: GrowthMeasurement[];
   testResults?: FieldTestResult[];
@@ -72,6 +73,12 @@ function loadRows(b: ExportBundle): LoadRow[] {
     list.push(s);
     schedByGroup.set(s.group_id, list);
   }
+  const ovByGroup = new Map<string, PlanOverride[]>();
+  for (const o of b.planOverrides ?? []) {
+    const list = ovByGroup.get(o.group_id) ?? [];
+    list.push(o);
+    ovByGroup.set(o.group_id, list);
+  }
   const dates: string[] = [];
   for (let d = b.rangeFrom; d <= b.rangeTo; ) {
     dates.push(d);
@@ -81,11 +88,13 @@ function loadRows(b: ExportBundle): LoadRow[] {
   }
   const out: LoadRow[] = [];
   for (const a of b.athletes) {
-    const sched = (schedByGroup.get(groupOf.get(a.id) ?? "") ?? []).map((s) => ({
+    const gid = groupOf.get(a.id) ?? "";
+    const sched = (schedByGroup.get(gid) ?? []).map((s) => ({
       weekday: s.weekday,
       planned_minutes: s.planned_minutes,
       planned_rpe: s.planned_rpe,
     }));
+    const overrides = ovByGroup.get(gid) ?? [];
     const inputs = b.sessions
       .filter((s) => s.athlete_id === a.id)
       .map((s) => ({
@@ -93,7 +102,7 @@ function loadRows(b: ExportBundle): LoadRow[] {
         rpe: s.session_rpe,
         minutes: s.duration_minutes,
       }));
-    const days = dailyLoads(dates, inputs, sched);
+    const days = dailyLoads(dates, inputs, sched, overrides);
     const acwr = acwrSeries(days.map((d) => d.load));
     days.forEach((day, i) => {
       const week = days.slice(Math.max(0, i - 6), i + 1).map((d) => d.load);

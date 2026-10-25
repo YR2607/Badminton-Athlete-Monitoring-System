@@ -136,14 +136,16 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
       recentSession &&
       localDate(new Date(recentSession.started_at), profile.timezone) === sessionDate
     ) {
-      await supabase
+      const admin = createAdminClient();
+      await admin
         .from("training_sessions")
         .update({
           session_rpe: srpeOn ? (parsed.data.session_rpe ?? null) : null,
           duration_minutes: srpeOn ? (parsed.data.session_minutes ?? null) : null,
         })
-        .eq("id", recentPost.training_session_id);
-      await supabase
+        .eq("id", recentPost.training_session_id)
+        .eq("athlete_id", athlete.id);
+      await admin
         .from("post_training_checkins")
         .update({
           overall_feeling: parsed.data.overall_feeling,
@@ -155,9 +157,10 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
           pain_triggers: parsed.data.pain_triggers,
           notes: parsed.data.notes || null,
         })
-        .eq("id", recentPost.id);
+        .eq("id", recentPost.id)
+        .eq("athlete_id", athlete.id);
       try {
-        await evaluateAthleteDay(createAdminClient(), athlete.id, sessionDate, profile.timezone);
+        await evaluateAthleteDay(admin, athlete.id, sessionDate, profile.timezone);
       } catch (e) {
         console.error("evaluate_failed", e);
       }

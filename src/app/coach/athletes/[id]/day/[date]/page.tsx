@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
+import { localDayUtcBounds } from "@/lib/dates";
 import { getDictionary, type Dictionary } from "@/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -139,8 +140,9 @@ export default async function AthleteDayPage({
     .eq("id", a.profile_id)
     .maybeSingle();
   const tz = ((aProfile as Profile | null)?.timezone) ?? me.timezone;
+  const dayBounds = localDayUtcBounds(date, tz);
 
-  const [{ data: checkin }, { data: sessions }, { data: postCheckins }, { data: snapshot }] =
+  const [{ data: checkin }, { data: sessions }, { data: snapshot }] =
     await Promise.all([
     supabase
       .from("morning_checkins")
@@ -152,15 +154,9 @@ export default async function AthleteDayPage({
       .from("training_sessions")
       .select("*")
       .eq("athlete_id", a.id)
-      .gte("started_at", `${date}T00:00:00Z`)
-      .lte("started_at", `${date}T23:59:59Z`)
+      .gte("started_at", dayBounds.start.toISOString())
+      .lt("started_at", dayBounds.end.toISOString())
       .order("started_at"),
-    supabase
-      .from("post_training_checkins")
-      .select("*")
-      .eq("athlete_id", a.id)
-      .gte("submitted_at", `${date}T00:00:00Z`)
-      .lte("submitted_at", `${date}T23:59:59Z`),
     supabase
       .from("readiness_snapshots")
       .select("explanation")
@@ -168,6 +164,14 @@ export default async function AthleteDayPage({
       .eq("snapshot_date", date)
       .maybeSingle(),
   ]);
+
+  const sessionIds = ((sessions as TrainingSession[] | null) ?? []).map((s) => s.id);
+  const { data: postCheckins } = sessionIds.length
+    ? await supabase
+        .from("post_training_checkins")
+        .select("*")
+        .in("training_session_id", sessionIds)
+    : { data: [] as PostTrainingCheckin[] };
 
   const c = checkin as MorningCheckin | null;
   const posts = (postCheckins as PostTrainingCheckin[]) ?? [];

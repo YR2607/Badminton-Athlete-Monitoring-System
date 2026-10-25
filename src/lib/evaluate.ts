@@ -197,8 +197,21 @@ export async function runRecommendations(
     acwr: ctx.loadEnabled ? (acwr?.ratio ?? null) : null,
     itemZ: metrics.itemZ,
     acutePain: candidates.some((c) => c.rule_code === "acute_pain"),
+    ostrcSubstantial: ctx.ostrcSubstantial,
     growthPct: metrics.growthPct,
   });
+  const activeKeys = new Set<string>(candidates2.map((r) => r.rule_key));
+  const { data: existingRecs } = await admin
+    .from("recommendations")
+    .select("id, rule_key, coach_decision")
+    .eq("athlete_id", ctx.athleteId)
+    .eq("rec_date", ctx.date);
+  const staleIds = ((existingRecs as { id: string; rule_key: string; coach_decision: string | null }[] | null) ?? [])
+    .filter((r) => !r.coach_decision && !activeKeys.has(r.rule_key))
+    .map((r) => r.id);
+  if (staleIds.length > 0) {
+    await admin.from("recommendations").delete().in("id", staleIds);
+  }
   if (candidates2.length > 0) {
     await admin.from("recommendations").upsert(
       candidates2.map((r) => ({

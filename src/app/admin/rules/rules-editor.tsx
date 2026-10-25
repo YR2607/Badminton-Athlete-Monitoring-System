@@ -64,6 +64,9 @@ const FIELDS: Record<string, FieldDef[]> = {
     { key: "band_high", min: 90, max: 99, step: 1, unit: "percent" },
     { key: "velocity_cm_yr", min: 4, max: 20, step: 0.5 },
   ],
+  ostrc_substantial: [],
+  ostrc_growing: [],
+  ostrc_chronic: [{ key: "weeks", min: 2, max: 8, step: 1 }],
 };
 
 function paramNumber(rule: AlertRule, f: FieldDef): number {

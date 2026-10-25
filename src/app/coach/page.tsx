@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CoachTable } from "./table";
 import { CompareChart, type CompareAthlete } from "./compare";
+import { LoadReadinessQuadrant, type QuadrantPoint } from "./quadrant";
 
 export default async function CoachDashboard({
   searchParams,
@@ -77,6 +78,41 @@ export default async function CoachDashboard({
     series: r.series,
   }));
 
+  // Feature 1 — Pre-session briefing buckets.
+  const nameOf = (r: (typeof rows)[number]) => r.profile?.display_name ?? r.athlete.athlete_code;
+  const briefCheck = sorted.filter(
+    (r) =>
+      r.status === "needs_check" ||
+      r.acuteSignal ||
+      (r.todayCheckin && r.todayCheckin.pain_status !== "none") ||
+      (r.todayScore !== null && r.todayScore < 55),
+  );
+  const checkIds = new Set(briefCheck.map((r) => r.athlete.id));
+  const briefReduce = sorted.filter(
+    (r) =>
+      !checkIds.has(r.athlete.id) &&
+      (r.status === "declining" ||
+        (r.readinessDelta !== null && r.readinessDelta <= -8) ||
+        (r.todayScore !== null && r.todayScore < 68)),
+  );
+  const reduceIds = new Set(briefReduce.map((r) => r.athlete.id));
+  const briefAsk = sorted.filter((r) => !r.todayCheckin && !checkIds.has(r.athlete.id));
+  const briefReady = sorted.filter(
+    (r) => r.todayCheckin && !checkIds.has(r.athlete.id) && !reduceIds.has(r.athlete.id),
+  );
+
+  // Feature 2 — 2D Load × Readiness points (athletes with a known score).
+  const quadrantPoints: QuadrantPoint[] = sorted
+    .filter((r) => (r.todayScore ?? r.lastKnownScore) !== null)
+    .map((r) => ({
+      id: r.athlete.id,
+      name: nameOf(r),
+      load: r.weeklyLoadAu,
+      readiness: (r.todayScore ?? r.lastKnownScore)!,
+      hasPain: r.hasPain,
+      isToday: r.todayScore !== null,
+    }));
+
   return (
     <div className="space-y-4">
       <div>
@@ -124,6 +160,119 @@ export default async function CoachDashboard({
           </CardContent>
         </Card>
       </div>
+
+      {rows.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{d.briefingTitle}</CardTitle>
+            <p className="text-xs text-muted">{d.briefingHint}</p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-xl border border-danger/30 bg-danger/5 p-3">
+                <p className="text-xs font-semibold text-danger">
+                  🔴 {d.briefingCheck} ({briefCheck.length})
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {briefCheck.length === 0 ? (
+                    <span className="text-xs text-muted">{d.briefingNone}</span>
+                  ) : (
+                    briefCheck.map((r) => (
+                      <Link
+                        key={r.athlete.id}
+                        href={`/coach/athletes/${r.athlete.id}`}
+                        className="rounded-lg border border-danger/40 bg-surface px-2 py-1 text-xs font-medium hover:bg-danger/10"
+                      >
+                        {nameOf(r)}
+                        {r.todayScore !== null ? ` · ${Math.round(r.todayScore)}` : ""}
+                        {r.todayCheckin?.pain_location ? ` · ${r.todayCheckin.pain_location}` : ""}
+                      </Link>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-warn/30 bg-warn/5 p-3">
+                <p className="text-xs font-semibold text-warn">
+                  🟡 {d.briefingReduce} ({briefReduce.length})
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {briefReduce.length === 0 ? (
+                    <span className="text-xs text-muted">{d.briefingNone}</span>
+                  ) : (
+                    briefReduce.map((r) => (
+                      <Link
+                        key={r.athlete.id}
+                        href={`/coach/athletes/${r.athlete.id}`}
+                        className="rounded-lg border border-warn/40 bg-surface px-2 py-1 text-xs font-medium hover:bg-warn/10"
+                      >
+                        {nameOf(r)}
+                        {r.todayScore !== null ? ` · ${Math.round(r.todayScore)}` : ""}
+                        {r.readinessDelta !== null ? ` (${r.readinessDelta > 0 ? `+${r.readinessDelta}` : r.readinessDelta})` : ""}
+                      </Link>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-border bg-foreground/[0.02] p-3">
+                <p className="text-xs font-semibold text-muted">
+                  ⚪ {d.briefingAsk} ({briefAsk.length})
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {briefAsk.length === 0 ? (
+                    <span className="text-xs text-muted">{d.briefingNone}</span>
+                  ) : (
+                    briefAsk.map((r) => (
+                      <Link
+                        key={r.athlete.id}
+                        href={`/coach/athletes/${r.athlete.id}`}
+                        className="rounded-lg border border-border bg-surface px-2 py-1 text-xs font-medium hover:bg-foreground/5"
+                      >
+                        {nameOf(r)}
+                      </Link>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-ok/30 bg-ok/5 p-3">
+                <p className="text-xs font-semibold text-ok">
+                  🟢 {d.briefingReady} ({briefReady.length})
+                </p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {briefReady.length === 0 ? (
+                    <span className="text-xs text-muted">{d.briefingNone}</span>
+                  ) : (
+                    briefReady.map((r) => (
+                      <Link
+                        key={r.athlete.id}
+                        href={`/coach/athletes/${r.athlete.id}`}
+                        className="rounded-lg border border-ok/30 bg-surface px-2 py-1 text-xs font-medium hover:bg-ok/10"
+                      >
+                        {nameOf(r)}
+                        {r.todayScore !== null ? ` · ${Math.round(r.todayScore)}` : ""}
+                      </Link>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {quadrantPoints.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{d.quadrantTitle}</CardTitle>
+            <p className="text-xs text-muted">{d.quadrantHint}</p>
+          </CardHeader>
+          <CardContent>
+            <LoadReadinessQuadrant points={quadrantPoints} dict={dict} />
+          </CardContent>
+        </Card>
+      )}
 
       {ostrcPrev.length > 0 && (
         <Card>

@@ -3,6 +3,7 @@ import { dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
 import { flagEnabled } from "@/lib/flags";
 import { addDays, localDate, localDayUtcBounds } from "@/lib/dates";
 import { sessionDateByIdMap } from "@/lib/checkins";
+import { isoWeekMonday } from "@/lib/ostrc";
 import type { PlanOverride, ScheduleInput, SessionInput } from "@/lib/load";
 import type {
   AlertRule,
@@ -48,6 +49,7 @@ export interface EvalData {
   zscoreEnabled: boolean;
   growthEnabled: boolean;
   eventsEnabled: boolean;
+  ostrcSubstantial: boolean;
   /** Daily condition series over the window, ascending by date. */
   series: { date: string; score: number }[];
 }
@@ -68,7 +70,7 @@ export async function fetchEvalContext(
   // a UTC-midnight bound silently drops the first local hours of the window.
   const windowStart = localDayUtcBounds(from, timezone).start.toISOString();
 
-  const [{ data: checkins }, { data: post }, { data: rules }, { data: sessions }, { data: membership }, { data: flags }, { data: athleteRow }, { data: growthRows }, { data: illnessRows }] =
+  const [{ data: checkins }, { data: post }, { data: rules }, { data: sessions }, { data: membership }, { data: flags }, { data: athleteRow }, { data: growthRows }, { data: illnessRows }, { data: ostrcWeek }] =
     await Promise.all([
       admin
         .from("morning_checkins")
@@ -108,6 +110,13 @@ export async function fetchEvalContext(
         .eq("athlete_id", athleteId)
         .eq("kind", "illness")
         .gte("end_date", from),
+      admin
+        .from("ostrc_responses")
+        .select("substantial")
+        .eq("athlete_id", athleteId)
+        .eq("week_start_date", isoWeekMonday(date))
+        .eq("substantial", true)
+        .limit(1),
     ]);
 
   const groupId = membership?.group_id ?? null;
@@ -181,6 +190,7 @@ export async function fetchEvalContext(
     zscoreEnabled: flagEnabled(flagRows, "zscore_baseline", groupIds),
     growthEnabled: flagEnabled(flagRows, "growth", groupIds),
     eventsEnabled: flagEnabled(flagRows, "events", groupIds),
+    ostrcSubstantial: flagEnabled(flagRows, "ostrc", groupIds) && ((ostrcWeek ?? []).length > 0),
     series,
   };
 }

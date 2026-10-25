@@ -4,7 +4,7 @@ import { getCurrentAthlete, getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { addDays, localDate, todayInTz } from "@/lib/dates";
 import { dailyConditionSeries, postsByLocalDate, bandForScore } from "@/lib/readiness";
-import { dayStatuses } from "@/lib/checkins";
+import { dayStatuses, sessionDateByIdMap } from "@/lib/checkins";
 import { bandAdviceKey } from "@/lib/alerts";
 import { isFlagEnabled } from "@/lib/flags";
 import { dailyLoads, plannedForDate, type PlanOverride, type ScheduleInput, type SessionInput } from "@/lib/load";
@@ -29,16 +29,21 @@ export default async function AthleteHome() {
   const today = todayInTz(tz);
   const since30 = addDays(today, -29);
 
-  const [{ data: todayCheckin }, { data: postToday }, { data: snapshot }, { data: recent }, { data: memberships }] =
+  const [{ data: todayCheckin }, { data: postToday }, { data: sessionsRecent }, { data: snapshot }, { data: recent }, { data: memberships }] =
     await Promise.all([
       supabase.from("morning_checkins").select("*").eq("athlete_id", athlete.id).eq("checkin_date", today).maybeSingle(),
       supabase.from("post_training_checkins").select("*").eq("athlete_id", athlete.id).gte("submitted_at", `${since30}T00:00:00Z`),
+      supabase.from("training_sessions").select("id, started_at").eq("athlete_id", athlete.id).gte("started_at", `${since30}T00:00:00Z`),
       supabase.from("readiness_snapshots").select("*").eq("athlete_id", athlete.id).eq("snapshot_date", today).maybeSingle(),
       supabase.from("morning_checkins").select("*").eq("athlete_id", athlete.id).gte("checkin_date", since30).order("checkin_date", { ascending: false }),
       supabase.from("group_memberships").select("group_id").eq("athlete_id", athlete.id).is("left_at", null),
     ]);
 
-  const postEntries = postsByLocalDate((postToday as PostTrainingCheckin[]) ?? [], tz);
+  const sessionDateById = sessionDateByIdMap(
+    (sessionsRecent as { id: string; started_at: string }[]) ?? [],
+    tz,
+  );
+  const postEntries = postsByLocalDate((postToday as PostTrainingCheckin[]) ?? [], tz, sessionDateById);
 
   const groupIds = (memberships ?? []).map((m) => m.group_id);
   const [{ data: schedules }, { data: planOverrides }] = groupIds.length
@@ -153,6 +158,37 @@ export default async function AthleteHome() {
     const diff = avg(hiSleep) - avg(loSleep);
     if (diff >= 3) sleepDiff = Math.round(diff);
   }
+
+  // 7-day personal passport (Metrifit-style summary for teen engagement).
+  const since7 = addDays(today, -6);
+  const prev7From = addDays(today, -13);
+  const checkins7 = recentList.filter((c) => c.checkin_date >= since7 && c.checkin_date <= today);
+  const sleep7Vals = checkins7
+    .map((c) => c.sleep_hours)
+    .filter((v): v is number => typeof v === "number" && v > 0);
+  const sleepPrevVals = recentList
+    .filter((c) => c.checkin_date >= prev7From && c.checkin_date < since7)
+    .map((c) => c.sleep_hours)
+    .filter((v): v is number => typeof v === "number" && v > 0);
+  const avgSleep7 = sleep7Vals.length
+    ? Math.round((sleep7Vals.reduce((a, b) => a + b, 0) / sleep7Vals.length) * 10) / 10
+    : null;
+  const avgSleepPrev = sleepPrevVals.length
+    ? Math.round((sleepPrevVals.reduce((a, b) => a + b, 0) / sleepPrevVals.length) * 10) / 10
+    : null;
+  const sleepDelta7 =
+    avgSleep7 !== null && avgSleepPrev !== null
+      ? Math.round((avgSleep7 - avgSleepPrev) * 10) / 10
+      : null;
+  const sessions7Count = ((sessionsRecent as { id: string; started_at: string }[] | null) ?? []).filter(
+    (s) => {
+      const sd = localDate(new Date(s.started_at), tz);
+      return sd >= since7 && sd <= today;
+    },
+  ).length;
+  const avgScore7 = chart7.length
+    ? Math.round(chart7.reduce((a, p) => a + p.score, 0) / chart7.length)
+    : null;
 
   // Phase 3: weekly OSTRC-O2 survey prompt (flag 'ostrc' + parental consent).
   const ostrcOn = await isFlagEnabled("ostrc", groupIds);
@@ -327,6 +363,45 @@ export default async function AthleteHome() {
             {sleepDiff !== null && (
               <p className="text-muted">{d.sleepInsight.replace("{d}", String(sleepDiff))}</p>
             )}
+          </CardContent>
+        </Card>
+      )}
+
+      {checkins7.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{d.weekPassportTitle}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="rounded-lg border border-border/60 px-3 py-2">
+                <p className="text-xs text-muted">{d.weekPassportCheckins}</p>
+                <p className="mt-0.5 text-lg font-bold tabular-nums">{checkins7.length}/7</p>
+              </div>
+              <div className="rounded-lg border border-border/60 px-3 py-2">
+                <p className="text-xs text-muted">{d.weekPassportSessions}</p>
+                <p className="mt-0.5 text-lg font-bold tabular-nums">{sessions7Count}</p>
+              </div>
+              <div className="rounded-lg border border-border/60 px-3 py-2">
+                <p className="text-xs text-muted">{d.weekPassportReadiness}</p>
+                <p className="mt-0.5 text-lg font-bold tabular-nums">{avgScore7 ?? "—"}</p>
+              </div>
+              <div className="rounded-lg border border-border/60 px-3 py-2">
+                <p className="text-xs text-muted">{d.weekPassportSleep}</p>
+                <p className="mt-0.5 text-lg font-bold tabular-nums">
+                  {avgSleep7 !== null ? `${avgSleep7} ${d.weekPassportHours}` : "—"}
+                  {sleepDelta7 !== null && sleepDelta7 !== 0 && (
+                    <span
+                      className={`ml-1.5 text-xs font-medium ${
+                        sleepDelta7 > 0 ? "text-ok" : "text-warn"
+                      }`}
+                    >
+                      {sleepDelta7 > 0 ? `+${sleepDelta7}` : sleepDelta7}
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       )}

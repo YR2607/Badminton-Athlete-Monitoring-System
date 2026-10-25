@@ -57,11 +57,13 @@ export function MorningForm({
   checkinDate,
   existing,
   showSleepHours = false,
+  defaultSleepHours,
 }: {
   dict: MorningFormDict;
   checkinDate: string;
   existing?: MorningCheckin | null;
   showSleepHours?: boolean;
+  defaultSleepHours?: number;
 }) {
   const d = dict.morning;
   const router = useRouter();
@@ -94,7 +96,7 @@ export function MorningForm({
           symptoms: existing.symptoms ?? "",
           notes: existing.notes ?? "",
         }
-      : { pain_status: "none", pain_triggers: [] },
+      : { pain_status: "none", pain_triggers: [], sleep_hours: defaultSleepHours },
   });
 
   const painStatus = watch("pain_status");

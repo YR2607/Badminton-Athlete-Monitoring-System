@@ -5,7 +5,7 @@ import { getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { addDays, dateRange, localDate, type RangeKey } from "@/lib/dates";
 import { conditionScore, dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
-import { dayStatuses } from "@/lib/checkins";
+import { dayStatuses, sessionDateByIdMap } from "@/lib/checkins";
 import { pendingPostCheckins } from "@/lib/athlete-status";
 import { getAthleteDetail } from "@/lib/athlete-detail";
 import { AthleteDashboard } from "@/components/dashboard/athlete-dashboard";
@@ -109,11 +109,13 @@ export default async function AthleteDetailPage({
   );
   const ssInRange = ss.filter((s) => localDate(new Date(s.started_at), tz) >= range.from);
 
+  const sessionDateById = sessionDateByIdMap((sessions as TrainingSession[]) ?? [], tz);
   const rangePostEntries = postsByLocalDate(
     ((postCheckins as PostTrainingCheckin[]) ?? []).filter(
-      (p) => localDate(new Date(p.submitted_at), tz) <= range.to,
+      (p) => (sessionDateById.get(p.training_session_id) ?? localDate(new Date(p.submitted_at), tz)) <= range.to,
     ),
     tz,
+    sessionDateById,
   );
   const series = dailyConditionSeries(
     ck.filter((c) => c.checkin_date <= range.to),
@@ -153,7 +155,8 @@ export default async function AthleteDetailPage({
   const tCheckin = (todayCheckin as MorningCheckin | null) ?? null;
   const recentSs = (recentSessions as TrainingSession[]) ?? [];
   const recentPs = (recentPosts as PostTrainingCheckin[]) ?? [];
-  const todayPost = postsByLocalDate(recentPs, tz).find((e) => e.date === today)?.post ?? null;
+  const recentSessionDateById = sessionDateByIdMap(recentSs, tz);
+  const todayPost = postsByLocalDate(recentPs, tz, recentSessionDateById).find((e) => e.date === today)?.post ?? null;
   const todayScore = tCheckin ? conditionScore(tCheckin, todayPost) : null;
   const lastTodayCheckin =
     [((checkins as MorningCheckin[]) ?? [])].flat()
@@ -596,7 +599,7 @@ export default async function AthleteDetailPage({
                   { key: "fatigue", label: dict.history.fatigue, color: "var(--warn)" },
                   { key: "soreness", label: dict.history.soreness, color: "var(--danger)" },
                 ]}
-                domain={[1, 5]}
+                domain={[1, 10]}
               />
             )}
           </CardContent>

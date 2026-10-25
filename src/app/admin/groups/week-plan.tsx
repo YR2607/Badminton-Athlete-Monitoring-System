@@ -152,7 +152,7 @@ export function WeekPlan({
                     type="checkbox"
                     checked={r.on}
                     onChange={(e) => setRow(date, { on: e.target.checked })}
-                    className="h-4 w-4 accent-primary"
+                    className="h-4 w-4 accent-accent"
                   />
                   {r.on ? d.trainingOn : d.restDay}
                 </label>

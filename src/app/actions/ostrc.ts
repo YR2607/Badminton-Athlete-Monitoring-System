@@ -101,7 +101,7 @@ export async function submitOstrc(input: unknown): Promise<ActionResult> {
   // ---- alerts (only depend on OSTRC history — evaluated on submit) ----
   const admin = createAdminClient();
   const [{ data: rules }, { data: history }] = await Promise.all([
-    admin.from("alert_rules").select("code, severity, params").in("code", [
+    admin.from("alert_rules").select("code, severity, params").eq("enabled", true).in("code", [
       "ostrc_substantial",
       "ostrc_growing",
       "ostrc_chronic",

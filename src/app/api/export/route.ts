@@ -109,15 +109,24 @@ export async function GET(req: NextRequest) {
     athleteGroups: (memberships as { athlete_id: string; group_id: string }[] | null) ?? [],
   };
 
-  // Schedules of the involved groups drive the planned-load columns.
+  // Schedules + per-date overrides of the involved groups drive planned-load columns.
   const expGroupIds = [...new Set((memberships ?? []).map((m: { group_id: string }) => m.group_id))];
   if (expGroupIds.length) {
-    const { data: sched } = await supabase
-      .from("training_schedules")
-      .select("*")
-      .in("group_id", expGroupIds)
-      .eq("active", true);
+    const [{ data: sched }, { data: ov }] = await Promise.all([
+      supabase
+        .from("training_schedules")
+        .select("*")
+        .in("group_id", expGroupIds)
+        .eq("active", true),
+      supabase
+        .from("session_plan_overrides")
+        .select("group_id, plan_date, cancelled, start_time, planned_minutes, planned_rpe")
+        .in("group_id", expGroupIds)
+        .gte("plan_date", from)
+        .lte("plan_date", to),
+    ]);
     bundle.schedules = (sched as ExportBundle["schedules"]) ?? [];
+    bundle.planOverrides = (ov as ExportBundle["planOverrides"]) ?? [];
   }
 
   const admin = createAdminClient();

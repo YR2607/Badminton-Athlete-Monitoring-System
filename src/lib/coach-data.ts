@@ -7,7 +7,7 @@ import {
   postsByLocalDate,
   type Baseline,
 } from "@/lib/readiness";
-import { dayStatuses, sessionLocalDates } from "@/lib/checkins";
+import { dayStatuses, sessionDateByIdMap, sessionLocalDates } from "@/lib/checkins";
 import {
   acuteMorningFlags,
   acutePostFlags,
@@ -62,6 +62,8 @@ export interface CoachAthleteRow {
   missedYesterday: boolean;
   /** Last 7 days (oldest → today): morning/evening check-in presence for dots. */
   checkinDots: { date: string; morning: boolean; evening: boolean; hadSession: boolean }[];
+  /** Sum of sRPE × minutes over the last 7 athlete-local days (AU). */
+  weeklyLoadAu: number;
   series: { date: string; score: number }[];
 }
 
@@ -189,7 +191,8 @@ export async function coachDashboard(
     );
     const aSessions = sessionsByAthlete.get(a.id) ?? [];
     const aPosts = postsByAthlete.get(a.id) ?? [];
-    const postEntries = postsByLocalDate(aPosts, athleteTz);
+    const aSessionDateById = sessionDateByIdMap(aSessions, athleteTz);
+    const postEntries = postsByLocalDate(aPosts, athleteTz, aSessionDateById);
     const postByDate = new Map(postEntries.map((e) => [e.date, e.post]));
     const aSessionDates = sessionLocalDates(aSessions, athleteTz);
     const series = dailyConditionSeries(list, postEntries);
@@ -226,6 +229,17 @@ export async function coachDashboard(
     const sessionsToday = aSessions.filter(
       (s) => localDate(new Date(s.started_at), athleteTz) === today,
     ).length;
+    const since7 = addDays(today, -6);
+    const weeklyLoadAu = aSessions
+      .filter((s) => {
+        const d = localDate(new Date(s.started_at), athleteTz);
+        return d >= since7 && d <= today;
+      })
+      .reduce(
+        (acc, s) =>
+          acc + (s.session_rpe != null && s.duration_minutes != null ? s.session_rpe * s.duration_minutes : 0),
+        0,
+      );
     const group = groupOfAthlete.get(a.id) ?? null;
     const sched = group ? (schedulesByGroup.get(group.id) ?? []) : [];
     const schedOv = (group ? (overridesByGroup.get(group.id) ?? []) : []).filter(
@@ -281,6 +295,7 @@ export async function coachDashboard(
         evening: d.evening !== null,
         hadSession: d.hadSession,
       })),
+      weeklyLoadAu,
       series: series.filter((s) => s.date >= since14),
     };
   });

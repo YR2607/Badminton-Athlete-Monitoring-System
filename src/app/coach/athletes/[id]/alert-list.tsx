@@ -90,6 +90,12 @@ function evidenceLines(dict: Dictionary, ev: Record<string, unknown>): string[] 
   push(L.monotony, ev.monotony);
   push(L.weeklyLoad, ev.weekly_load);
   push(L.streak, ev.streak);
+  push(L.ratio, ev.ratio);
+  push(L.zone, ev.zone);
+  push(L.week, ev.week);
+  push(L.severity, ev.severity);
+  push(L.prev, ev.prev);
+  push(L.weeks, ev.weeks);
   push(L.sessionsFactPlan, dayScores(ev.daily_loads, "load"));
   push(
     L.sessionsFactPlan,
