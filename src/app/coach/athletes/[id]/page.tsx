@@ -758,7 +758,7 @@ export default async function AthleteDetailPage({
             ) : (
               <SeriesLineChart
                 data={inRangeSeries}
-                series={[{ key: "score", label: dict.history.readiness, color: "var(--accent)" }]}
+                series={[{ key: "score", label: dict.history.readiness, color: "var(--accent)", fill: true }]}
                 domain={[0, 100]}
                 reference={latestSnap?.baseline_avg != null ? { y: Number(latestSnap.baseline_avg) } : undefined}
               />
