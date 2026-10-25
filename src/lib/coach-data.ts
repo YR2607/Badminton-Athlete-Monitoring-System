@@ -105,45 +105,45 @@ export async function coachDashboard(
     supabase.from("alerts").select("*").in("athlete_id", ids).eq("status", "open"),
   ]);
 
-  const profileIds = (athletes as Athlete[] | null)?.map((a) => a.profile_id) ?? [];
-  const { data: profs } = profileIds.length
-    ? await supabase.from("profiles").select("*").in("id", profileIds)
-    : { data: [] as Profile[] };
-
   const groupById = new Map(((groups as Group[]) ?? []).map((g) => [g.id, g]));
-  const profById = new Map((profs as Profile[] ?? []).map((p) => [p.id, p]));
   const groupOfAthlete = new Map<string, Group>();
   for (const m of (memberships as { athlete_id: string; group_id: string }[] | null) ?? []) {
     const g = groupById.get(m.group_id);
     if (g && !groupOfAthlete.has(m.athlete_id)) groupOfAthlete.set(m.athlete_id, g);
   }
 
-  // Active schedules per group — used only to flag a SUSPECTED missed session;
-  // without a schedule we can only say "no session recorded".
+  // Independent follow-up queries in one round-trip batch.
+  const profileIds = (athletes as Athlete[] | null)?.map((a) => a.profile_id) ?? [];
   const scopedGroupIds = [...new Set([...groupOfAthlete.values()].map((g) => g.id))];
-  const { data: schedules } = scopedGroupIds.length
-    ? await supabase
-        .from("training_schedules")
-        .select("*")
-        .in("group_id", scopedGroupIds)
-        .eq("active", true)
-    : { data: [] as TrainingSchedule[] };
+  const [{ data: profs }, { data: schedules }, { data: planOverrides }] = await Promise.all([
+    profileIds.length
+      ? supabase.from("profiles").select("*").in("id", profileIds)
+      : Promise.resolve({ data: [] as Profile[] }),
+    scopedGroupIds.length
+      ? supabase
+          .from("training_schedules")
+          .select("*")
+          .in("group_id", scopedGroupIds)
+          .eq("active", true)
+      : Promise.resolve({ data: [] as TrainingSchedule[] }),
+    // Per-date plan overrides — a cancelled day must not flag a missed session.
+    // Athlete-local "yesterday" can span two calendar dates across timezones.
+    scopedGroupIds.length
+      ? supabase
+          .from("session_plan_overrides")
+          .select("group_id, plan_date, cancelled, planned_minutes, planned_rpe")
+          .in("group_id", scopedGroupIds)
+          .gte("plan_date", addDays(coachToday, -2))
+          .lte("plan_date", coachToday)
+      : Promise.resolve({ data: [] as PlanOverride[] }),
+  ]);
+  const profById = new Map((profs as Profile[] ?? []).map((p) => [p.id, p]));
   const schedulesByGroup = new Map<string, TrainingSchedule[]>();
   for (const s of (schedules as TrainingSchedule[] | null) ?? []) {
     const list = schedulesByGroup.get(s.group_id) ?? [];
     list.push(s);
     schedulesByGroup.set(s.group_id, list);
   }
-  // Per-date plan overrides — a cancelled day must not flag a missed session.
-  // Athlete-local "yesterday" can span two calendar dates across timezones.
-  const { data: planOverrides } = scopedGroupIds.length
-    ? await supabase
-        .from("session_plan_overrides")
-        .select("group_id, plan_date, cancelled, planned_minutes, planned_rpe")
-        .in("group_id", scopedGroupIds)
-        .gte("plan_date", addDays(coachToday, -2))
-        .lte("plan_date", coachToday)
-    : { data: [] as PlanOverride[] };
   const overridesByGroup = new Map<string, PlanOverride[]>();
   for (const o of (planOverrides as (PlanOverride & { group_id: string })[] | null) ?? []) {
     const list = overridesByGroup.get(o.group_id) ?? [];

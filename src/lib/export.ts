@@ -1,4 +1,4 @@
-import ExcelJS from "exceljs";
+import type ExcelJS from "exceljs";
 import type {
   Alert,
   Athlete,
@@ -230,6 +230,8 @@ export function buildCsv(b: ExportBundle): string {
 }
 
 export async function buildXlsx(b: ExportBundle): Promise<Buffer> {
+  // ~900KB — loaded only when an XLSX export is actually requested.
+  const { default: ExcelJS } = await import("exceljs");
   const wb = new ExcelJS.Workbook();
   const sheet = (name: string, headers: string[], rows: unknown[][]) => {
     const ws = wb.addWorksheet(name);

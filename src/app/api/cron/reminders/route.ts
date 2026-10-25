@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { localDate, localDayUtcBounds, localMinutesOfDay, localWeekday } from "@/lib/dates";
+import { localDate, localMinutesOfDay, localWeekday } from "@/lib/dates";
 import { flagEnabled } from "@/lib/flags";
 import { sendPushToProfile } from "@/lib/push";
 import type { PlanOverride } from "@/lib/load";
@@ -71,6 +71,37 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "db_read_failed" }, { status: 500 });
   }
 
+  // Batch fetch "today's" data once — athlete-local today can be UTC-1..+1.
+  const athleteRows = (athletes.data as Athlete[] | null) ?? [];
+  const athleteIds = athleteRows.map((a) => a.id);
+  const [{ data: todayCheckins }, { data: todaySessions }] = athleteIds.length
+    ? await Promise.all([
+        admin
+          .from("morning_checkins")
+          .select("athlete_id, checkin_date")
+          .in("athlete_id", athleteIds)
+          .gte("checkin_date", ovFrom)
+          .lte("checkin_date", ovTo),
+        admin
+          .from("training_sessions")
+          .select("athlete_id, started_at")
+          .in("athlete_id", athleteIds)
+          .gte("started_at", `${ovFrom}T00:00:00Z`)
+          .lte("started_at", `${ovTo}T23:59:59Z`),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const ckSet = new Set(
+    ((todayCheckins as { athlete_id: string; checkin_date: string }[] | null) ?? []).map(
+      (c) => `${c.athlete_id}|${c.checkin_date}`,
+    ),
+  );
+  const sessionsByAthlete = new Map<string, string[]>();
+  for (const s of (todaySessions as { athlete_id: string; started_at: string }[] | null) ?? []) {
+    const list = sessionsByAthlete.get(s.athlete_id) ?? [];
+    list.push(s.started_at);
+    sessionsByAthlete.set(s.athlete_id, list);
+  }
+
   const profById = new Map(((profiles.data as Profile[] | null) ?? []).map((p) => [p.id, p]));
   const flags = (flagsRes.data as FeatureFlag[] | null) ?? [];
   const memberGroups = (athleteId: string) =>
@@ -91,12 +122,7 @@ export async function GET(req: NextRequest) {
     const today = localDate(now, tz);
     const minutesNow = localMinutesOfDay(now, tz);
 
-    const { data: ck } = await admin
-      .from("morning_checkins")
-      .select("id")
-      .eq("athlete_id", a.id)
-      .eq("checkin_date", today)
-      .maybeSingle();
+    const ck = ckSet.has(`${a.id}|${today}`);
 
     const morningHour = Number(process.env.MORNING_REMINDER_HOUR ?? 10);
     if (!ck && minutesNow >= morningHour * 60) {
@@ -160,18 +186,11 @@ export async function GET(req: NextRequest) {
         ),
     ];
     if (startTimes.length > 0) {
-      // "session already logged today" — today in the athlete's timezone,
-      // translated to real UTC instants (not a UTC-midnight slice).
-      const day = localDayUtcBounds(today, tz);
-      const { data: session } = await admin
-        .from("training_sessions")
-        .select("id")
-        .eq("athlete_id", a.id)
-        .gte("started_at", day.start.toISOString())
-        .lt("started_at", day.end.toISOString())
-        .limit(1)
-        .maybeSingle();
-      if (!session) {
+      // "session already logged today" — judged in the athlete's timezone.
+      const hasSessionToday = (sessionsByAthlete.get(a.id) ?? []).some(
+        (st) => localDate(new Date(st), tz) === today,
+      );
+      if (!hasSessionToday) {
         const earliest = startTimes.slice().sort()[0];
         const [h, m] = earliest.split(":").map(Number);
         if (minutesNow >= h * 60 + m + 90) {
