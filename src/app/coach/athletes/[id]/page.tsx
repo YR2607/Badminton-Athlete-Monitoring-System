@@ -344,8 +344,11 @@ export default async function AthleteDetailPage({
                   <p className="truncate text-[11px] text-muted" title={c.label}>
                     {c.label}
                   </p>
-                  <p className="text-sm font-semibold tabular-nums">
-                    {v !== null ? `${v}/10` : dict.common.noData}
+                  <p className="flex items-baseline justify-between gap-1 text-sm font-semibold tabular-nums">
+                    <span>{v !== null ? `${v}/10` : dict.common.noData}</span>
+                    <span className="text-[10px] font-normal text-muted">
+                      {c.inverted ? "↓" : "↑"}
+                    </span>
                   </p>
                   <div className="mt-1 h-1.5 rounded bg-foreground/10">
                     {goodness !== null && (

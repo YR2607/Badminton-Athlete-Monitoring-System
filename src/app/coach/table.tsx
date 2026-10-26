@@ -195,12 +195,12 @@ export function CoachTable({
                 </p>
               )}
 
-              <div className="mt-2 flex items-end justify-between gap-2">
+              <div className="mt-2 flex flex-wrap items-end justify-between gap-2">
                 <span className={cn("text-accent", !spark.length && "invisible")}>
-                  <Sparkline points={spark} width={96} height={26} />
+                  <Sparkline points={spark} width={84} height={24} />
                 </span>
                 <span className="flex flex-col items-end gap-0.5">
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-1 sm:gap-2">
                     {r.checkinDots.map((cd) => (
                       <span key={cd.date} className="flex gap-0.5" title={cd.date}>
                         <span

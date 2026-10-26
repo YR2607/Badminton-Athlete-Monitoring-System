@@ -85,9 +85,26 @@ export function SeriesLineChart({
             : null,
       }))
     : data;
+  // Deduplicate markers on the same date so labels never stack on top of each other.
+  const mergedMarkers = (() => {
+    if (!markers?.length) return [];
+    const byDate = new Map<string, string[]>();
+    for (const m of markers) {
+      const list = byDate.get(m.date) ?? [];
+      if (!list.includes(m.label)) list.push(m.label);
+      byDate.set(m.date, list);
+    }
+    return [...byDate.entries()].map(([date, labels]) => ({
+      date,
+      label: labels.join(" / "),
+    }));
+  })();
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <ComposedChart data={rows} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+      <ComposedChart
+        data={rows}
+        margin={{ top: mergedMarkers.length ? 20 : 8, right: 10, left: 0, bottom: 2 }}
+      >
         <defs>
           {series
             .filter((s) => s.fill)
@@ -101,21 +118,25 @@ export function SeriesLineChart({
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
         <XAxis
           dataKey="date"
-          tick={{ fontSize: 11, fill: "var(--muted)" }}
+          tick={{ fontSize: 10, fill: "var(--muted)" }}
           tickFormatter={fmtDate}
           tickMargin={6}
+          padding={{ left: 6, right: 6 }}
           axisLine={{ stroke: "var(--border)" }}
           tickLine={false}
-          minTickGap={24}
+          minTickGap={28}
         />
         <YAxis
+          width={30}
           domain={domain ?? ["auto", "auto"]}
-          tick={{ fontSize: 11, fill: "var(--muted)" }}
+          tick={{ fontSize: 10, fill: "var(--muted)" }}
           axisLine={false}
           tickLine={false}
         />
         <Tooltip contentStyle={tooltipStyle} />
-        {series.length > 1 ? <Legend wrapperStyle={{ fontSize: 12 }} /> : null}
+        {series.length > 1 ? (
+          <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} iconSize={10} />
+        ) : null}
         {(zones ?? []).map((z, i) => (
           <ReferenceArea
             key={`zone-${i}`}
@@ -150,16 +171,25 @@ export function SeriesLineChart({
             y={reference.y}
             stroke="var(--chart-muted)"
             strokeDasharray="4 4"
-            label={reference.label}
+            label={
+              reference.label
+                ? {
+                    value: reference.label,
+                    position: "insideBottomRight",
+                    fontSize: 10,
+                    fill: "var(--muted)",
+                  }
+                : undefined
+            }
           />
         ) : null}
-        {(markers ?? []).map((m, i) => (
+        {mergedMarkers.map((m, i) => (
           <ReferenceLine
             key={`${m.date}-${i}`}
             x={m.date}
             stroke="var(--chart-marker)"
             strokeDasharray="3 3"
-            label={{ value: m.label, position: "insideTopRight", fontSize: 10, fill: "var(--chart-marker)" }}
+            label={{ value: m.label, position: "top", fontSize: 10, fill: "var(--chart-marker)" }}
           />
         ))}
         {series.map((s) =>
@@ -221,20 +251,27 @@ export function LoadBarChart({
   };
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+      <BarChart data={data} margin={{ top: 8, right: 10, left: 0, bottom: 2 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
         <XAxis
           dataKey="date"
-          tick={{ fontSize: 11, fill: "var(--muted)" }}
+          tick={{ fontSize: 10, fill: "var(--muted)" }}
           tickFormatter={fmtDate}
           tickMargin={6}
           axisLine={{ stroke: "var(--border)" }}
           tickLine={false}
-          minTickGap={16}
+          minTickGap={22}
         />
-        <YAxis tick={{ fontSize: 11, fill: "var(--muted)" }} axisLine={false} tickLine={false} />
+        <YAxis
+          width={32}
+          tick={{ fontSize: 10, fill: "var(--muted)" }}
+          axisLine={false}
+          tickLine={false}
+        />
         <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--border)", fillOpacity: 0.3 }} />
-        {plannedLabel ? <Legend wrapperStyle={{ fontSize: 12 }} /> : null}
+        {plannedLabel ? (
+          <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} iconSize={10} />
+        ) : null}
         {plannedLabel ? (
           <Bar
             dataKey="planned"
