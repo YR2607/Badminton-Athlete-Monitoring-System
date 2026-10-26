@@ -2,17 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getVerifiedUserId } from "@/lib/auth";
 
 export async function markAllRead() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return;
+  const userId = await getVerifiedUserId(supabase);
+  if (!userId) return;
   const { data: profile } = await supabase
     .from("profiles")
     .select("id")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .single();
   if (!profile) return;
   await supabase

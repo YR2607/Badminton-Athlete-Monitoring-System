@@ -10,6 +10,7 @@ import { NavLinks } from "@/components/layout/nav-links";
 import { BottomNav, type NavItem } from "@/components/layout/bottom-nav";
 import { PushSubscribe } from "@/components/push-subscribe";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { TopProgress } from "@/components/layout/top-progress";
 
 /** primary — mobile bottom tabs; overflow — inside the "More" sheet */
 export function navGroups(role: AppRole, d: Dictionary): { primary: NavItem[]; overflow: NavItem[] } {
@@ -76,6 +77,7 @@ export async function AppShell({
   const impersonating = (await cookies()).has("rm-impersonating");
   return (
     <div className="min-h-full flex flex-col">
+      <TopProgress />
       <header className="sticky top-0 z-30 border-b border-border bg-surface/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
           <Link href="/" className="font-bold tracking-tight">

@@ -14,17 +14,27 @@ export function homeForRole(role: AppRole): string {
   }
 }
 
+/**
+ * Verified user id without a network round-trip: the access-token JWT is
+ * validated locally (expiry + signature via JWKS), unlike getUser() which
+ * calls the Auth server on every invocation.
+ */
+export async function getVerifiedUserId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<string | null> {
+  const { data } = await supabase.auth.getClaims();
+  return data?.claims?.sub ?? null;
+}
+
 /** Per-request memoized — layout and page share one auth+profile round trip. */
 export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
+  const userId = await getVerifiedUserId(supabase);
+  if (!userId) return null;
   const { data } = await supabase
     .from("profiles")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .maybeSingle();
   return (data as Profile | null) ?? null;
 });

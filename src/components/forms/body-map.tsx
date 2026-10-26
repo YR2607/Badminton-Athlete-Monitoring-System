@@ -69,8 +69,9 @@ export function detectBodyZone(raw: string | null | undefined): BodyZoneKey | nu
   if (/бедр|пах|hip|groin|șold|sold|inghinal/.test(s)) return "hip";
   if (/колен|knee|genunchi/.test(s)) return "knee";
   if (/ахил|achil|ahil/.test(s)) return "achilles";
-  if (/голен|икр|shin|calf|gamb/.test(s)) return "shin";
+  // Ankle before shin: "голеностоп" contains "голен" — shin must not win it.
   if (/стоп|голеностоп|лодыж|ankle|foot|glezn|picioar|picior/.test(s)) return "ankle";
+  if (/голен|икр|shin|calf|gamb/.test(s)) return "shin";
   return null;
 }
 
@@ -138,6 +139,8 @@ export function BodyMapPicker({
                 onClick={() => onSelect(zonesDict[h.zone], h.side)}
               >
                 <title>{`${zonesDict[h.zone]} (${h.side})`}</title>
+                {/* Invisible wide tap target — the visible dot is too small for fingers. */}
+                <circle cx={h.cx} cy={h.cy} r={15} fill="transparent" />
                 <circle
                   cx={h.cx}
                   cy={h.cy}

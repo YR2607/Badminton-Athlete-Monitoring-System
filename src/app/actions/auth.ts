@@ -5,7 +5,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { homeForRole } from "@/lib/auth";
+import { getVerifiedUserId, homeForRole } from "@/lib/auth";
 import { isValidTimeZone } from "@/lib/dates";
 import { createUserSchema } from "@/lib/validation";
 import type { AppRole } from "@/lib/types";
@@ -36,13 +36,11 @@ export async function signIn(
     return { error: error.code === "user_banned" || /banned/i.test(error.message) ? "banned" : "invalid_credentials" };
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const userId = await getVerifiedUserId(supabase);
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
-    .eq("user_id", user!.id)
+    .eq("user_id", userId!)
     .single();
   redirect(homeForRole((profile?.role as AppRole) ?? "athlete"));
 }
@@ -97,14 +95,12 @@ export async function adminCreateUser(input: {
   birth_year?: number;
 }): Promise<{ ok?: boolean; error?: string; athleteId?: string }> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "unauthenticated" };
+  const userId = await getVerifiedUserId(supabase);
+  if (!userId) return { error: "unauthenticated" };
   const { data: me } = await supabase
     .from("profiles")
     .select("id, role")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .single();
   if (me?.role !== "admin") return { error: "forbidden" };
 
@@ -171,14 +167,12 @@ export async function adminResetUserPassword(
   profileId: string,
 ): Promise<{ ok?: boolean; error?: string; password?: string }> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "unauthenticated" };
+  const userId = await getVerifiedUserId(supabase);
+  if (!userId) return { error: "unauthenticated" };
   const { data: me } = await supabase
     .from("profiles")
     .select("id, role")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .single();
   if (me?.role !== "admin") return { error: "forbidden" };
 
@@ -216,14 +210,12 @@ export async function adminImpersonate(
   profileId: string,
 ): Promise<{ ok?: boolean; error?: string; tokenHash?: string }> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "unauthenticated" };
+  const userId = await getVerifiedUserId(supabase);
+  if (!userId) return { error: "unauthenticated" };
   const { data: me } = await supabase
     .from("profiles")
     .select("id, role")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .single();
   if (me?.role !== "admin") return { error: "forbidden" };
   if (me.id === profileId) return { error: "self" };
@@ -289,14 +281,12 @@ export async function adminDeleteUser(
   profileId: string,
 ): Promise<{ ok?: boolean; error?: string }> {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "unauthenticated" };
+  const userId = await getVerifiedUserId(supabase);
+  if (!userId) return { error: "unauthenticated" };
   const { data: me } = await supabase
     .from("profiles")
     .select("id, role")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .single();
   if (me?.role !== "admin") return { error: "forbidden" };
   if (me.id === profileId) return { error: "self_delete" };

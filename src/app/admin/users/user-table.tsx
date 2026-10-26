@@ -36,6 +36,8 @@ export function UserTable({
   const [status, setStatus] = useState("");
   const [groupId, setGroupId] = useState("");
   const [sort, setSort] = useState<string>("name");
+  /** `${profileId}:${action}` of the running action — disables the row's buttons. */
+  const [pending, setPending] = useState<string | null>(null);
 
   const ROLE_RANK: Record<string, number> = { admin: 0, coach: 1, athlete: 2 };
 
@@ -64,6 +66,16 @@ export function UserTable({
           return a.display_name.localeCompare(b.display_name);
       }
     });
+
+  async function run(key: string, fn: () => Promise<void>) {
+    if (pending) return;
+    setPending(key);
+    try {
+      await fn();
+    } finally {
+      setPending(null);
+    }
+  }
 
   async function toggle(a: Athlete) {
     const next = a.status === "active" ? "inactive" : "active";
@@ -155,36 +167,70 @@ export function UserTable({
       <span className="font-medium">{p.display_name}</span>
     );
 
-  const actions = (p: Row) => (
-    <span className="flex flex-wrap gap-1">
-      <Button size="sm" variant="secondary" onClick={() => resetPassword(p)}>
-        {d.newPasswordBtn}
-      </Button>
-      {p.role !== "admin" && p.id !== selfId && (
-        <Button size="sm" variant="secondary" onClick={() => impersonate(p)}>
-          {d.loginAs}
+  const actions = (p: Row) => {
+    const busy = pending?.startsWith(`${p.id}:`) ?? false;
+    const spinning = (k: string) => pending === `${p.id}:${k}`;
+    return (
+      <span className="flex flex-wrap gap-1">
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={busy}
+          onClick={() => run(`${p.id}:pw`, () => resetPassword(p))}
+        >
+          {spinning("pw") ? "…" : d.newPasswordBtn}
         </Button>
-      )}
-      {p.athlete && (
-        <>
-          <Button size="sm" variant="ghost" onClick={() => toggle(p.athlete!)}>
-            {p.athlete.status === "active" ? d.deactivate : d.activate}
+        {p.role !== "admin" && p.id !== selfId && (
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={busy}
+            onClick={() => run(`${p.id}:login`, () => impersonate(p))}
+          >
+            {spinning("login") ? "…" : d.loginAs}
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => consent(p.athlete!)}>
-            {d.consentStatus}
+        )}
+        {p.athlete && (
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => run(`${p.id}:status`, () => toggle(p.athlete!))}
+            >
+              {p.athlete.status === "active" ? d.deactivate : d.activate}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => run(`${p.id}:consent`, () => consent(p.athlete!))}
+            >
+              {d.consentStatus}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => run(`${p.id}:anon`, () => anonymize(p.athlete!))}
+            >
+              {d.anonymize}
+            </Button>
+          </>
+        )}
+        {p.role !== "admin" && (
+          <Button
+            size="sm"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => run(`${p.id}:del`, () => removeUser(p))}
+          >
+            {d.deleteUser}
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => anonymize(p.athlete!)}>
-            {d.anonymize}
-          </Button>
-        </>
-      )}
-      {p.role !== "admin" && (
-        <Button size="sm" variant="ghost" onClick={() => removeUser(p)}>
-          {d.deleteUser}
-        </Button>
-      )}
-    </span>
-  );
+        )}
+      </span>
+    );
+  };
 
   const issuedCard = (p: Row) =>
     issued[p.id] ? (

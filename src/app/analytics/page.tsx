@@ -34,7 +34,7 @@ export default async function AnalyticsPage({
   const supabase = await createClient();
   const tz = me.timezone ?? "Europe/Chisinau";
 
-  const range = resolveRange((sp.range as RangeKey) || "7d", tz, { from: sp.from, to: sp.to });
+  const range = resolveRange((sp.range as RangeKey) || "day", tz, { from: sp.from, to: sp.to });
   const days = dateRange(range.from, range.to);
   const prevDays = days.map((day) => addDays(day, -days.length));
   const prevFrom = prevDays[0];
@@ -178,7 +178,7 @@ export default async function AnalyticsPage({
         current={{
           group: sp.group ?? "",
           athlete: sp.athlete ?? "",
-          range: sp.range ?? "7d",
+          range: sp.range ?? "day",
           from: sp.from,
           to: sp.to,
         }}

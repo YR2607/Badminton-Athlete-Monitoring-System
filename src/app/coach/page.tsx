@@ -24,23 +24,24 @@ export default async function CoachDashboard({
   const d = dict.coach;
   const supabase = await createClient();
   void (await searchParams);
-  const { rows, groups } = await coachDashboard(supabase, profile.timezone);
-
-  // Phase 3: weekly OSTRC prevalence per zone (flag 'ostrc') + upcoming tournaments.
-  const { isFlagEnabled } = await import("@/lib/flags");
-  const ostrcOn = await isFlagEnabled("ostrc", null);
-  const eventsOn = await isFlagEnabled("events", null);
   const coachToday = todayInTz(profile.timezone);
-  const { data: upcomingTournaments } = eventsOn
-    ? await supabase
-        .from("calendar_events")
-        .select("*")
-        .eq("kind", "tournament")
-        .gte("end_date", coachToday)
-        .lte("start_date", addDays(coachToday, 14))
-        .order("start_date", { ascending: true })
-        .limit(3)
-    : { data: [] };
+
+  // Dashboard rows, feature flags and upcoming tournaments in one batch.
+  const { getFeatureFlags, flagEnabled } = await import("@/lib/flags");
+  const [{ rows, groups }, flags, { data: upcomingTournaments }] = await Promise.all([
+    coachDashboard(supabase, profile.timezone),
+    getFeatureFlags(),
+    supabase
+      .from("calendar_events")
+      .select("*")
+      .eq("kind", "tournament")
+      .gte("end_date", coachToday)
+      .lte("start_date", addDays(coachToday, 14))
+      .order("start_date", { ascending: true })
+      .limit(3),
+  ]);
+  const ostrcOn = flagEnabled(flags, "ostrc", null);
+  const eventsOn = flagEnabled(flags, "events", null);
   type ORow = { athlete_id: string; zone_code: string; week_start_date: string; any_problem: boolean; substantial: boolean };
   let ostrcPrev: { zone: string; name: string; anyPct: number; subPct: number; n: number }[] = [];
   if (ostrcOn) {
