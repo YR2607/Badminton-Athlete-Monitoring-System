@@ -122,7 +122,19 @@ export function TrainingForm({
     }
   }
 
-  const scale = (name: keyof FormValues, label: string, low: string, high: string) => (
+  const scaleHints = {
+    good: dict.common.scaleHintGood,
+    mid: dict.common.scaleHintMid,
+    bad: dict.common.scaleHintBad,
+  };
+
+  const scale = (
+    name: keyof FormValues,
+    label: string,
+    low: string,
+    high: string,
+    inverted = false,
+  ) => (
     <div
       className={cn(
         "-mx-2 rounded-lg px-2 py-1 transition-colors",
@@ -147,6 +159,8 @@ export function TrainingForm({
             }}
             lowLabel={low}
             highLabel={high}
+            inverted={inverted}
+            hints={scaleHints}
           />
         )}
       />
@@ -225,9 +239,9 @@ export function TrainingForm({
 
       <Card>
         <CardContent className="space-y-4 pt-4">
-          {scale("overall_feeling", d.overallFeeling, d.feelingLow, d.feelingHigh)}
-          {scale("leg_fatigue", d.legFatigue, d.fatigueScaleLow, d.fatigueScaleHigh)}
-          {scale("arm_shoulder_fatigue", d.armFatigue, d.fatigueScaleLow, d.fatigueScaleHigh)}
+          {scale("overall_feeling", d.overallFeeling, d.feelingLow, d.feelingHigh, false)}
+          {scale("leg_fatigue", d.legFatigue, d.fatigueScaleLow, d.fatigueScaleHigh, true)}
+          {scale("arm_shoulder_fatigue", d.armFatigue, d.fatigueScaleLow, d.fatigueScaleHigh, true)}
         </CardContent>
       </Card>
 

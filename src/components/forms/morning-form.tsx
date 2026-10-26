@@ -144,11 +144,18 @@ export function MorningForm({
     }
   }
 
+  const scaleHints = {
+    good: dict.common.scaleHintGood,
+    mid: dict.common.scaleHintMid,
+    bad: dict.common.scaleHintBad,
+  };
+
   const scale = (
     name: keyof FormValues,
     label: string,
     low: string,
     high: string,
+    inverted = false,
   ) => (
     <Card
       className={cn(
@@ -175,6 +182,8 @@ export function MorningForm({
               }}
               lowLabel={low}
               highLabel={high}
+              inverted={inverted}
+              hints={scaleHints}
             />
           )}
         />
@@ -184,7 +193,7 @@ export function MorningForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {scale("sleep_score", d.sleep, d.sleepLow, d.sleepHigh)}
+      {scale("sleep_score", d.sleep, d.sleepLow, d.sleepHigh, false)}
       {showSleepHours && (
         <Card>
           <CardContent className="pt-4">
@@ -207,11 +216,11 @@ export function MorningForm({
           </CardContent>
         </Card>
       )}
-      {scale("recovery_score", d.recovery, d.recoveryLow, d.recoveryHigh)}
-      {scale("fatigue_score", d.fatigue, d.fatigueLow, d.fatigueHigh)}
-      {scale("muscle_soreness_score", d.soreness, d.sorenessLow, d.sorenessHigh)}
-      {scale("stress_score", d.stress, d.stressLow, d.stressHigh)}
-      {scale("mood_score", d.mood, d.moodLow, d.moodHigh)}
+      {scale("recovery_score", d.recovery, d.recoveryLow, d.recoveryHigh, false)}
+      {scale("fatigue_score", d.fatigue, d.fatigueLow, d.fatigueHigh, true)}
+      {scale("muscle_soreness_score", d.soreness, d.sorenessLow, d.sorenessHigh, true)}
+      {scale("stress_score", d.stress, d.stressLow, d.stressHigh, true)}
+      {scale("mood_score", d.mood, d.moodLow, d.moodHigh, false)}
 
       <Card>
         <CardContent className="pt-4">
