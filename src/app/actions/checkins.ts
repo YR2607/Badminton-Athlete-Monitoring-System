@@ -116,16 +116,21 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
       ? new Date().toISOString()
       : `${sessionDate}T18:00:00Z`; // placeholder time for backfilled sessions
 
+  const isMatch = Boolean(parsed.data.match_discipline || parsed.data.match_result);
+
   // Rapid double/triple taps: an evening check-in submitted for the same
-  // session day within the last 10 minutes is an update, not a new session.
-  const { data: recentPost } = await supabase
-    .from("post_training_checkins")
-    .select("id, training_session_id")
-    .eq("athlete_id", athlete.id)
-    .gte("submitted_at", new Date(Date.now() - 10 * 60 * 1000).toISOString())
-    .order("submitted_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // session day within the last 10 minutes is an update, not a new session
+  // (skipped for tournament matches so an athlete can log multiple matches).
+  const { data: recentPost } = isMatch
+    ? { data: null }
+    : await supabase
+        .from("post_training_checkins")
+        .select("id, training_session_id")
+        .eq("athlete_id", athlete.id)
+        .gte("submitted_at", new Date(Date.now() - 10 * 60 * 1000).toISOString())
+        .order("submitted_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
   if (recentPost) {
     const { data: recentSession } = await supabase
       .from("training_sessions")
@@ -142,6 +147,7 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
         .update({
           session_rpe: srpeOn ? (parsed.data.session_rpe ?? null) : null,
           duration_minutes: srpeOn ? (parsed.data.session_minutes ?? null) : null,
+          focus_tags: parsed.data.focus_tags ?? [],
         })
         .eq("id", recentPost.training_session_id)
         .eq("athlete_id", athlete.id);
@@ -178,6 +184,9 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
       started_at: startedAt,
       session_rpe: srpeOn ? (parsed.data.session_rpe ?? null) : null,
       duration_minutes: srpeOn ? (parsed.data.session_minutes ?? null) : null,
+      focus_tags: parsed.data.focus_tags ?? [],
+      match_discipline: parsed.data.match_discipline ?? null,
+      match_result: parsed.data.match_result ?? null,
       client_uuid: parsed.data.client_uuid,
     })
     .select("id")

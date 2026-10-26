@@ -22,6 +22,7 @@ import type {
   Athlete,
   Group,
   MorningCheckin,
+  PainSide,
   PostTrainingCheckin,
   Profile,
   TrainingSchedule,
@@ -64,6 +65,16 @@ export interface CoachAthleteRow {
   checkinDots: { date: string; morning: boolean; evening: boolean; hadSession: boolean }[];
   /** Sum of sRPE × minutes over the last 7 athlete-local days (AU). */
   weeklyLoadAu: number;
+  /** Sum of sRPE × minutes over days -13..-7 (AU) for tapering comparison. */
+  prevWeeklyLoadAu: number;
+  /** Pain reports in the last 7 days with dominant-side flag. */
+  recentPainEntries: {
+    date: string;
+    location: string | null;
+    side: PainSide | null;
+    severity: number | null;
+    dominantHit: boolean;
+  }[];
   series: { date: string; score: number }[];
 }
 
@@ -230,16 +241,47 @@ export async function coachDashboard(
       (s) => localDate(new Date(s.started_at), athleteTz) === today,
     ).length;
     const since7 = addDays(today, -6);
-    const weeklyLoadAu = aSessions
-      .filter((s) => {
-        const d = localDate(new Date(s.started_at), athleteTz);
-        return d >= since7 && d <= today;
-      })
-      .reduce(
-        (acc, s) =>
-          acc + (s.session_rpe != null && s.duration_minutes != null ? s.session_rpe * s.duration_minutes : 0),
-        0,
-      );
+    const prev7From = addDays(today, -13);
+    const sumLoad = (fromD: string, toD: string) =>
+      aSessions
+        .filter((s) => {
+          const d = localDate(new Date(s.started_at), athleteTz);
+          return d >= fromD && d <= toD;
+        })
+        .reduce(
+          (acc, s) =>
+            acc +
+            (s.session_rpe != null && s.duration_minutes != null
+              ? s.session_rpe * s.duration_minutes
+              : 0),
+          0,
+        );
+    const weeklyLoadAu = sumLoad(since7, today);
+    const prevWeeklyLoadAu = sumLoad(prev7From, addDays(since7, -1));
+
+    const domHand = a.racket_hand ?? "right";
+    const isDomSide = (side: PainSide | null | undefined) =>
+      side === "both" || side === domHand;
+    const recentPainEntries = [
+      ...list
+        .filter((c) => c.checkin_date >= since7 && c.pain_status !== "none")
+        .map((c) => ({
+          date: c.checkin_date,
+          location: c.pain_location,
+          side: c.pain_side,
+          severity: c.pain_severity,
+          dominantHit: isDomSide(c.pain_side),
+        })),
+      ...postEntries
+        .filter((e) => e.date >= since7 && e.post.pain_status !== "none")
+        .map((e) => ({
+          date: e.date,
+          location: e.post.pain_location,
+          side: e.post.pain_side,
+          severity: null,
+          dominantHit: isDomSide(e.post.pain_side),
+        })),
+    ];
     const group = groupOfAthlete.get(a.id) ?? null;
     const sched = group ? (schedulesByGroup.get(group.id) ?? []) : [];
     const schedOv = (group ? (overridesByGroup.get(group.id) ?? []) : []).filter(
@@ -296,6 +338,8 @@ export async function coachDashboard(
         hadSession: d.hadSession,
       })),
       weeklyLoadAu,
+      prevWeeklyLoadAu,
+      recentPainEntries,
       series: series.filter((s) => s.date >= since14),
     };
   });

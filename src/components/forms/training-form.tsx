@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import type { Dictionary } from "@/i18n";
 import { submitEveningCheckin } from "@/app/actions/checkins";
 import { ScaleInput } from "@/components/forms/scale-input";
+import { BodyMapPicker } from "@/components/forms/body-map";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input, Label, Textarea } from "@/components/ui/input";
@@ -20,6 +21,9 @@ const schema = z.object({
   session_rpe: z.number().int().min(0).max(10).optional(),
   session_minutes: z.number().int().min(1).max(600).optional(),
   session_day: z.enum(["today", "yesterday"]).default("today"),
+  focus_tags: z.array(z.enum(["lunges", "smashes", "endurance", "technique"])).default([]),
+  match_discipline: z.enum(["MS", "WS", "MD", "WD", "XD"]).optional().nullable(),
+  match_result: z.enum(["win", "loss"]).optional().nullable(),
   pain_status: z.enum(["none", "muscle_soreness", "joint_tendon", "acute_instability", "other"]),
   pain_location: z.string().optional(),
   pain_side: z.enum(["left", "right", "both", "na"]).optional(),
@@ -42,13 +46,29 @@ export interface TrainingFormDict {
   morning: Dictionary["morning"];
   common: Dictionary["common"];
   athleteHome: Pick<Dictionary["athleteHome"], "painNotice">;
+  pro: Pick<
+    Dictionary["pro"],
+    | "bodyMapTitle"
+    | "bodyZones"
+    | "focusLabel"
+    | "focusTags"
+    | "matchModeToggle"
+    | "matchDiscipline"
+    | "matchResult"
+    | "matchWin"
+    | "matchLoss"
+  >;
 }
+
+const FOCUS_KEYS = ["lunges", "smashes", "endurance", "technique"] as const;
+const DISCIPLINES = ["MS", "WS", "MD", "WD", "XD"] as const;
 
 export function TrainingForm({
   dict,
   srpe,
   defaultMinutes,
   allowYesterday,
+  tournamentMode = false,
 }: {
   dict: TrainingFormDict;
   /** sRPE feature flag: show RPE + minutes fields */
@@ -57,24 +77,31 @@ export function TrainingForm({
   defaultMinutes?: number;
   /** Yesterday was a scheduled training day → allow backfilling it */
   allowYesterday?: boolean;
+  /** Today has a tournament event — pre-enable match logging */
+  tournamentMode?: boolean;
 }) {
   const d = dict.postTraining;
   const dm = dict.morning;
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [isMatch, setIsMatch] = useState(tournamentMode);
   const [missing, setMissing] = useState<Set<string>>(new Set());
   const { control, register, handleSubmit, watch, setValue } = useForm<FormValues>({
     defaultValues: {
       pain_status: "none",
       pain_triggers: [],
+      focus_tags: [],
       session_day: "today",
-      session_minutes: defaultMinutes,
+      session_minutes: tournamentMode ? 40 : defaultMinutes,
     },
   });
 
   const painStatus = watch("pain_status");
   const sessionDay = watch("session_day");
   const rpe = watch("session_rpe");
+  const focusTags = watch("focus_tags") ?? [];
+  const matchDisc = watch("match_discipline");
+  const matchRes = watch("match_result");
 
   async function onSubmit(values: FormValues) {
     const required: (keyof FormValues)[] = [
@@ -103,6 +130,9 @@ export function TrainingForm({
         session_rpe: srpe ? values.session_rpe : undefined,
         session_minutes: srpe ? values.session_minutes : undefined,
         session_day: srpe ? values.session_day : "today",
+        focus_tags: values.focus_tags,
+        match_discipline: isMatch ? (values.match_discipline ?? "MS") : null,
+        match_result: isMatch ? (values.match_result ?? null) : null,
         pain_status: values.pain_status,
         pain_location: values.pain_location,
         pain_side: values.pain_side,
@@ -233,6 +263,93 @@ export function TrainingForm({
                 <span className="text-sm text-muted">{d.minutesUnit}</span>
               </div>
             </div>
+
+            <div>
+              <p className="mb-2 text-sm font-medium">{dict.pro.focusLabel}</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {FOCUS_KEYS.map((tag) => {
+                  const active = focusTags.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() =>
+                        setValue(
+                          "focus_tags",
+                          active ? focusTags.filter((t) => t !== tag) : [...focusTags, tag],
+                        )
+                      }
+                      className={cn(
+                        "rounded-lg border px-2.5 py-2 text-left text-xs font-medium transition-colors",
+                        active
+                          ? "border-accent bg-accent text-accent-foreground"
+                          : "border-border bg-surface hover:bg-foreground/5",
+                      )}
+                    >
+                      {dict.pro.focusTags[tag]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="border-t border-border pt-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={isMatch}
+                  onChange={(e) => setIsMatch(e.target.checked)}
+                  className="h-4 w-4 accent-accent"
+                />
+                🏆 {dict.pro.matchModeToggle}
+              </label>
+              {isMatch && (
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="mb-1.5 text-xs text-muted">{dict.pro.matchDiscipline}</p>
+                    <div className="flex flex-wrap gap-1">
+                      {DISCIPLINES.map((disc) => (
+                        <button
+                          key={disc}
+                          type="button"
+                          onClick={() => setValue("match_discipline", disc)}
+                          className={cn(
+                            "rounded-lg border px-2.5 py-1.5 text-xs font-semibold",
+                            (matchDisc ?? "MS") === disc
+                              ? "border-accent bg-accent text-accent-foreground"
+                              : "border-border bg-surface",
+                          )}
+                        >
+                          {disc}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="mb-1.5 text-xs text-muted">{dict.pro.matchResult}</p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {(["win", "loss"] as const).map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setValue("match_result", matchRes === r ? null : r)}
+                          className={cn(
+                            "rounded-lg border px-2.5 py-1.5 text-xs font-semibold",
+                            matchRes === r
+                              ? r === "win"
+                                ? "border-ok bg-ok text-white"
+                                : "border-danger bg-danger text-danger-foreground"
+                              : "border-border bg-surface",
+                          )}
+                        >
+                          {r === "win" ? dict.pro.matchWin : dict.pro.matchLoss}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -265,6 +382,16 @@ export function TrainingForm({
           </div>
           {painStatus !== "none" && (
             <div className="mt-4 space-y-4 border-t border-border pt-4">
+              <BodyMapPicker
+                zonesDict={dict.pro.bodyZones}
+                title={dict.pro.bodyMapTitle}
+                location={watch("pain_location")}
+                side={watch("pain_side")}
+                onSelect={(zoneLabel, pickedSide) => {
+                  setValue("pain_location", zoneLabel, { shouldDirty: true });
+                  if (pickedSide) setValue("pain_side", pickedSide, { shouldDirty: true });
+                }}
+              />
               <div>
                 <Label htmlFor="p_loc">{dm.painLocation}</Label>
                 <Input id="p_loc" placeholder={dm.painLocationPh} {...register("pain_location")} />

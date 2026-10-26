@@ -11,6 +11,7 @@ import { dailyLoads, plannedForDate, type PlanOverride, type ScheduleInput, type
 import { dateRange } from "@/lib/dates";
 import { AthleteDashboard } from "@/components/dashboard/athlete-dashboard";
 import { EventsPanel } from "@/components/events-panel";
+import { AthleteHabitBadges, FieldTestRadar } from "@/components/athlete-radar-badges";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -234,6 +235,20 @@ export default async function AthleteHome() {
     eventRows = (ev as import("@/lib/types").CalendarEvent[] | null) ?? [];
   }
 
+  // Field tests for the athlete's physical radar (flag 'field_tests').
+  const testsOn = await isFlagEnabled("field_tests", groupIds);
+  let fieldTests: import("@/lib/types").FieldTest[] = [];
+  let testResults: import("@/lib/types").FieldTestResult[] = [];
+  const groupMedian: Record<string, number | null> = {};
+  if (testsOn) {
+    const [{ data: tRows }, { data: rRows }] = await Promise.all([
+      supabase.from("field_tests").select("*").eq("active", true).order("sort_order"),
+      supabase.from("field_test_results").select("*").eq("athlete_id", athlete.id),
+    ]);
+    fieldTests = (tRows as import("@/lib/types").FieldTest[] | null) ?? [];
+    testResults = (rRows as import("@/lib/types").FieldTestResult[] | null) ?? [];
+  }
+
   const painToday = (todayCheckin as MorningCheckin | null)?.pain_status !== "none" && todayCheckin;
 
   return (
@@ -404,6 +419,23 @@ export default async function AthleteHome() {
             </div>
           </CardContent>
         </Card>
+      )}
+
+      <AthleteHabitBadges
+        dict={dict}
+        streak={streak}
+        recentCheckins={recentList}
+        sessions7Count={sessions7Count}
+      />
+
+      {testsOn && fieldTests.length > 0 && testResults.length > 0 && (
+        <FieldTestRadar
+          dict={dict}
+          lang={profile.preferred_language}
+          tests={fieldTests}
+          ownResults={testResults}
+          groupMedian={groupMedian}
+        />
       )}
 
       {eventsOn && (

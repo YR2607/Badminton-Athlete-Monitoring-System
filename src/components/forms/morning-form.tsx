@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import type { Dictionary } from "@/i18n";
 import { submitMorningCheckin } from "@/app/actions/checkins";
 import { ScaleInput } from "@/components/forms/scale-input";
+import { BodyMapPicker } from "@/components/forms/body-map";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input, Label, Textarea } from "@/components/ui/input";
@@ -50,6 +51,7 @@ export interface MorningFormDict {
   morning: Dictionary["morning"];
   common: Dictionary["common"];
   athleteHome: Pick<Dictionary["athleteHome"], "painNotice">;
+  pro: Pick<Dictionary["pro"], "bodyMapTitle" | "bodyZones">;
 }
 
 export function MorningForm({
@@ -245,6 +247,16 @@ export function MorningForm({
 
           {painStatus !== "none" && (
             <div className="mt-4 space-y-4 border-t border-border pt-4">
+              <BodyMapPicker
+                zonesDict={dict.pro.bodyZones}
+                title={dict.pro.bodyMapTitle}
+                location={watch("pain_location")}
+                side={watch("pain_side")}
+                onSelect={(zoneLabel, pickedSide) => {
+                  setValue("pain_location", zoneLabel, { shouldDirty: true });
+                  if (pickedSide) setValue("pain_side", pickedSide, { shouldDirty: true });
+                }}
+              />
               <div>
                 <Label htmlFor="pain_location">{d.painLocation}</Label>
                 <Input

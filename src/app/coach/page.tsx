@@ -5,9 +5,14 @@ import { getDictionary } from "@/i18n";
 import { coachDashboard } from "@/lib/coach-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { GroupBodyHeatmap, type GroupPainEntry } from "@/components/forms/body-map";
+import { addDays, todayInTz } from "@/lib/dates";
+import { ageInDays } from "@/lib/athlete-status";
 import { CoachTable } from "./table";
 import { CompareChart, type CompareAthlete } from "./compare";
 import { LoadReadinessQuadrant, type QuadrantPoint } from "./quadrant";
+import { GroupSessionForm } from "./group-session-form";
 
 export default async function CoachDashboard({
   searchParams,
@@ -21,9 +26,21 @@ export default async function CoachDashboard({
   void (await searchParams);
   const { rows, groups } = await coachDashboard(supabase, profile.timezone);
 
-  // Phase 3: weekly OSTRC prevalence per zone (flag 'ostrc').
+  // Phase 3: weekly OSTRC prevalence per zone (flag 'ostrc') + upcoming tournaments.
   const { isFlagEnabled } = await import("@/lib/flags");
   const ostrcOn = await isFlagEnabled("ostrc", null);
+  const eventsOn = await isFlagEnabled("events", null);
+  const coachToday = todayInTz(profile.timezone);
+  const { data: upcomingTournaments } = eventsOn
+    ? await supabase
+        .from("calendar_events")
+        .select("*")
+        .eq("kind", "tournament")
+        .gte("end_date", coachToday)
+        .lte("start_date", addDays(coachToday, 14))
+        .order("start_date", { ascending: true })
+        .limit(3)
+    : { data: [] };
   type ORow = { athlete_id: string; zone_code: string; week_start_date: string; any_problem: boolean; substantial: boolean };
   let ostrcPrev: { zone: string; name: string; anyPct: number; subPct: number; n: number }[] = [];
   if (ostrcOn) {
@@ -113,6 +130,30 @@ export default async function CoachDashboard({
       isToday: r.todayScore !== null,
     }));
 
+  // Group pain map entries (last 7 days).
+  const groupPainEntries: GroupPainEntry[] = sorted.flatMap((r) =>
+    r.recentPainEntries.map((pe) => ({
+      athleteId: r.athlete.id,
+      athleteName: nameOf(r),
+      date: pe.date,
+      location: pe.location,
+      side: pe.side,
+      severity: pe.severity,
+      dominantHit: pe.dominantHit,
+    })),
+  );
+
+  // Tapering countdown for the nearest tournament within 14 days.
+  const nextTournament = ((upcomingTournaments as import("@/lib/types").CalendarEvent[] | null) ?? [])[0] ?? null;
+  const taperDaysLeft = nextTournament ? Math.max(0, ageInDays(coachToday, nextTournament.start_date)) : null;
+  const avgLoad7 = rows.length
+    ? Math.round(rows.reduce((a, r) => a + r.weeklyLoadAu, 0) / rows.length)
+    : 0;
+  const avgLoadPrev7 = rows.length
+    ? Math.round(rows.reduce((a, r) => a + r.prevWeeklyLoadAu, 0) / rows.length)
+    : 0;
+  const taperRatio = avgLoadPrev7 > 0 ? Math.round((avgLoad7 / avgLoadPrev7) * 100) / 100 : null;
+
   return (
     <div className="space-y-4">
       <div>
@@ -164,8 +205,19 @@ export default async function CoachDashboard({
       {rows.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>{d.briefingTitle}</CardTitle>
-            <p className="text-xs text-muted">{d.briefingHint}</p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <CardTitle>{d.briefingTitle}</CardTitle>
+                <p className="text-xs text-muted">{d.briefingHint}</p>
+              </div>
+              {briefAsk.length > 0 && (
+                <Link href="/coach/kiosk">
+                  <Button size="sm">
+                    📋 {dict.pro.kioskBtn} ({briefAsk.length})
+                  </Button>
+                </Link>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -262,6 +314,49 @@ export default async function CoachDashboard({
         </Card>
       )}
 
+      {nextTournament && taperDaysLeft !== null && (
+        <Card className="border-accent/40 bg-accent/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
+              <span>
+                🏆{" "}
+                {taperDaysLeft === 0
+                  ? dict.pro.taperToday.replace("{name}", nextTournament.title)
+                  : dict.pro.taperDaysLeft
+                      .replace("{name}", nextTournament.title)
+                      .replace("{d}", String(taperDaysLeft))}
+              </span>
+              <Badge tone={taperDaysLeft <= 7 ? "warn" : "accent"}>
+                {taperDaysLeft <= 7 ? dict.pro.taperPhaseTaper : dict.pro.taperPhaseLoad}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 text-xs text-muted">
+            <span>
+              {dict.pro.taperGroupLoad}: <b className="text-foreground">{avgLoad7} AU</b> vs{" "}
+              <b className="text-foreground">{avgLoadPrev7} AU</b>
+              {taperRatio !== null ? ` (${Math.round(taperRatio * 100)}%)` : ""}
+            </span>
+            {taperDaysLeft <= 7 && taperRatio !== null && (
+              <Badge tone={taperRatio <= 0.85 ? "ok" : "warn"}>
+                {taperRatio <= 0.85 ? dict.pro.taperFreshOk : dict.pro.taperOverloadWarn}
+              </Badge>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {groupPainEntries.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{dict.pro.bodyMapGroupTitle}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <GroupBodyHeatmap entries={groupPainEntries} dict={dict} />
+          </CardContent>
+        </Card>
+      )}
+
       {quadrantPoints.length > 0 && (
         <Card>
           <CardHeader>
@@ -273,6 +368,8 @@ export default async function CoachDashboard({
           </CardContent>
         </Card>
       )}
+
+      <GroupSessionForm groups={groups} dict={dict} />
 
       {ostrcPrev.length > 0 && (
         <Card>

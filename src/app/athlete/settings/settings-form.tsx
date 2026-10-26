@@ -18,7 +18,15 @@ const TIMEZONES = [
   "UTC",
 ];
 
-export function SettingsForm({ dict, profile }: { dict: Dictionary; profile: Profile }) {
+export function SettingsForm({
+  dict,
+  profile,
+  racketHand = "right",
+}: {
+  dict: Dictionary;
+  profile: Profile;
+  racketHand?: "right" | "left";
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -30,6 +38,7 @@ export function SettingsForm({ dict, profile }: { dict: Dictionary; profile: Pro
       display_name: String(fd.get("display_name") ?? ""),
       preferred_language: String(fd.get("preferred_language") ?? "ru"),
       timezone: String(fd.get("timezone") ?? "UTC"),
+      racket_hand: String(fd.get("racket_hand") ?? "right"),
     });
     setBusy(false);
     if (res.ok) {
@@ -64,6 +73,13 @@ export function SettingsForm({ dict, profile }: { dict: Dictionary; profile: Pro
                   {tz}
                 </option>
               ))}
+            </Select>
+          </div>
+          <div>
+            <Label>{dict.pro.racketHand}</Label>
+            <Select name="racket_hand" defaultValue={racketHand}>
+              <option value="right">🏸 {dict.pro.rightHand}</option>
+              <option value="left">🏸 {dict.pro.leftHand}</option>
             </Select>
           </div>
           <Button type="submit" disabled={busy} className="w-full">

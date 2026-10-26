@@ -220,5 +220,65 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ---- Coach daily briefing push (1 summary notification per day after 11:00 coach-local) ----
+  if (flagEnabled(flags, "push", null) && athleteRows.length > 0) {
+    const { data: staffProfiles } = await admin
+      .from("profiles")
+      .select("id, preferred_language, timezone")
+      .in("role", ["coach", "admin"]);
+    const briefingHour = Number(process.env.COACH_BRIEFING_HOUR ?? 11);
+    for (const sp of (staffProfiles as Pick<Profile, "id" | "preferred_language" | "timezone">[] | null) ?? []) {
+      const now = new Date();
+      const cToday = localDate(now, sp.timezone);
+      const cMin = localMinutesOfDay(now, sp.timezone);
+      if (cMin < briefingHour * 60) continue;
+
+      const total = athleteRows.length;
+      const done = athleteRows.filter((a) => ckSet.has(`${a.id}|${cToday}`)).length;
+      const missingNames = athleteRows
+        .filter((a) => !ckSet.has(`${a.id}|${cToday}`))
+        .map((a) => profById.get(a.profile_id)?.display_name ?? a.athlete_code)
+        .slice(0, 4);
+
+      const lang = sp.preferred_language ?? "ru";
+      const title =
+        lang === "en"
+          ? `Pre-session summary · ${done}/${total}`
+          : lang === "ro"
+            ? `Rezumat înainte de antrenament · ${done}/${total}`
+            : `Сводка перед тренировкой · ${done}/${total}`;
+      const body =
+        missingNames.length === 0
+          ? lang === "en"
+            ? "All athletes completed their morning check-in."
+            : lang === "ro"
+              ? "Toți sportivii au completat chestionarul."
+              : "Все спортсмены заполнили утреннюю анкету."
+          : lang === "en"
+            ? `Missing: ${missingNames.join(", ")}`
+            : lang === "ro"
+              ? `Lipsă: ${missingNames.join(", ")}`
+              : `Не сдали: ${missingNames.join(", ")}`;
+
+      const { data: ins } = await admin
+        .from("notifications")
+        .upsert(
+          {
+            profile_id: sp.id,
+            kind: "coach_briefing",
+            title,
+            body,
+            dedup_key: `briefing:${sp.id}:${cToday}`,
+          },
+          { onConflict: "dedup_key", ignoreDuplicates: true },
+        )
+        .select("id");
+      if (ins?.length) {
+        created += ins.length;
+        pushed += await sendPushToProfile(admin, sp.id, { title, body, url: "/coach" });
+      }
+    }
+  }
+
   return NextResponse.json({ ok: true, notifications_created: created, pushes_sent: pushed });
 }

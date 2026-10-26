@@ -57,6 +57,10 @@ export default async function MorningPage() {
     morning: dict.morning,
     common: dict.common,
     athleteHome: { painNotice: dict.athleteHome.painNotice },
+    pro: {
+      bodyMapTitle: dict.pro.bodyMapTitle,
+      bodyZones: dict.pro.bodyZones,
+    },
   };
 
   return (

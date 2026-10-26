@@ -23,6 +23,11 @@ export interface Profile {
   updated_at: string;
 }
 
+export type RacketHand = "right" | "left";
+export type SessionFocusTag = "lunges" | "smashes" | "endurance" | "technique";
+export type MatchDiscipline = "MS" | "WS" | "MD" | "WD" | "XD";
+export type MatchResult = "win" | "loss";
+
 export interface Athlete {
   id: string;
   profile_id: string;
@@ -30,6 +35,7 @@ export interface Athlete {
   birth_year: number | null;
   birth_date: string | null;
   sex: "male" | "female" | null;
+  racket_hand?: RacketHand | null;
   mother_height_cm: number | null;
   father_height_cm: number | null;
   status: AthleteStatus;
@@ -104,6 +110,9 @@ export interface TrainingSession {
   duration_minutes: number | null;
   session_rpe: number | null;
   session_load: number | null;
+  focus_tags?: SessionFocusTag[] | null;
+  match_discipline?: MatchDiscipline | null;
+  match_result?: MatchResult | null;
   created_at: string;
 }
 

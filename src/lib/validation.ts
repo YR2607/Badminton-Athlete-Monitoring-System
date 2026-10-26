@@ -45,6 +45,9 @@ export const postTrainingSchema = z
     session_minutes: z.number().int().min(1).max(600).optional(),
     // "yesterday" allows backfilling the previous day's session (24h window).
     session_day: z.enum(["today", "yesterday"]).optional(),
+    focus_tags: z.array(z.enum(["lunges", "smashes", "endurance", "technique"])).default([]),
+    match_discipline: z.enum(["MS", "WS", "MD", "WD", "XD"]).optional().nullable(),
+    match_result: z.enum(["win", "loss"]).optional().nullable(),
     pain_status: painStatus,
     pain_location: z.string().max(200).optional().or(z.literal("")),
     pain_side: painSide.optional(),

@@ -14,6 +14,7 @@ import { GrowthPanel } from "./growth-panel";
 import { EventsPanel } from "@/components/events-panel";
 import { OstrcHeatmap } from "@/components/ostrc-heatmap";
 import { TestsPanel } from "./tests-panel";
+import { FieldTestRadar } from "@/components/athlete-radar-badges";
 import { decimalAge, growthVelocity, khamisRoche, maturationCategory } from "@/lib/growth";
 import { AthleteSwitcher } from "./athlete-switcher";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -412,14 +413,23 @@ export default async function AthleteDetailPage({
       )}
 
       {testsOn && fieldTests.length > 0 && (
-        <TestsPanel
-          dict={dict}
-          lang={me.preferred_language}
-          athleteId={a.id}
-          tests={fieldTests}
-          results={testResults}
-          groupMedian={groupMedian}
-        />
+        <>
+          <FieldTestRadar
+            dict={dict}
+            lang={me.preferred_language}
+            tests={fieldTests}
+            ownResults={testResults}
+            groupMedian={groupMedian}
+          />
+          <TestsPanel
+            dict={dict}
+            lang={me.preferred_language}
+            athleteId={a.id}
+            tests={fieldTests}
+            results={testResults}
+            groupMedian={groupMedian}
+          />
+        </>
       )}
 
       {growthOn && (

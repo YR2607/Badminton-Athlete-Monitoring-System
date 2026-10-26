@@ -303,6 +303,8 @@ export async function coachUpsertMorningCheckin(f: MorningFields): Promise<Actio
     console.error("evaluate_failed", e);
   }
   revalidatePath(`/coach/athletes/${f.athlete_id}`);
+  revalidatePath("/coach");
+  revalidatePath("/coach/kiosk");
   revalidatePath("/analytics");
   return { ok: true };
 }
@@ -411,6 +413,8 @@ export async function coachUpsertPostCheckin(f: PostCheckinFields): Promise<Acti
     console.error("evaluate_failed", e);
   }
   revalidatePath(`/coach/athletes/${f.athlete_id}`);
+  revalidatePath("/coach");
+  revalidatePath("/coach/kiosk");
   revalidatePath("/analytics");
   return { ok: true };
 }
@@ -431,4 +435,73 @@ export async function reevaluateAthlete(athleteId: string, date: string): Promis
   await evaluateAthleteDay(createAdminClient(), athleteId, date || localDate(new Date(), tz), tz);
   revalidatePath("/coach");
   return { ok: true };
+}
+
+/**
+ * Batch-create today's training session for every active member of a group
+ * (skips athletes who already have a session logged today unless force=true).
+ */
+export async function batchLogGroupSession(input: {
+  group_id: string;
+  duration_minutes: number;
+  session_rpe: number;
+  focus_tags?: string[];
+}): Promise<ActionResult & { count?: number }> {
+  const me = await requireCoach();
+  if (!me) return { error: "forbidden" };
+  if (
+    !input.group_id ||
+    input.duration_minutes < 1 ||
+    input.duration_minutes > 600 ||
+    input.session_rpe < 0 ||
+    input.session_rpe > 10
+  ) {
+    return { error: "validation" };
+  }
+  const admin = createAdminClient();
+  const { data: members } = await admin
+    .from("group_memberships")
+    .select("athlete_id, athlete:athletes(id, status, profile:profiles(timezone))")
+    .eq("group_id", input.group_id)
+    .is("left_at", null);
+
+  type MRow = {
+    athlete_id: string;
+    athlete?: { id: string; status: string; profile?: { timezone?: string } } | null;
+  };
+  const active = ((members as unknown as MRow[] | null) ?? []).filter(
+    (m) => m.athlete && m.athlete.status === "active",
+  );
+  if (active.length === 0) return { ok: true, count: 0 };
+
+  const nowIso = new Date().toISOString();
+  const rows = active.map((m) => ({
+    athlete_id: m.athlete_id,
+    group_id: input.group_id,
+    started_at: nowIso,
+    duration_minutes: Math.round(input.duration_minutes),
+    session_rpe: Math.round(input.session_rpe),
+    focus_tags: input.focus_tags ?? [],
+  }));
+  const { error } = await admin.from("training_sessions").insert(rows);
+  if (error) return { error: error.message };
+
+  for (const m of active) {
+    const tz = m.athlete?.profile?.timezone ?? me.timezone;
+    const today = localDate(new Date(), tz);
+    try {
+      await evaluateAthleteDay(admin, m.athlete_id, today, tz);
+    } catch (e) {
+      console.error("batch_eval_failed", e);
+    }
+  }
+  await audit("session.batch_group", "training_sessions", input.group_id, {
+    count: rows.length,
+    duration_minutes: input.duration_minutes,
+    session_rpe: input.session_rpe,
+    focus_tags: input.focus_tags ?? [],
+  });
+  revalidatePath("/coach");
+  revalidatePath("/analytics");
+  return { ok: true, count: rows.length };
 }
