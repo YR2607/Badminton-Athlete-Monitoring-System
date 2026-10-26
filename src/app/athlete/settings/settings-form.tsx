@@ -10,14 +10,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
 import type { Profile } from "@/lib/types";
 
-const TIMEZONES = [
-  "Europe/Chisinau",
-  "Europe/Bucharest",
-  "Europe/Kyiv",
-  "Europe/Moscow",
-  "UTC",
-];
-
 export function SettingsForm({
   dict,
   profile,
@@ -37,7 +29,6 @@ export function SettingsForm({
     const res = await updateOwnSettings({
       display_name: String(fd.get("display_name") ?? ""),
       preferred_language: String(fd.get("preferred_language") ?? "ru"),
-      timezone: String(fd.get("timezone") ?? "UTC"),
       racket_hand: String(fd.get("racket_hand") ?? "right"),
     });
     setBusy(false);
@@ -63,16 +54,6 @@ export function SettingsForm({
               <option value="ru">Русский</option>
               <option value="ro">Română</option>
               <option value="en">English</option>
-            </Select>
-          </div>
-          <div>
-            <Label>Timezone</Label>
-            <Select name="timezone" defaultValue={profile.timezone}>
-              {TIMEZONES.map((tz) => (
-                <option key={tz} value={tz}>
-                  {tz}
-                </option>
-              ))}
             </Select>
           </div>
           <div>
