@@ -6,7 +6,8 @@ import { getDictionary } from "@/i18n";
 import { addDays, dateRange, localDate, type RangeKey } from "@/lib/dates";
 import { conditionScore, dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
 import { dayStatuses, sessionDateByIdMap } from "@/lib/checkins";
-import { pendingPostCheckins } from "@/lib/athlete-status";
+import { ageInDays, pendingPostCheckins } from "@/lib/athlete-status";
+import { avatarPublicUrl } from "@/lib/avatars";
 import { getAthleteDetail } from "@/lib/athlete-detail";
 import { AthleteDashboard } from "@/components/dashboard/athlete-dashboard";
 import { RecList } from "./rec-list";
@@ -99,6 +100,7 @@ export default async function AthleteDetailPage({
     growthMs,
     dashSnaps,
     dashLoads,
+    attendanceStats,
   } = data;
 
   const ck = ((checkins as MorningCheckin[]) ?? []).filter(
@@ -237,6 +239,106 @@ export default async function AthleteDetailPage({
           <AthleteSwitcher athletes={navAthletes} currentId={a.id} label={dd.profile} />
         )}
       </div>
+
+      {/* Light athlete card: photo, game profile, goal, equipment, attendance. */}
+      {(a.photo_path ||
+        a.preferred_discipline ||
+        a.play_style ||
+        a.season_goal ||
+        a.racket_model ||
+        (attendanceStats && attendanceStats.scheduled > 0)) && (
+        <Card>
+          <CardContent className="flex flex-wrap items-start gap-4 pt-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-foreground/5 text-2xl">
+              {a.photo_path ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={avatarPublicUrl(a.photo_path)}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                "🏸"
+              )}
+            </div>
+            <div className="min-w-0 flex-1 space-y-1.5 text-sm">
+              <div className="flex flex-wrap gap-1.5">
+                {a.preferred_discipline && (
+                  <Badge tone="accent">🏸 {a.preferred_discipline}</Badge>
+                )}
+                {a.play_style && (
+                  <Badge tone="neutral">
+                    {dict.card[
+                      { attacking: "styleAttacking", defensive: "styleDefensive", net: "styleNet", allround: "styleAllround" }[
+                        a.play_style
+                      ] as "styleAttacking"
+                    ]}
+                  </Badge>
+                )}
+                {a.racket_hand && (
+                  <Badge tone="neutral">
+                    {a.racket_hand === "left" ? dict.pro.leftHand : dict.pro.rightHand}
+                  </Badge>
+                )}
+              </div>
+              {a.season_goal && (
+                <p className="text-muted">
+                  🎯 {dict.card.goalLabel}:{" "}
+                  <span className="text-foreground">{a.season_goal}</span>
+                </p>
+              )}
+              {(a.racket_model || a.string_tension_kg || a.restrung_on) && (
+                <p className="text-muted">
+                  🏸 {[a.racket_model, a.string_tension_kg ? `${a.string_tension_kg} kg` : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                  {a.restrung_on && ` · ${dict.card.restrungOn}: ${a.restrung_on}`}
+                  {a.restrung_on && ageInDays(a.restrung_on, today) > 75 && (
+                    <Badge tone="warn" className="ml-1">
+                      ⚠ {dict.card.restrungOld.replace("{d}", String(Math.floor(ageInDays(a.restrung_on, today) / 30)))}
+                    </Badge>
+                  )}
+                </p>
+              )}
+            </div>
+            {attendanceStats && attendanceStats.scheduled > 0 && (
+              <div className="rounded-xl border border-border/60 px-3 py-2 text-sm">
+                <p className="text-xs text-muted">{dict.attendance.stat30}</p>
+                <p className="mt-0.5 font-bold tabular-nums">
+                  {attendanceStats.attended}/{attendanceStats.scheduled}
+                  <span
+                    className={cn(
+                      "ml-1.5",
+                      (attendanceStats.rate ?? 0) >= 85
+                        ? "text-ok"
+                        : (attendanceStats.rate ?? 0) >= 65
+                          ? "text-warn"
+                          : "text-danger",
+                    )}
+                  >
+                    {attendanceStats.rate}%
+                  </span>
+                </p>
+                <p className="mt-0.5 text-xs text-muted">
+                  {[
+                    attendanceStats.absent > 0
+                      ? dict.attendance.absentCount.replace("{n}", String(attendanceStats.absent))
+                      : null,
+                    attendanceStats.excused > 0
+                      ? dict.attendance.excusedCount.replace("{n}", String(attendanceStats.excused))
+                      : null,
+                    attendanceStats.unmarked > 0
+                      ? dict.attendance.unmarkedCount.replace("{n}", String(attendanceStats.unmarked))
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "—"}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Today block — independent of the selected period below */}
       <Card>

@@ -211,13 +211,20 @@ export default async function CoachDashboard({
                 <CardTitle>{d.briefingTitle}</CardTitle>
                 <p className="text-xs text-muted">{d.briefingHint}</p>
               </div>
-              {briefAsk.length > 0 && (
-                <Link href="/coach/kiosk">
-                  <Button size="sm">
-                    📋 {dict.pro.kioskBtn} ({briefAsk.length})
+              <div className="flex gap-2">
+                <Link href="/coach/attendance">
+                  <Button size="sm" variant="secondary">
+                    ✅ {dict.nav.attendance}
                   </Button>
                 </Link>
-              )}
+                {briefAsk.length > 0 && (
+                  <Link href="/coach/kiosk">
+                    <Button size="sm">
+                      📋 {dict.pro.kioskBtn} ({briefAsk.length})
+                    </Button>
+                  </Link>
+                )}
+              </div>
             </div>
           </CardHeader>
           <CardContent>

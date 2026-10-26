@@ -2,10 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDays, dateRange, localDate, resolveRange, todayInTz, type RangeKey } from "@/lib/dates";
 import { allAthleteIds } from "@/lib/coach-data";
 import { isFlagEnabled } from "@/lib/flags";
-import { dailyLoads, type DayLoad, type PlanOverride, type SessionInput } from "@/lib/load";
+import { dailyLoads, type DayLoad, type PlanOverride, type ScheduleInput, type SessionInput } from "@/lib/load";
+import { attendanceSummary, type AttendanceSummary } from "@/lib/attendance";
 import type {
   Alert,
   Athlete,
+  Attendance,
+  AttendanceStatus,
   CalendarEvent,
   CoachNote,
   ConsentRecord,
@@ -82,6 +85,8 @@ export interface AthleteDetailData {
   growthMs: GrowthMeasurement[];
   dashSnaps: ReadinessSnapshot[];
   dashLoads: DayLoad[];
+  /** 30-day attendance vs group schedule; null when the athlete has no group. */
+  attendanceStats: AttendanceSummary | null;
 }
 
 /**
@@ -331,6 +336,54 @@ export async function getAthleteDetail(
     return { dashSnaps, dashLoads };
   }
 
+  // 30-day attendance: explicit marks + logged sessions vs the group schedule.
+  async function attendanceTask(): Promise<AttendanceSummary | null> {
+    if (!groupId) return null;
+    const since = addDays(today, -29);
+    const [{ data: marks }, { data: sch }, { data: ov }, { data: sess }] = await Promise.all([
+      supabase
+        .from("attendance")
+        .select("att_date, status")
+        .eq("athlete_id", a.id)
+        .gte("att_date", since)
+        .lte("att_date", today),
+      supabase
+        .from("training_schedules")
+        .select("weekday, planned_minutes, planned_rpe")
+        .eq("group_id", groupId)
+        .eq("active", true),
+      supabase
+        .from("session_plan_overrides")
+        .select("plan_date, cancelled, start_time, planned_minutes, planned_rpe")
+        .eq("group_id", groupId)
+        .gte("plan_date", since)
+        .lte("plan_date", today),
+      supabase
+        .from("training_sessions")
+        .select("started_at")
+        .eq("athlete_id", a.id)
+        .gte("started_at", `${since}T00:00:00Z`),
+    ]);
+    const sessionDates = new Set(
+      ((sess as { started_at: string }[] | null) ?? []).map((s) =>
+        localDate(new Date(s.started_at), tz),
+      ),
+    );
+    const marksMap = new Map<string, AttendanceStatus>(
+      ((marks as Pick<Attendance, "att_date" | "status">[] | null) ?? []).map((m) => [
+        m.att_date,
+        m.status,
+      ]),
+    );
+    return attendanceSummary(
+      dateRange(since, today),
+      ((sch ?? []) as ScheduleInput[]),
+      ((ov ?? []) as PlanOverride[]),
+      sessionDates,
+      marksMap,
+    );
+  }
+
   // One batch: the 10 unconditional queries + every gated task, all concurrent.
   const [
     { data: checkins },
@@ -351,6 +404,7 @@ export async function getAthleteDetail(
     { fieldTests, testResults, groupMedian },
     growthMs,
     { dashSnaps, dashLoads },
+    attendanceStats,
   ] = await Promise.all([
     supabase
       .from("morning_checkins")
@@ -415,6 +469,7 @@ export async function getAthleteDetail(
     fieldTestsTask(),
     growthTask(),
     dashboardTask(),
+    attendanceTask(),
   ]);
 
   return {
@@ -454,5 +509,6 @@ export async function getAthleteDetail(
     growthMs,
     dashSnaps,
     dashLoads,
+    attendanceStats,
   };
 }

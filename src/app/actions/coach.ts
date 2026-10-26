@@ -505,3 +505,92 @@ export async function batchLogGroupSession(input: {
   revalidatePath("/analytics");
   return { ok: true, count: rows.length };
 }
+
+/**
+ * Attendance: explicit staff mark for one athlete+date, or null to clear.
+ * "present" is usually derived from a logged session — the mark exists for
+ * absences/excused days and for overriding the derived status.
+ */
+export async function setAttendanceMark(input: {
+  athlete_id: string;
+  att_date: string;
+  status: "present" | "absent" | "excused" | null;
+}): Promise<ActionResult> {
+  const me = await requireCoach();
+  if (!me) return { error: "forbidden" };
+  if (
+    !/^[0-9a-f-]{36}$/i.test(input.athlete_id) ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(input.att_date) ||
+    (input.status !== null && !["present", "absent", "excused"].includes(input.status))
+  ) {
+    return { error: "validation" };
+  }
+  const admin = createAdminClient();
+  if (input.status === null) {
+    const { error } = await admin
+      .from("attendance")
+      .delete()
+      .eq("athlete_id", input.athlete_id)
+      .eq("att_date", input.att_date);
+    if (error) return { error: error.message };
+  } else {
+    const { error } = await admin.from("attendance").upsert(
+      {
+        athlete_id: input.athlete_id,
+        att_date: input.att_date,
+        status: input.status,
+        marked_by: me.id,
+      },
+      { onConflict: "athlete_id,att_date" },
+    );
+    if (error) return { error: error.message };
+  }
+  await audit("attendance.mark", "attendance", input.athlete_id, {
+    att_date: input.att_date,
+    status: input.status,
+  });
+  revalidatePath("/coach/attendance");
+  return { ok: true };
+}
+
+/** Bulk "everyone was there" — marks all active group members present. */
+export async function markGroupPresent(input: {
+  group_id: string;
+  att_date: string;
+}): Promise<ActionResult & { count?: number }> {
+  const me = await requireCoach();
+  if (!me) return { error: "forbidden" };
+  if (!/^[0-9a-f-]{36}$/i.test(input.group_id) || !/^\d{4}-\d{2}-\d{2}$/.test(input.att_date)) {
+    return { error: "validation" };
+  }
+  const admin = createAdminClient();
+  const { data: members } = await admin
+    .from("group_memberships")
+    .select("athlete_id, athlete:athletes(status)")
+    .eq("group_id", input.group_id)
+    .is("left_at", null);
+  type MRow = { athlete_id: string; athlete?: { status: string } | { status: string }[] | null };
+  const ids = ((members ?? []) as unknown as MRow[])
+    .filter((m) => {
+      const at = Array.isArray(m.athlete) ? m.athlete[0] : m.athlete;
+      return at?.status === "active";
+    })
+    .map((m) => m.athlete_id);
+  if (ids.length === 0) return { ok: true, count: 0 };
+  const { error } = await admin.from("attendance").upsert(
+    ids.map((id) => ({
+      athlete_id: id,
+      att_date: input.att_date,
+      status: "present" as const,
+      marked_by: me.id,
+    })),
+    { onConflict: "athlete_id,att_date" },
+  );
+  if (error) return { error: error.message };
+  await audit("attendance.mark_group", "attendance", input.group_id, {
+    att_date: input.att_date,
+    count: ids.length,
+  });
+  revalidatePath("/coach/attendance");
+  return { ok: true, count: ids.length };
+}

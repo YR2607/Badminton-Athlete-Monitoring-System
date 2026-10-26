@@ -27,6 +27,8 @@ export type RacketHand = "right" | "left";
 export type SessionFocusTag = "lunges" | "smashes" | "endurance" | "technique";
 export type MatchDiscipline = "MS" | "WS" | "MD" | "WD" | "XD";
 export type MatchResult = "win" | "loss";
+export type PlayStyle = "attacking" | "defensive" | "net" | "allround";
+export type AttendanceStatus = "present" | "absent" | "excused";
 
 export interface Athlete {
   id: string;
@@ -38,7 +40,23 @@ export interface Athlete {
   racket_hand?: RacketHand | null;
   mother_height_cm: number | null;
   father_height_cm: number | null;
+  photo_path?: string | null;
+  preferred_discipline?: MatchDiscipline | null;
+  play_style?: PlayStyle | null;
+  season_goal?: string | null;
+  racket_model?: string | null;
+  string_tension_kg?: number | null;
+  restrung_on?: string | null;
   status: AthleteStatus;
+  created_at: string;
+}
+
+export interface Attendance {
+  id: string;
+  athlete_id: string;
+  att_date: string;
+  status: AttendanceStatus;
+  marked_by: string | null;
   created_at: string;
 }
 
