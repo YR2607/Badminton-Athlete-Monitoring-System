@@ -1,4 +1,5 @@
-import { getCurrentAthlete, getCurrentProfile } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { getCurrentAthlete, getCurrentProfile, homeForRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getDictionary } from "@/i18n";
 import { todayInTz } from "@/lib/dates";
@@ -9,7 +10,8 @@ import type { MorningCheckin } from "@/lib/types";
 
 export default async function MorningPage() {
   const profile = (await getCurrentProfile())!;
-  const athlete = (await getCurrentAthlete())!;
+  const athlete = await getCurrentAthlete();
+  if (!athlete) redirect(homeForRole(profile.role));
   const dict = getDictionary(profile.preferred_language);
   const supabase = await createClient();
   const today = todayInTz(profile.timezone);

@@ -208,7 +208,7 @@ export async function adminResetUserPassword(
  */
 export async function adminImpersonate(
   profileId: string,
-): Promise<{ ok?: boolean; error?: string; tokenHash?: string }> {
+): Promise<{ ok?: boolean; error?: string; tokenHash?: string; redirectTo?: string }> {
   const supabase = await createClient();
   const userId = await getVerifiedUserId(supabase);
   if (!userId) return { error: "unauthenticated" };
@@ -233,7 +233,7 @@ export async function adminImpersonate(
   const email = targetUser?.user?.email;
   if (!email) return { error: "not_found" };
 
-  // Stash the admin's own session so /auth/impersonation-exit can restore it
+  // Stash the admin's own session so exitImpersonation can restore it
   // with one click — no password prompt on the way back.
   const {
     data: { session },
@@ -261,6 +261,14 @@ export async function adminImpersonate(
   const tokenHash = data?.properties?.hashed_token;
   if (error || !tokenHash) return { error: error?.message ?? "failed" };
 
+  // Exchange the OTP on the server so Set-Cookie headers are written
+  // atomically in this response (avoids mobile Safari document.cookie quirks).
+  const { error: verifyErr } = await supabase.auth.verifyOtp({
+    type: "magiclink",
+    token_hash: tokenHash,
+  });
+  if (verifyErr) return { error: verifyErr.message };
+
   await admin.from("audit_logs").insert({
     actor_profile_id: me.id,
     action: "user.impersonate",
@@ -268,7 +276,36 @@ export async function adminImpersonate(
     target_id: profileId,
     metadata: {},
   });
-  return { ok: true, tokenHash };
+  return {
+    ok: true,
+    tokenHash,
+    redirectTo: homeForRole(target.role as AppRole),
+  };
+}
+
+/**
+ * Exit "Sign in as" mode via POST server action (never prefetched by <Link>).
+ */
+export async function exitImpersonation() {
+  const store = await cookies();
+  const raw = store.get("rm-impersonator")?.value;
+  if (raw) {
+    try {
+      const { at, rt } = JSON.parse(decodeURIComponent(raw)) as {
+        at?: string;
+        rt?: string;
+      };
+      if (at && rt) {
+        const supabase = await createClient();
+        await supabase.auth.setSession({ access_token: at, refresh_token: rt });
+      }
+    } catch {
+      // corrupted cookie — fall through
+    }
+  }
+  store.delete("rm-impersonator");
+  store.delete("rm-impersonating");
+  redirect("/admin/users");
 }
 
 /**

@@ -9,6 +9,15 @@ import { createClient } from "@/lib/supabase/server";
  * same as a normal sign-out.
  */
 export async function GET(request: Request) {
+  // Never mutate session cookies on a router/browser prefetch request!
+  if (
+    request.headers.get("next-router-prefetch") ||
+    request.headers.get("purpose") === "prefetch" ||
+    request.headers.get("sec-purpose")?.includes("prefetch")
+  ) {
+    return new NextResponse(null, { status: 204 });
+  }
+
   const store = await cookies();
   const raw = store.get("rm-impersonator")?.value;
 

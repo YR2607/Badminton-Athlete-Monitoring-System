@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Dictionary } from "@/i18n";
 import type { AppRole } from "@/lib/types";
-import { signOut } from "@/app/actions/auth";
+import { exitImpersonation, signOut } from "@/app/actions/auth";
 import { NotificationsBell } from "@/components/layout/notifications-bell";
 import { NavOverflow } from "@/components/layout/nav-overflow";
 import { NavLinks } from "@/components/layout/nav-links";
@@ -113,12 +113,14 @@ export async function AppShell({
             <span className="truncate">
               {dict.common.impersonatingBanner} <b>{displayName}</b>
             </span>
-            <Link
-              href="/auth/impersonation-exit"
-              className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground"
-            >
-              {dict.common.exitImpersonation}
-            </Link>
+            <form action={exitImpersonation}>
+              <button
+                type="submit"
+                className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground"
+              >
+                {dict.common.exitImpersonation}
+              </button>
+            </form>
           </div>
         </div>
       )}

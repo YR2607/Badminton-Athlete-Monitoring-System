@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentAthlete, getCurrentProfile } from "@/lib/auth";
+import { getCurrentAthlete, getCurrentProfile, homeForRole } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { addDays, localDate, todayInTz } from "@/lib/dates";
 import { dailyConditionSeries, postsByLocalDate, bandForScore } from "@/lib/readiness";
@@ -22,7 +23,8 @@ import type { MorningCheckin, PostTrainingCheckin, ReadinessSnapshot } from "@/l
 
 export default async function AthleteHome() {
   const profile = (await getCurrentProfile())!;
-  const athlete = (await getCurrentAthlete())!;
+  const athlete = await getCurrentAthlete();
+  if (!athlete) redirect(homeForRole(profile.role));
   const dict = getDictionary(profile.preferred_language);
   const d = dict.athleteHome;
   const supabase = await createClient();

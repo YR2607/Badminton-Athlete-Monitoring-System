@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentAthlete, getCurrentProfile } from "@/lib/auth";
+import { getCurrentAthlete, getCurrentProfile, homeForRole } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { isFlagEnabled } from "@/lib/flags";
 import { isoWeekMonday } from "@/lib/ostrc";
@@ -12,7 +12,8 @@ import type { OstrcResponse, OstrcZone } from "@/lib/types";
 
 export default async function OstrcPage() {
   const profile = (await getCurrentProfile())!;
-  const athlete = (await getCurrentAthlete())!;
+  const athlete = await getCurrentAthlete();
+  if (!athlete) redirect(homeForRole(profile.role));
   const dict = getDictionary(profile.preferred_language);
   const supabase = await createClient();
 

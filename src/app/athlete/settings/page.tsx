@@ -1,4 +1,5 @@
-import { getCurrentAthlete, getCurrentProfile } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { getCurrentAthlete, getCurrentProfile, homeForRole } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { SettingsForm } from "./settings-form";
 import { AthleteCardForm } from "./card-form";
@@ -8,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 export default async function SettingsPage() {
   const profile = (await getCurrentProfile())!;
   const athlete = await getCurrentAthlete();
+  if (!athlete) redirect(homeForRole(profile.role));
   const dict = getDictionary(profile.preferred_language);
   return (
     <div className="mx-auto max-w-md space-y-4">

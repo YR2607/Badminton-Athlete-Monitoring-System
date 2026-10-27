@@ -1,4 +1,5 @@
-import { getCurrentAthlete, getCurrentProfile } from "@/lib/auth";
+import { redirect } from "next/navigation";
+import { getCurrentAthlete, getCurrentProfile, homeForRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getDictionary } from "@/i18n";
 import { addDays, localDate, todayInTz } from "@/lib/dates";
@@ -28,7 +29,8 @@ export default async function HistoryPage({
   searchParams: Promise<{ days?: string }>;
 }) {
   const profile = (await getCurrentProfile())!;
-  const athlete = (await getCurrentAthlete())!;
+  const athlete = await getCurrentAthlete();
+  if (!athlete) redirect(homeForRole(profile.role));
   const dict = getDictionary(profile.preferred_language);
   const h = dict.history;
   const supabase = await createClient();
