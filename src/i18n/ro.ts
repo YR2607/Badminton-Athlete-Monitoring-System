@@ -144,6 +144,12 @@ const ro: Dictionary = {
     acwrTitle: "Raportul de încărcătură (ACWR)",
     acwrHint: "Cât de repede crește încărcătura față de cea obișnuită. Optim 0.8–1.3; peste 1.5 e prea brusc.",
     acwrForming: "Date insuficiente — sunt necesare cel puțin 21 de zile de antrenament",
+    waveTitle: "Valul de încărcătură BWF (vârfuri 🔴 și descărcare 🟢)",
+    waveGood: "Val bun de încărcătură: zilele de vârf alternează cu descărcarea",
+    waveMonotonous: "Atenție — încărcătură monotonă (fără fereastră de descărcare): programați o zi ușoară (RPE 2–3)",
+    wavePeaks: "🔴 Vârfuri: {p}",
+    waveRecoveries: "🟢 Descărcări: {r}",
+    waveAvg: "Medie antrenament: {m} AU",
   },
   recs: {
     title: "Recomandări de încărcătură",

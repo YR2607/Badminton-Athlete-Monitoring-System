@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart, LoadBarChart } from "@/components/charts/series-chart";
-import { acwrSeries, type DayLoad } from "@/lib/load";
+import { acwrSeries, analyzeLoadWave, type DayLoad } from "@/lib/load";
 import { MORNING_ITEM_KEYS, type MorningItemKey } from "@/lib/readiness";
 import type { Dictionary } from "@/i18n";
 import type { CalendarEvent, ReadinessSnapshot } from "@/lib/types";
@@ -41,6 +41,9 @@ export function AthleteDashboard({
   });
 
   const load14 = loads.slice(-14);
+  const wave14 = analyzeLoadWave(
+    load14.map((x) => ({ date: x.date, load: x.hasData ? x.load : 0 })),
+  );
   const acwrPts = acwrSeries(loads.map((d) => d.load));
   const acwrChart = loads
     .map((d, i) => ({ date: d.date, acwr: acwrPts[i] }))
@@ -137,19 +140,40 @@ export function AthleteDashboard({
             <CardHeader>
               <CardTitle>{d.loadTitle}</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               {load14.every((x) => !x.hasData && x.planned == null) ? (
                 <p className="text-sm text-muted">{dict.common.noData}</p>
               ) : (
-                <LoadBarChart
-                  data={load14.map((x) => ({
-                    date: x.date.slice(5),
-                    load: x.hasData ? x.load : 0,
-                    planned: x.planned,
-                  }))}
-                  label={d.fact}
-                  plannedLabel={d.plan}
-                />
+                <>
+                  <LoadBarChart
+                    data={load14.map((x) => ({
+                      date: x.date.slice(5),
+                      load: x.hasData ? x.load : 0,
+                      planned: x.planned,
+                      wave: wave14.tags.get(x.date) ?? null,
+                    }))}
+                    label={d.fact}
+                    plannedLabel={d.plan}
+                  />
+                  {wave14.status !== "insufficient" && (
+                    <div
+                      className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs ${
+                        wave14.status === "monotonous"
+                          ? "border-warn/40 bg-warn/10 text-warn"
+                          : "border-ok/30 bg-ok/5 text-ok"
+                      }`}
+                    >
+                      <span className="font-medium">
+                        {wave14.status === "monotonous" ? `⚠️ ${d.waveMonotonous}` : `✅ ${d.waveGood}`}
+                      </span>
+                      <span className="text-muted">
+                        {d.wavePeaks.replace("{p}", String(wave14.peaks))} ·{" "}
+                        {d.waveRecoveries.replace("{r}", String(wave14.recoveries))} ·{" "}
+                        {d.waveAvg.replace("{m}", String(wave14.meanActive))}
+                      </span>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>

@@ -178,6 +178,87 @@ export function acwrSeries(loads: number[], minDays = 21): (number | null)[] {
   });
 }
 
+export type LoadWaveTag = "peak" | "recovery" | "base";
+
+export interface LoadWaveSummary {
+  tags: Map<string, LoadWaveTag>;
+  status: "good" | "monotonous" | "insufficient";
+  peaks: number;
+  recoveries: number;
+  maxHardStreak: number;
+  meanActive: number;
+}
+
+/**
+ * BWF undulating-load classifier (Cristian Luque Manjón, Paris 2024):
+ * classifies each active day as a red shock peak, green deload valley, or
+ * blue base day relative to the athlete/group mean active load, and flags
+ * monotonous "flat fence" blocks lacking deload windows.
+ */
+export function analyzeLoadWave(
+  days: { date: string; load: number }[],
+): LoadWaveSummary {
+  const tags = new Map<string, LoadWaveTag>();
+  const active = days.filter((d) => d.load > 0);
+  if (active.length < 3) {
+    return {
+      tags,
+      status: "insufficient",
+      peaks: 0,
+      recoveries: 0,
+      maxHardStreak: 0,
+      meanActive: 0,
+    };
+  }
+  const meanActive = Math.round(
+    active.reduce((acc, d) => acc + d.load, 0) / active.length,
+  );
+  const peakThreshold = Math.max(360, Math.round(meanActive * 1.22));
+  const recoveryThreshold = Math.max(100, Math.round(meanActive * 0.68));
+
+  let peaks = 0;
+  let recoveries = 0;
+  let streak = 0;
+  let maxHardStreak = 0;
+
+  for (const d of days) {
+    if (d.load <= 0) {
+      streak = 0;
+      continue;
+    }
+    if (d.load >= peakThreshold) {
+      tags.set(d.date, "peak");
+      peaks++;
+      streak++;
+    } else if (d.load <= recoveryThreshold) {
+      tags.set(d.date, "recovery");
+      recoveries++;
+      streak = 0;
+    } else {
+      tags.set(d.date, "base");
+      if (d.load >= meanActive * 0.85) streak++;
+      else streak = 0;
+    }
+    if (streak > maxHardStreak) maxHardStreak = streak;
+  }
+
+  // Monotonous when:
+  //  - 4+ active days have no recovery/deload window and either 4+ hard days
+  //    in a row or all sessions sit in a flat band (peaks=0 && recoveries=0).
+  const isMonotonous =
+    maxHardStreak >= 4 ||
+    (active.length >= 4 && recoveries === 0);
+
+  return {
+    tags,
+    status: isMonotonous ? "monotonous" : "good",
+    peaks,
+    recoveries,
+    maxHardStreak,
+    meanActive,
+  };
+}
+
 /** Foster monotony for a 7-day window: mean / population SD. Null if SD ~ 0. */
 export function monotony(loads7: number[]): number | null {
   if (loads7.length < 7) return null;

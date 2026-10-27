@@ -144,6 +144,12 @@ const en: Dictionary = {
     acwrTitle: "Workload ratio (ACWR)",
     acwrHint: "How fast load grows vs your usual. Optimal is 0.8–1.3; above 1.5 is too sharp.",
     acwrForming: "Not enough data yet — at least 21 days of training needed",
+    waveTitle: "BWF load wave (peaks 🔴 & deload 🟢)",
+    waveGood: "Good load wave: peak days alternate with recovery windows",
+    waveMonotonous: "High monotony ('flat fence' without a recovery window): schedule a light day (RPE 2–3)",
+    wavePeaks: "🔴 Peaks: {p}",
+    waveRecoveries: "🟢 Deloads: {r}",
+    waveAvg: "Avg session: {m} AU",
   },
   recs: {
     title: "Load recommendations",

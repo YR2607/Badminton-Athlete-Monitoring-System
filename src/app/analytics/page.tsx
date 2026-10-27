@@ -6,9 +6,11 @@ import { addDays, dateRange, localDate, localDayUtcBounds, resolveRange, todayIn
 import { athleteStats, periodSummary, delta, type AthletePeriodStats } from "@/lib/analytics";
 import { sessionDateByIdMap } from "@/lib/checkins";
 import { dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
+import { analyzeLoadWave } from "@/lib/load";
 import { getFeatureFlags, flagEnabled } from "@/lib/flags";
 import { CompareChart, type CompareAthlete } from "@/app/coach/compare";
 import { LoadReadinessQuadrant, type QuadrantPoint } from "@/app/coach/quadrant";
+import { LoadBarChart } from "@/components/charts/series-chart";
 import type { Athlete, Alert, Group, MorningCheckin, OstrcZone, PostTrainingCheckin, Profile, TrainingSession } from "@/lib/types";
 import { AnalyticsFilters, type AthleteOption } from "./filters";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -239,6 +241,25 @@ export default async function AnalyticsPage({
       };
     })
     .filter((p): p is QuadrantPoint => p !== null);
+
+  // 14-day BWF load wave (mean active AU across scoped athletes who trained on each date).
+  const wave14Days = dateRange(addDays(coachToday, -13), coachToday).map((dt) => {
+    const dayTotals = new Map<string, number>();
+    for (const s of sessionsAll) {
+      if (s.session_rpe == null || s.duration_minutes == null) continue;
+      const a = scoped.find((x) => x.id === s.athlete_id);
+      if (!a) continue;
+      const sd = localDate(new Date(s.started_at), tzOf(a));
+      if (sd !== dt) continue;
+      dayTotals.set(a.id, (dayTotals.get(a.id) ?? 0) + s.session_rpe * s.duration_minutes);
+    }
+    const vals = [...dayTotals.values()];
+    const avg = vals.length
+      ? Math.round(vals.reduce((x, y) => x + y, 0) / vals.length)
+      : 0;
+    return { date: dt, load: avg };
+  });
+  const wave14 = analyzeLoadWave(wave14Days);
 
   type ORow = { athlete_id: string; zone_code: string; week_start_date: string; any_problem: boolean; substantial: boolean };
   const allOstrc = (oRows as ORow[] | null) ?? [];
@@ -505,6 +526,45 @@ export default async function AnalyticsPage({
                     );
                   })}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* BWF 14-day load wave (peaks 🔴 & deloads 🟢) */}
+          {wave14Days.some((d) => d.load > 0) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{dict.dashboard.waveTitle}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <LoadBarChart
+                  data={wave14Days.map((x) => ({
+                    date: x.date.slice(5),
+                    load: x.load,
+                    wave: wave14.tags.get(x.date) ?? null,
+                  }))}
+                  label={dict.dashboard.fact}
+                />
+                {wave14.status !== "insufficient" && (
+                  <div
+                    className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs ${
+                      wave14.status === "monotonous"
+                        ? "border-warn/40 bg-warn/10 text-warn"
+                        : "border-ok/30 bg-ok/5 text-ok"
+                    }`}
+                  >
+                    <span className="font-medium">
+                      {wave14.status === "monotonous"
+                        ? `⚠️ ${dict.dashboard.waveMonotonous}`
+                        : `✅ ${dict.dashboard.waveGood}`}
+                    </span>
+                    <span className="text-muted">
+                      {dict.dashboard.wavePeaks.replace("{p}", String(wave14.peaks))} ·{" "}
+                      {dict.dashboard.waveRecoveries.replace("{r}", String(wave14.recoveries))} ·{" "}
+                      {dict.dashboard.waveAvg.replace("{m}", String(wave14.meanActive))}
+                    </span>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}

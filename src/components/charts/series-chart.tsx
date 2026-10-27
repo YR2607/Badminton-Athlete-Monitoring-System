@@ -13,6 +13,7 @@ import {
   BarChart,
   Bar,
   Cell,
+  LabelList,
   ReferenceLine,
   ReferenceArea,
 } from "recharts";
@@ -239,11 +240,14 @@ export function LoadBarChart({
   plannedLabel?: string;
 }) {
   if (data.length === 0) return null;
-  // Fact bar color vs plan: within plan → ok, mild overrun → warn, spike → danger.
+  const hasWave = data.some((d) => d.wave === "peak" || d.wave === "recovery");
+  // Fact bar color: BWF wave tag takes visual priority when present; otherwise compare to plan.
   const factColor = (d: SeriesPoint) => {
     const load = typeof d.load === "number" ? d.load : 0;
     const planned = typeof d.planned === "number" ? d.planned : null;
     if (load === 0) return "var(--chart-planned)";
+    if (d.wave === "peak") return "var(--danger)";
+    if (d.wave === "recovery") return "var(--ok)";
     if (planned === null || planned <= 0) return "var(--accent)";
     if (load <= planned * 1.25) return "var(--ok)";
     if (load <= planned * 1.5) return "var(--warn)";
@@ -251,7 +255,10 @@ export function LoadBarChart({
   };
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={data} margin={{ top: 8, right: 10, left: 0, bottom: 2 }}>
+      <BarChart
+        data={data}
+        margin={{ top: hasWave ? 26 : 8, right: 10, left: 0, bottom: 2 }}
+      >
         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
         <XAxis
           dataKey="date"
@@ -285,6 +292,57 @@ export function LoadBarChart({
           {data.map((d, i) => (
             <Cell key={i} fill={factColor(d)} />
           ))}
+          {hasWave ? (
+            <LabelList
+              dataKey="load"
+              position="top"
+              content={(props) => {
+                const { x, y, width, index, value } = props as {
+                  x?: number;
+                  y?: number;
+                  width?: number;
+                  index?: number;
+                  value?: number;
+                };
+                if (
+                  typeof x !== "number" ||
+                  typeof y !== "number" ||
+                  typeof width !== "number" ||
+                  typeof index !== "number" ||
+                  !value
+                ) {
+                  return null;
+                }
+                const w = data[index]?.wave;
+                if (w !== "peak" && w !== "recovery") return null;
+                const cx = x + width / 2;
+                const cy = Math.max(12, y - 10);
+                const stroke = w === "peak" ? "var(--danger)" : "var(--ok)";
+                return (
+                  <g>
+                    <circle
+                      cx={cx}
+                      cy={cy}
+                      r={11}
+                      fill="var(--surface)"
+                      stroke={stroke}
+                      strokeWidth={2}
+                    />
+                    <text
+                      x={cx}
+                      y={cy + 3}
+                      textAnchor="middle"
+                      fontSize={8.5}
+                      fontWeight={700}
+                      fill={stroke}
+                    >
+                      {Math.round(value)}
+                    </text>
+                  </g>
+                );
+              }}
+            />
+          ) : null}
         </Bar>
       </BarChart>
     </ResponsiveContainer>

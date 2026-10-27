@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   acwrEwma,
+  analyzeLoadWave,
   dailyLoads,
   ewma,
   monotony,
@@ -161,5 +162,28 @@ describe("planOverrunStreak", () => {
     const days = mk([true, true]);
     days[1] = { ...days[1], hasData: false, load: 0 };
     expect(planOverrunStreak(days, 1.25)).toBe(0);
+  });
+});
+
+describe("analyzeLoadWave", () => {
+  const mkDays = (vals: number[]) =>
+    vals.map((load, i) => ({
+      date: `2026-10-${String(10 + i).padStart(2, "0")}`,
+      load,
+    }));
+
+  it("classifies BWF undulating wave as good with red peaks and green deloads", () => {
+    const w = analyzeLoadWave(mkDays([450, 680, 200, 480, 650, 0]));
+    expect(w.status).toBe("good");
+    expect(w.peaks).toBe(2);
+    expect(w.recoveries).toBe(1);
+    expect(w.tags.get("2026-10-11")).toBe("peak");
+    expect(w.tags.get("2026-10-12")).toBe("recovery");
+  });
+
+  it("flags flat monotonous week without deload windows", () => {
+    const w = analyzeLoadWave(mkDays([500, 510, 500, 520, 500]));
+    expect(w.status).toBe("monotonous");
+    expect(w.recoveries).toBe(0);
   });
 });
