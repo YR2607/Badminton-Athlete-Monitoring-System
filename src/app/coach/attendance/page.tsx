@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { addDays, localDayUtcBounds, todayInTz } from "@/lib/dates";
 import { plannedForDate, type PlanOverride, type ScheduleInput } from "@/lib/load";
 import type { Athlete, Attendance, Group, Profile, TrainingSession } from "@/lib/types";
+import { GroupSessionForm } from "../group-session-form";
 import { AttendanceClient, type AttendanceRow } from "./attendance-client";
 
 export default async function AttendancePage({
@@ -20,13 +21,13 @@ export default async function AttendancePage({
 
   const [{ data: groups }, { data: memberships }, { data: athletes }, { data: profs }] =
     await Promise.all([
-      supabase.from("groups").select("id, name").order("name"),
+      supabase.from("groups").select("*").order("name"),
       supabase.from("group_memberships").select("athlete_id, group_id").is("left_at", null),
       supabase.from("athletes").select("*").eq("status", "active"),
       supabase.from("profiles").select("id, display_name, timezone"),
     ]);
 
-  const groupList = (groups as Pick<Group, "id" | "name">[]) ?? [];
+  const groupList = (groups as Group[]) ?? [];
   const groupId =
     groupList.find((g) => g.id === sp.group)?.id ?? groupList[0]?.id ?? "";
   const profById = new Map(
@@ -125,6 +126,7 @@ export default async function AttendancePage({
         scheduled={scheduled}
         rows={rows}
       />
+      <GroupSessionForm groups={groupList} dict={dict} />
     </div>
   );
 }

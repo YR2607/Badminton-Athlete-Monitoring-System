@@ -79,6 +79,7 @@ const ru = {
     rules: "Правила",
     audit: "Журнал",
     settings: "Настройки",
+    profile: "Профиль",
     report: "Отчёт",
     notifications: "Уведомления",
     guide: "Справка",
@@ -1025,6 +1026,8 @@ const ru = {
     restrungOld: "Струнам больше {d} мес. — пора перетянуть!",
     none: "—",
     goalLabel: "Цель",
+    fillBanner: "Заполни свою карточку спортсмена: разряд, цель на сезон, ракетка",
+    fillBtn: "Заполнить",
   },
   attendance: {
     title: "Посещаемость",

@@ -24,6 +24,17 @@ export default async function AdminHome() {
     [dict.alerts.open, openAlerts ?? 0, "/coach/alerts"],
   ];
 
+  const links: [string, string][] = [
+    [dict.nav.users, "/admin/users"],
+    [dict.nav.groups, "/admin/groups"],
+    [dict.nav.features, "/admin/features"],
+    [dict.nav.rules, "/admin/rules"],
+    [dict.nav.tests, "/admin/tests"],
+    [dict.tests.ostrcZones, "/admin/ostrc"],
+    [dict.nav.audit, "/admin/audit"],
+    [dict.nav.guide, "/coach/guide"],
+  ];
+
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold">{dict.admin.title}</h1>
@@ -35,6 +46,16 @@ export default async function AdminHome() {
                 <p className="text-2xl font-bold">{v}</p>
                 <p className="text-xs text-muted">{label}</p>
               </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {links.map(([label, href]) => (
+          <Link key={href} href={href}>
+            <Card className="hover:border-accent/50">
+              <CardContent className="py-4 font-medium">{label} →</CardContent>
             </Card>
           </Link>
         ))}

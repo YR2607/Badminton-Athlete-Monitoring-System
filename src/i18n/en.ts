@@ -78,6 +78,7 @@ const en: Dictionary = {
     rules: "Rules",
     audit: "Audit log",
     settings: "Settings",
+    profile: "Profile",
     report: "Report",
     notifications: "Notifications",
     guide: "Guide",
@@ -1023,6 +1024,8 @@ const en: Dictionary = {
     restrungOld: "Strings are {d}+ months old — time to restring!",
     none: "—",
     goalLabel: "Goal",
+    fillBanner: "Complete your athlete card: favourite event, season goal, racket",
+    fillBtn: "Fill in",
   },
   attendance: {
     title: "Attendance",

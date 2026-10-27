@@ -2,11 +2,14 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
-import { addDays, dateRange, localDate, localDayUtcBounds, resolveRange, type RangeKey } from "@/lib/dates";
+import { addDays, dateRange, localDate, localDayUtcBounds, resolveRange, todayInTz, type RangeKey } from "@/lib/dates";
 import { athleteStats, periodSummary, delta, type AthletePeriodStats } from "@/lib/analytics";
 import { sessionDateByIdMap } from "@/lib/checkins";
-import { postsByLocalDate } from "@/lib/readiness";
-import type { Athlete, Alert, Group, MorningCheckin, PostTrainingCheckin, Profile, TrainingSession } from "@/lib/types";
+import { dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
+import { getFeatureFlags, flagEnabled } from "@/lib/flags";
+import { CompareChart, type CompareAthlete } from "@/app/coach/compare";
+import { LoadReadinessQuadrant, type QuadrantPoint } from "@/app/coach/quadrant";
+import type { Athlete, Alert, Group, MorningCheckin, OstrcZone, PostTrainingCheckin, Profile, TrainingSession } from "@/lib/types";
 import { AnalyticsFilters, type AthleteOption } from "./filters";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,13 +42,15 @@ export default async function AnalyticsPage({
   const prevDays = days.map((day) => addDays(day, -days.length));
   const prevFrom = prevDays[0];
 
-  const [{ data: athletes }, { data: memberships }, { data: groups }, { data: profs }] =
+  const [{ data: athletes }, { data: memberships }, { data: groups }, { data: profs }, flags] =
     await Promise.all([
       supabase.from("athletes").select("*"),
       supabase.from("group_memberships").select("athlete_id, group_id").is("left_at", null),
       supabase.from("groups").select("*").order("name"),
       supabase.from("profiles").select("*"),
+      getFeatureFlags(),
     ]);
+  const ostrcOn = flagEnabled(flags, "ostrc", null);
 
   const groupById = new Map(((groups as Group[]) ?? []).map((g) => [g.id, g]));
   const profById = new Map(((profs as Profile[]) ?? []).map((p) => [p.id, p]));
@@ -65,16 +70,26 @@ export default async function AnalyticsPage({
   }
   const ids = scoped.map((a) => a.id);
 
-  const tsStart = localDayUtcBounds(addDays(prevFrom, -1), tz).start.toISOString();
+  const coachToday = todayInTz(tz);
+  const since14 = addDays(coachToday, -14);
+  const fetchFrom = prevFrom < since14 ? prevFrom : since14;
+  const tsStart = localDayUtcBounds(addDays(fetchFrom, -1), tz).start.toISOString();
   const tsEnd = localDayUtcBounds(addDays(range.to, 1), tz).end.toISOString();
 
-  const [{ data: checkins }, { data: sessions }, { data: posts }, { data: alerts }] = ids.length
+  const [
+    { data: checkins },
+    { data: sessions },
+    { data: posts },
+    { data: alerts },
+    { data: zRows },
+    { data: oRows },
+  ] = ids.length
     ? await Promise.all([
         supabase
           .from("morning_checkins")
           .select("*")
           .in("athlete_id", ids)
-          .gte("checkin_date", prevFrom)
+          .gte("checkin_date", fetchFrom)
           .lte("checkin_date", range.to),
         supabase
           .from("training_sessions")
@@ -94,8 +109,19 @@ export default async function AnalyticsPage({
           .in("athlete_id", ids)
           .gte("triggered_at", tsStart)
           .lt("triggered_at", tsEnd),
+        ostrcOn
+          ? supabase.from("ostrc_zones").select("*").eq("active", true).order("sort_order")
+          : Promise.resolve({ data: [] }),
+        ostrcOn
+          ? supabase
+              .from("ostrc_responses")
+              .select("athlete_id, zone_code, week_start_date, any_problem, substantial")
+              .in("athlete_id", ids)
+              .order("week_start_date", { ascending: false })
+              .limit(500)
+          : Promise.resolve({ data: [] }),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }];
 
   const inRange = (date: string) => date >= range.from && date <= range.to;
   const inPrev = (date: string) => date >= prevFrom && date <= addDays(range.from, -1);
@@ -145,6 +171,93 @@ export default async function AnalyticsPage({
   const summary = periodSummary(stats);
   const prevSummary = periodSummary(prevStats);
   const single = scoped.length === 1 ? stats[0] : null;
+
+  // Group-level visual blocks (moved from /coach): quadrant, compare chart, OSTRC prevalence.
+  const sortedScoped = [...scoped].sort((a, b) =>
+    (profById.get(a.profile_id)?.display_name ?? a.athlete_code).localeCompare(
+      profById.get(b.profile_id)?.display_name ?? b.athlete_code,
+    ),
+  );
+  const series14ByAthlete = new Map<string, { date: string; score: number }[]>();
+  for (const a of sortedScoped) {
+    const list = checkinsAll
+      .filter((c) => c.athlete_id === a.id && c.checkin_date >= since14)
+      .sort((x, y) => x.checkin_date.localeCompare(y.checkin_date));
+    series14ByAthlete.set(
+      a.id,
+      dailyConditionSeries(list, postsOf(a)).filter((s) => s.date >= since14),
+    );
+  }
+  const hasFlagged = sortedScoped.some((a) => {
+    const st = stats.find((s) => s.athleteId === a.id);
+    return (st?.painDays ?? 0) > 0 || (st?.alerts ?? 0) > 0;
+  });
+  const compareAthletes: CompareAthlete[] = sortedScoped.map((a, i) => {
+    const st = stats.find((s) => s.athleteId === a.id);
+    const flagged = (st?.painDays ?? 0) > 0 || (st?.alerts ?? 0) > 0;
+    return {
+      id: a.id,
+      name: profById.get(a.profile_id)?.display_name ?? a.athlete_code,
+      flagged: flagged || (!hasFlagged && i < 3),
+      series: series14ByAthlete.get(a.id) ?? [],
+    };
+  });
+  const quadrantPoints: QuadrantPoint[] = sortedScoped
+    .map((a) => {
+      const aTz = tzOf(a);
+      const aToday = todayInTz(aTz);
+      const since7 = addDays(aToday, -6);
+      const ser = series14ByAthlete.get(a.id) ?? [];
+      const todayPt = ser.find((p) => p.date === aToday);
+      const lastPt = [...ser].reverse().find((p) => p.date <= aToday);
+      const score = todayPt?.score ?? lastPt?.score ?? null;
+      if (score === null) return null;
+      const load = sessionsAll
+        .filter((s) => {
+          if (s.athlete_id !== a.id) return false;
+          const sd = localDate(new Date(s.started_at), aTz);
+          return sd >= since7 && sd <= aToday;
+        })
+        .reduce(
+          (acc, s) =>
+            acc +
+            (s.session_rpe != null && s.duration_minutes != null
+              ? s.session_rpe * s.duration_minutes
+              : 0),
+          0,
+        );
+      const hasPain = checkinsAll.some(
+        (c) => c.athlete_id === a.id && c.checkin_date >= addDays(aToday, -1) && c.pain_status !== "none",
+      );
+      return {
+        id: a.id,
+        name: profById.get(a.profile_id)?.display_name ?? a.athlete_code,
+        load,
+        readiness: score,
+        hasPain,
+        isToday: Boolean(todayPt),
+      };
+    })
+    .filter((p): p is QuadrantPoint => p !== null);
+
+  type ORow = { athlete_id: string; zone_code: string; week_start_date: string; any_problem: boolean; substantial: boolean };
+  const allOstrc = (oRows as ORow[] | null) ?? [];
+  const latestWeek = allOstrc[0]?.week_start_date ?? null;
+  const ostrcPrev = latestWeek
+    ? (((zRows as OstrcZone[] | null) ?? [])
+        .map((z) => {
+          const zr = allOstrc.filter((r) => r.week_start_date === latestWeek && r.zone_code === z.code);
+          const n = zr.length;
+          return {
+            zone: z.code,
+            name: z.name[me.preferred_language as "ru" | "en" | "ro"] || z.name.en || z.code,
+            n,
+            anyPct: n ? Math.round((zr.filter((r) => r.any_problem).length / n) * 100) : 0,
+            subPct: n ? Math.round((zr.filter((r) => r.substantial).length / n) * 100) : 0,
+          };
+        })
+        .filter((z) => z.n > 0))
+    : [];
 
   const athleteOptions: AthleteOption[] = allAthletes.map((a) => ({
     id: a.id,
@@ -392,6 +505,57 @@ export default async function AnalyticsPage({
                     );
                   })}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Group-level charts (when viewing >1 athlete) */}
+          {!single && quadrantPoints.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{dict.coach.quadrantTitle}</CardTitle>
+                <p className="text-xs text-muted">{dict.coach.quadrantHint}</p>
+              </CardHeader>
+              <CardContent>
+                <LoadReadinessQuadrant points={quadrantPoints} dict={dict} />
+              </CardContent>
+            </Card>
+          )}
+
+          {!single && ostrcPrev.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{dict.ostrc.prevTitle}</CardTitle>
+                <p className="text-xs text-muted">{dict.ostrc.prevHint}</p>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-3">
+                  {ostrcPrev.map((z) => (
+                    <div key={z.zone} className="rounded-lg border border-border/60 px-3 py-2 text-sm">
+                      <p className="font-medium">{z.name}</p>
+                      <p className="text-xs text-muted">
+                        {dict.ostrc.anyProblem}:{" "}
+                        <b className={z.anyPct ? "text-warn" : ""}>{z.anyPct}%</b>
+                        {" · "}
+                        {dict.ostrc.substantialCap}:{" "}
+                        <b className={z.subPct ? "text-danger" : ""}>{z.subPct}%</b>
+                        {" · "}n={z.n}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {!single && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{dict.coach.compare}</CardTitle>
+                <p className="text-xs text-muted">{dict.coach.compareHint}</p>
+              </CardHeader>
+              <CardContent>
+                <CompareChart athletes={compareAthletes} dict={dict} />
               </CardContent>
             </Card>
           )}

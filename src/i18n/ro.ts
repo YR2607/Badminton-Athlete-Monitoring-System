@@ -78,6 +78,7 @@ const ro: Dictionary = {
     rules: "Reguli",
     audit: "Jurnal",
     settings: "Setări",
+    profile: "Profil",
     report: "Raport",
     notifications: "Notificări",
     guide: "Ghid",
@@ -1023,6 +1024,8 @@ const ro: Dictionary = {
     restrungOld: "Coarda are peste {d} luni — e timpul s-o schimbi!",
     none: "—",
     goalLabel: "Obiectiv",
+    fillBanner: "Completează fișa ta de sportiv: proba preferată, obiectivul, racheta",
+    fillBtn: "Completează",
   },
   attendance: {
     title: "Prezență",

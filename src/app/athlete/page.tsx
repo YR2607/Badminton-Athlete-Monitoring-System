@@ -93,7 +93,7 @@ export default async function AthleteHome() {
     postEntries,
   );
   const chart7 = series.filter((p) => p.date >= addDays(today, -6));
-  const chart30 = series;
+  const cardEmpty = !athlete.preferred_discipline && !athlete.season_goal;
 
   // Dashboard data (behind flags; queries only run when enabled).
   const dashboardOn = await isFlagEnabled("athlete_dashboard", groupIds);
@@ -367,6 +367,19 @@ export default async function AthleteHome() {
         </Card>
       )}
 
+      {cardEmpty && (
+        <Card className="border-accent/30 bg-accent/5">
+          <CardContent className="flex items-center justify-between gap-3 pt-4">
+            <p className="text-sm">🏸 {dict.card.fillBanner}</p>
+            <Link href="/athlete/settings">
+              <Button size="sm" variant="secondary">
+                {dict.card.fillBtn}
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
       {engageOn && (streak >= 2 || sleepDiff !== null) && (
         <Card>
           <CardContent className="space-y-1.5 pt-4 text-sm">
@@ -453,42 +466,23 @@ export default async function AthleteHome() {
         />
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>{d.weekChart}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {chart7.length === 0 ? (
-              <p className="text-sm text-muted">{dict.common.noData}</p>
-            ) : (
-              <SeriesLineChart
-                data={chart7}
-                series={[{ key: "score", label: d.readiness, color: "var(--accent)" }]}
-                domain={[0, 100]}
-                reference={snap?.baseline_avg != null ? { y: Number(snap.baseline_avg) } : undefined}
-              />
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>{d.monthChart}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {chart30.length === 0 ? (
-              <p className="text-sm text-muted">{dict.common.noData}</p>
-            ) : (
-              <SeriesLineChart
-                data={chart30}
-                series={[{ key: "score", label: d.readiness, color: "var(--accent)" }]}
-                domain={[0, 100]}
-                reference={snap?.baseline_avg != null ? { y: Number(snap.baseline_avg) } : undefined}
-              />
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>{d.weekChart}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {chart7.length === 0 ? (
+            <p className="text-sm text-muted">{dict.common.noData}</p>
+          ) : (
+            <SeriesLineChart
+              data={chart7}
+              series={[{ key: "score", label: d.readiness, color: "var(--accent)" }]}
+              domain={[0, 100]}
+              reference={snap?.baseline_avg != null ? { y: Number(snap.baseline_avg) } : undefined}
+            />
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

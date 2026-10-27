@@ -10,9 +10,6 @@ import { GroupBodyHeatmap, type GroupPainEntry } from "@/components/forms/body-m
 import { addDays, todayInTz } from "@/lib/dates";
 import { ageInDays } from "@/lib/athlete-status";
 import { CoachTable } from "./table";
-import { CompareChart, type CompareAthlete } from "./compare";
-import { LoadReadinessQuadrant, type QuadrantPoint } from "./quadrant";
-import { GroupSessionForm } from "./group-session-form";
 
 export default async function CoachDashboard({
   searchParams,
@@ -40,40 +37,7 @@ export default async function CoachDashboard({
       .order("start_date", { ascending: true })
       .limit(3),
   ]);
-  const ostrcOn = flagEnabled(flags, "ostrc", null);
   const eventsOn = flagEnabled(flags, "events", null);
-  type ORow = { athlete_id: string; zone_code: string; week_start_date: string; any_problem: boolean; substantial: boolean };
-  let ostrcPrev: { zone: string; name: string; anyPct: number; subPct: number; n: number }[] = [];
-  if (ostrcOn) {
-    const ids = rows.map((r) => r.athlete.id);
-    const [{ data: zRows }, { data: oRows }] = await Promise.all([
-      supabase.from("ostrc_zones").select("*").eq("active", true).order("sort_order"),
-      ids.length
-        ? supabase
-            .from("ostrc_responses")
-            .select("athlete_id, zone_code, week_start_date, any_problem, substantial")
-            .in("athlete_id", ids)
-            .order("week_start_date", { ascending: false })
-            .limit(500)
-        : Promise.resolve({ data: [] }),
-    ]);
-    const all = (oRows as ORow[] | null) ?? [];
-    const latestWeek = all[0]?.week_start_date ?? null;
-    if (latestWeek) {
-      const wk = all.filter((r) => r.week_start_date === latestWeek);
-      ostrcPrev = (((zRows as import("@/lib/types").OstrcZone[] | null) ?? []).map((z) => {
-        const zr = wk.filter((r) => r.zone_code === z.code);
-        const n = zr.length;
-        return {
-          zone: z.code,
-          name: z.name[profile.preferred_language as "ru" | "en" | "ro"] || z.name.en || z.code,
-          n,
-          anyPct: n ? Math.round((zr.filter((r) => r.any_problem).length / n) * 100) : 0,
-          subPct: n ? Math.round((zr.filter((r) => r.substantial).length / n) * 100) : 0,
-        };
-      })).filter((z) => z.n > 0);
-    }
-  }
 
   const filled = rows.filter((r) => r.todayCheckin).length;
   const openAlerts = rows.flatMap((r) => r.openAlerts);
@@ -86,15 +50,6 @@ export default async function CoachDashboard({
       b.profile?.display_name ?? b.athlete.athlete_code,
     ),
   );
-  const compareAthletes: CompareAthlete[] = sorted.map((r, i) => ({
-    id: r.athlete.id,
-    name: r.profile?.display_name ?? r.athlete.athlete_code,
-    flagged:
-      r.hasPain ||
-      r.openAlerts.length > 0 ||
-      (!rows.some((x) => x.hasPain || x.openAlerts.length > 0) && i < 3),
-    series: r.series,
-  }));
 
   // Feature 1 — Pre-session briefing buckets.
   const nameOf = (r: (typeof rows)[number]) => r.profile?.display_name ?? r.athlete.athlete_code;
@@ -119,18 +74,6 @@ export default async function CoachDashboard({
     (r) => r.todayCheckin && !checkIds.has(r.athlete.id) && !reduceIds.has(r.athlete.id),
   );
 
-  // Feature 2 — 2D Load × Readiness points (athletes with a known score).
-  const quadrantPoints: QuadrantPoint[] = sorted
-    .filter((r) => (r.todayScore ?? r.lastKnownScore) !== null)
-    .map((r) => ({
-      id: r.athlete.id,
-      name: nameOf(r),
-      load: r.weeklyLoadAu,
-      readiness: (r.todayScore ?? r.lastKnownScore)!,
-      hasPain: r.hasPain,
-      isToday: r.todayScore !== null,
-    }));
-
   // Group pain map entries (last 7 days).
   const groupPainEntries: GroupPainEntry[] = sorted.flatMap((r) =>
     r.recentPainEntries.map((pe) => ({
@@ -145,7 +88,9 @@ export default async function CoachDashboard({
   );
 
   // Tapering countdown for the nearest tournament within 14 days.
-  const nextTournament = ((upcomingTournaments as import("@/lib/types").CalendarEvent[] | null) ?? [])[0] ?? null;
+  const nextTournament = eventsOn
+    ? (((upcomingTournaments as import("@/lib/types").CalendarEvent[] | null) ?? [])[0] ?? null)
+    : null;
   const taperDaysLeft = nextTournament ? Math.max(0, ageInDays(coachToday, nextTournament.start_date)) : null;
   const avgLoad7 = rows.length
     ? Math.round(rows.reduce((a, r) => a + r.weeklyLoadAu, 0) / rows.length)
@@ -364,55 +309,6 @@ export default async function CoachDashboard({
           </CardContent>
         </Card>
       )}
-
-      {quadrantPoints.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{d.quadrantTitle}</CardTitle>
-            <p className="text-xs text-muted">{d.quadrantHint}</p>
-          </CardHeader>
-          <CardContent>
-            <LoadReadinessQuadrant points={quadrantPoints} dict={dict} />
-          </CardContent>
-        </Card>
-      )}
-
-      <GroupSessionForm groups={groups} dict={dict} />
-
-      {ostrcPrev.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{dict.ostrc.prevTitle}</CardTitle>
-            <p className="text-xs text-muted">{dict.ostrc.prevHint}</p>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-3">
-              {ostrcPrev.map((z) => (
-                <div key={z.zone} className="rounded-lg border border-border/60 px-3 py-2 text-sm">
-                  <p className="font-medium">{z.name}</p>
-                  <p className="text-xs text-muted">
-                    {dict.ostrc.anyProblem}: <b className={z.anyPct ? "text-warn" : ""}>{z.anyPct}%</b>
-                    {" · "}
-                    {dict.ostrc.substantialCap}:{" "}
-                    <b className={z.subPct ? "text-danger" : ""}>{z.subPct}%</b>
-                    {" · "}n={z.n}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{d.compare}</CardTitle>
-          <p className="text-xs text-muted">{d.compareHint}</p>
-        </CardHeader>
-        <CardContent>
-          <CompareChart athletes={compareAthletes} dict={dict} />
-        </CardContent>
-      </Card>
 
       <CoachTable rows={rows} groups={groups} dict={dict} />
 
