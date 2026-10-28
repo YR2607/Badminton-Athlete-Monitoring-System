@@ -20,6 +20,7 @@ export function navGroups(role: AppRole, d: Dictionary): { primary: NavItem[]; o
         { href: "/athlete", label: d.nav.home },
         { href: "/athlete/morning", label: d.nav.morning },
         { href: "/athlete/training", label: d.nav.training },
+        { href: "/athlete/academy", label: d.nav.academy },
         { href: "/athlete/history", label: d.nav.history },
         { href: "/athlete/settings", label: d.nav.profile },
       ],
@@ -31,6 +32,7 @@ export function navGroups(role: AppRole, d: Dictionary): { primary: NavItem[]; o
       primary: [
         { href: "/coach", label: d.nav.athletes },
         { href: "/coach/attendance", label: d.nav.attendance },
+        { href: "/coach/academy", label: d.nav.academy },
         { href: "/analytics", label: d.analytics.title },
       ],
       overflow: [
@@ -45,6 +47,7 @@ export function navGroups(role: AppRole, d: Dictionary): { primary: NavItem[]; o
     primary: [
       { href: "/coach", label: d.nav.athletes },
       { href: "/coach/attendance", label: d.nav.attendance },
+      { href: "/coach/academy", label: d.nav.academy },
       { href: "/analytics", label: d.analytics.title },
       { href: "/admin/users", label: d.nav.users },
     ],

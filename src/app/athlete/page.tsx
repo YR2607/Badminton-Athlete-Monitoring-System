@@ -18,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart } from "@/components/charts/series-chart";
 import { CheckCircle2, Circle, Sunrise, Sunset } from "lucide-react";
-import { cn } from "@/lib/utils";
 import type { MorningCheckin, PostTrainingCheckin, ReadinessSnapshot } from "@/lib/types";
 
 export default async function AthleteHome() {
@@ -239,6 +238,7 @@ export default async function AthleteHome() {
 
   // Field tests for the athlete's physical radar (flag 'field_tests').
   const testsOn = await isFlagEnabled("field_tests", groupIds);
+  const academyOn = await isFlagEnabled("academy", groupIds);
   let fieldTests: import("@/lib/types").FieldTest[] = [];
   let testResults: import("@/lib/types").FieldTestResult[] = [];
   const groupMedian: Record<string, number | null> = {};
@@ -374,6 +374,20 @@ export default async function AthleteHome() {
               <Button size="sm" variant="secondary">
                 {dict.card.fillBtn}
               </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
+      {academyOn && (
+        <Card className="border-accent/30 bg-accent/5">
+          <CardContent className="flex items-center justify-between gap-3 pt-4">
+            <div>
+              <p className="text-sm font-medium">🎓 {dict.academy.title}</p>
+              <p className="text-xs text-muted">{dict.academy.subtitle}</p>
+            </div>
+            <Link href="/athlete/academy" className="shrink-0">
+              <Button size="sm">{dict.academy.openBtn}</Button>
             </Link>
           </CardContent>
         </Card>

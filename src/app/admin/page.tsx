@@ -27,6 +27,7 @@ export default async function AdminHome() {
   const links: [string, string][] = [
     [dict.nav.users, "/admin/users"],
     [dict.nav.groups, "/admin/groups"],
+    [dict.nav.academy, "/coach/academy"],
     [dict.nav.features, "/admin/features"],
     [dict.nav.rules, "/admin/rules"],
     [dict.nav.tests, "/admin/tests"],

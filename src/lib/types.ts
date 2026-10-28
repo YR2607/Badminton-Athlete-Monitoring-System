@@ -29,6 +29,31 @@ export type MatchDiscipline = "MS" | "WS" | "MD" | "WD" | "XD";
 export type MatchResult = "win" | "loss";
 export type PlayStyle = "attacking" | "defensive" | "net" | "allround";
 export type AttendanceStatus = "present" | "absent" | "excused";
+export type AcademyLevel = "beginner" | "intermediate" | "advanced";
+
+export type AcademyItemType =
+  | "fact"
+  | "single_choice"
+  | "multi_choice"
+  | "tactical"
+  | "find_mistake"
+  | "rules"
+  | "technique"
+  | "physical_recovery"
+  | "psychology"
+  | "visual_tactical";
+
+export type AcademyTopic =
+  | "rules"
+  | "technique"
+  | "singles_tactics"
+  | "doubles_tactics"
+  | "game_iq"
+  | "footwork"
+  | "conditioning"
+  | "recovery_prevention"
+  | "psychology"
+  | "history_facts";
 
 export interface Athlete {
   id: string;
@@ -47,6 +72,7 @@ export interface Athlete {
   racket_model?: string | null;
   string_tension_kg?: number | null;
   restrung_on?: string | null;
+  academy_level?: AcademyLevel;
   status: AthleteStatus;
   created_at: string;
 }
@@ -321,3 +347,121 @@ export interface FeatureFlag {
   group_ids: string[];
   updated_at: string;
 }
+
+export type LocalizedText = { ru: string; en: string; ro: string };
+
+export interface AcademyOption {
+  id: string;
+  text: LocalizedText;
+}
+
+export interface CourtDiagramPlayer {
+  id: string;
+  label: string;
+  team: "you" | "opp";
+  x: number; // 0..100 across court width
+  y: number; // 0..100 top (opp backline) to bottom (your backline)
+}
+
+export interface CourtDiagramArrow {
+  from: [number, number];
+  to: [number, number];
+  label: string;
+  tone?: "accent" | "ok" | "warn" | "danger" | "muted";
+}
+
+export interface CourtDiagram {
+  players: CourtDiagramPlayer[];
+  shuttle?: { x: number; y: number };
+  arrows?: CourtDiagramArrow[];
+}
+
+export interface AcademyItem {
+  id: string;
+  code: string;
+  item_type: AcademyItemType;
+  topic: AcademyTopic;
+  difficulty: AcademyLevel;
+  min_age: number;
+  max_age: number;
+  title: LocalizedText;
+  body: LocalizedText;
+  options: AcademyOption[];
+  correct_option_ids: string[];
+  explanation: LocalizedText;
+  source_ref: string | null;
+  court_diagram: CourtDiagram | null;
+  scheduled_date: string | null;
+  target_group_id: string | null;
+  published: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
+/** Client-safe view of AcademyItem: secrets are null until the athlete completes the item. */
+export interface PublicAcademyItem {
+  id: string;
+  code: string;
+  item_type: AcademyItemType;
+  topic: AcademyTopic;
+  difficulty: AcademyLevel;
+  min_age: number;
+  max_age: number;
+  title: LocalizedText;
+  body: LocalizedText;
+  options: AcademyOption[];
+  court_diagram: CourtDiagram | null;
+  source_ref: string | null;
+  correct_option_ids: string[] | null;
+  explanation: LocalizedText | null;
+}
+
+export interface AcademyResponse {
+  id: string;
+  athlete_id: string;
+  item_id: string;
+  assigned_date: string;
+  selected_option_ids: string[];
+  is_correct: boolean;
+  points_awarded: number;
+  duration_sec: number;
+  completed_at: string;
+}
+
+export interface AcademyTest {
+  id: string;
+  code: string;
+  title: LocalizedText;
+  description: LocalizedText;
+  topics: AcademyTopic[];
+  difficulty: AcademyLevel;
+  question_ids: string[];
+  question_count: number;
+  time_limit_minutes: number | null;
+  target_group_id: string | null;
+  target_athlete_ids: string[];
+  available_from: string;
+  available_until: string;
+  max_attempts: number;
+  published: boolean;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface AcademyTestAttempt {
+  id: string;
+  test_id: string;
+  athlete_id: string;
+  attempt_number: number;
+  question_order: string[];
+  draft_answers: Record<string, string[]>;
+  final_answers: Record<string, string[]>;
+  score_pct: number | null;
+  correct_count: number;
+  total_count: number;
+  topic_breakdown: Record<string, { correct: number; total: number }>;
+  status: "in_progress" | "submitted" | "expired";
+  started_at: string;
+  submitted_at: string | null;
+}
+
