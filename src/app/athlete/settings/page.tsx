@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentAthlete, getCurrentProfile, homeForRole } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getDictionary } from "@/i18n";
 import { SettingsForm } from "./settings-form";
 import { AthleteCardForm } from "./card-form";
@@ -11,6 +12,18 @@ export default async function SettingsPage() {
   const athlete = await getCurrentAthlete();
   if (!athlete) redirect(homeForRole(profile.role));
   const dict = getDictionary(profile.preferred_language);
+
+  // Avatars already claimed by OTHER athletes are hidden from the picker.
+  const admin = createAdminClient();
+  const { data: takenRows } = await admin
+    .from("athletes")
+    .select("photo_path")
+    .not("photo_path", "is", null)
+    .neq("id", athlete.id);
+  const takenAvatars = ((takenRows as { photo_path: string | null }[] | null) ?? [])
+    .map((r) => r.photo_path)
+    .filter((v): v is string => Boolean(v));
+
   return (
     <div className="mx-auto max-w-md space-y-4">
       <h1 className="text-xl font-bold">{dict.nav.profile}</h1>
@@ -19,7 +32,12 @@ export default async function SettingsPage() {
         profile={profile}
         racketHand={athlete?.racket_hand ?? "right"}
       />
-      {athlete && <AthleteCardForm dict={dict} athlete={athlete} />}
+      <AthleteCardForm
+        dict={dict}
+        lang={profile.preferred_language}
+        athlete={athlete}
+        takenAvatars={takenAvatars}
+      />
       <Card>
         <CardContent className="space-y-3 pt-5">
           <p className="text-sm font-medium">{dict.common.theme}</p>

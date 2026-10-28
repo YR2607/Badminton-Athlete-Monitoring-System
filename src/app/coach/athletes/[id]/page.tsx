@@ -7,7 +7,7 @@ import { addDays, dateRange, localDate, type RangeKey } from "@/lib/dates";
 import { conditionScore, dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
 import { dayStatuses, sessionDateByIdMap } from "@/lib/checkins";
 import { ageInDays, pendingPostCheckins } from "@/lib/athlete-status";
-import { avatarPublicUrl } from "@/lib/avatars";
+import { avatarPublicUrl, getAvatarPreset } from "@/lib/avatars";
 import { getAthleteDetail } from "@/lib/athlete-detail";
 import { AthleteDashboard } from "@/components/dashboard/athlete-dashboard";
 import { RecList } from "./rec-list";
@@ -249,12 +249,16 @@ export default async function AthleteDetailPage({
         (attendanceStats && attendanceStats.scheduled > 0)) && (
         <Card>
           <CardContent className="flex flex-wrap items-start gap-4 pt-4">
-            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-foreground/5 text-2xl">
+            <div
+              className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border bg-foreground/5 text-2xl"
+              title={getAvatarPreset(a.photo_path)?.title[me.preferred_language] ?? undefined}
+            >
               {a.photo_path ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={avatarPublicUrl(a.photo_path)}
                   alt=""
+                  referrerPolicy="no-referrer"
                   className="h-full w-full object-cover"
                 />
               ) : (
@@ -263,6 +267,12 @@ export default async function AthleteDetailPage({
             </div>
             <div className="min-w-0 flex-1 space-y-1.5 text-sm">
               <div className="flex flex-wrap gap-1.5">
+                {getAvatarPreset(a.photo_path) && (
+                  <Badge tone="neutral" title={getAvatarPreset(a.photo_path)!.subtitle[me.preferred_language]}>
+                    {getAvatarPreset(a.photo_path)!.emoji}{" "}
+                    {getAvatarPreset(a.photo_path)!.title[me.preferred_language]}
+                  </Badge>
+                )}
                 {a.preferred_discipline && (
                   <Badge tone="accent">🏸 {a.preferred_discipline}</Badge>
                 )}

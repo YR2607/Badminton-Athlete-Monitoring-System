@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile, audit } from "@/lib/auth";
+import { isValidAvatarId } from "@/lib/avatars";
 import { isValidTimeZone } from "@/lib/dates";
 import type { ActionResult } from "@/app/actions/checkins";
 
@@ -93,13 +94,15 @@ export async function updateOwnAthleteCard(input: {
       : null;
   }
   if (input.photo_path !== undefined) {
-    // Only the canonical own-folder path is accepted — no arbitrary URLs.
-    patch.photo_path =
-      input.photo_path === `${athlete.id}/avatar.jpg` ? input.photo_path : null;
+    // Only preset avatar IDs (or null to clear) are accepted.
+    patch.photo_path = isValidAvatarId(input.photo_path) ? input.photo_path : null;
   }
 
   const { error } = await admin.from("athletes").update(patch).eq("id", athlete.id);
-  if (error) return { error: error.message };
+  if (error) {
+    if (error.code === "23505") return { error: "avatar_taken" };
+    return { error: error.message };
+  }
   await audit("athlete.card_update", "athletes", athlete.id, patch);
   revalidatePath("/athlete/settings");
   revalidatePath("/athlete");
