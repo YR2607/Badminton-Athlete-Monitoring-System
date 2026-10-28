@@ -99,6 +99,7 @@ const en: Dictionary = {
     noTrainingScheduled:
       "No scheduled training today — fill it in anyway if you trained",
     postDone: "Post-training check-in done",
+    allDone: "All done for today — great job!",
     readiness: "Readiness",
     readinessGood: "You feel normal — train as planned",
     readinessModerate: "Recovery is below usual — take care and tell your coach",
@@ -366,7 +367,9 @@ const en: Dictionary = {
     submit: "Submit",
     submitting: "Submitting…",
     submitted: "Check-in saved. Thank you!",
-    alreadyFilled: "Today's morning check-in is already done",
+    alreadyFilled: "Today's morning check-in is already submitted",
+    locked: "Answers can't be changed after submitting. If you made a mistake — tell your coach, they can edit it.",
+    yourAnswers: "Your answers:",
   },
   postTraining: {
     title: "Post-training check-in",

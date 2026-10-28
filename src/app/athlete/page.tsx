@@ -291,35 +291,27 @@ export default async function AthleteHome() {
               label: d.postLabel,
               href: "/athlete/training",
             },
-          ].map((row) => (
-            <div
-              key={row.key}
-              className={cn(
-                "flex items-center justify-between gap-3 rounded-xl border p-3",
-                row.done ? "border-ok/30 bg-ok/5" : "border-warn/40 bg-warn/5",
-              )}
-            >
-              <div className="flex min-w-0 items-center gap-3">
-                {row.done ? (
-                  <CheckCircle2 className="shrink-0 text-ok" size={22} />
-                ) : (
+          ]
+            .filter((row) => !row.done)
+            .map((row) => (
+              <div
+                key={row.key}
+                className="flex items-center justify-between gap-3 rounded-xl border border-warn/40 bg-warn/5 p-3"
+              >
+                <div className="flex min-w-0 items-center gap-3">
                   <Circle className="shrink-0 text-warn" size={22} />
-                )}
-                <div className="min-w-0">
-                  <p className="flex items-center gap-1.5 text-sm font-medium">
-                    <span className="text-muted">{row.icon}</span>
-                    {row.label}
-                  </p>
-                  <p className={cn("text-xs", row.done ? "text-ok" : "text-warn")}>
-                    {row.done
-                      ? d.filled
-                      : row.key === "post" && !scheduledToday
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-1.5 text-sm font-medium">
+                      <span className="text-muted">{row.icon}</span>
+                      {row.label}
+                    </p>
+                    <p className="text-xs text-warn">
+                      {row.key === "post" && !scheduledToday
                         ? d.noTrainingScheduled
                         : d.notFilled}
-                  </p>
+                    </p>
+                  </div>
                 </div>
-              </div>
-              {!row.done && (
                 <Link href={row.href} className="shrink-0">
                   <Button
                     size="sm"
@@ -328,9 +320,14 @@ export default async function AthleteHome() {
                     {d.fillBtn}
                   </Button>
                 </Link>
-              )}
-            </div>
-          ))}
+              </div>
+            ))}
+          {doneCount === 2 && (
+            <p className="flex items-center gap-2 rounded-xl border border-ok/30 bg-ok/5 p-3 text-sm text-ok">
+              <CheckCircle2 className="shrink-0" size={20} />
+              {d.allDone}
+            </p>
+          )}
         </CardContent>
       </Card>
 

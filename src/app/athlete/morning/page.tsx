@@ -65,19 +65,36 @@ export default async function MorningPage() {
     },
   };
 
+  const ex = existing as MorningCheckin | null;
+
   return (
     <div className="mx-auto max-w-lg">
       <h1 className="text-xl font-bold">{dict.morning.title}</h1>
       <p className="mb-4 text-sm text-muted">{dict.morning.subtitle}</p>
-      {existing ? (
-        <>
-          <Card className="mb-4">
-            <CardContent className="pt-4 text-sm text-muted">
-              {dict.morning.alreadyFilled} — {dict.common.edit.toLowerCase()}:
-            </CardContent>
-          </Card>
-          <MorningForm dict={formDict} checkinDate={today} existing={existing as MorningCheckin} showSleepHours={zscoreOn} />
-        </>
+      {ex ? (
+        <Card>
+          <CardContent className="space-y-3 pt-4">
+            <p className="text-sm font-medium text-ok">✓ {dict.morning.alreadyFilled}</p>
+            <p className="text-xs text-muted">{dict.morning.locked}</p>
+            <div className="rounded-lg bg-foreground/[0.03] p-3 text-sm">
+              <p className="mb-1.5 text-xs font-semibold text-muted">{dict.morning.yourAnswers}</p>
+              <ul className="grid grid-cols-2 gap-x-3 gap-y-1 text-muted">
+                <li>{dict.history.sleep}: <b className="text-foreground">{ex.sleep_score}</b>{ex.sleep_hours != null ? ` (${ex.sleep_hours}h)` : ""}</li>
+                <li>{dict.history.recovery}: <b className="text-foreground">{ex.recovery_score}</b></li>
+                <li>{dict.history.fatigue}: <b className="text-foreground">{ex.fatigue_score}</b></li>
+                <li>{dict.history.soreness}: <b className="text-foreground">{ex.muscle_soreness_score}</b></li>
+                <li>{dict.history.stress}: <b className="text-foreground">{ex.stress_score}</b></li>
+                <li>{dict.history.mood}: <b className="text-foreground">{ex.mood_score}</b></li>
+              </ul>
+              {ex.pain_status !== "none" && (
+                <p className="mt-1.5 text-warn">
+                  {dict.day.pain}: {ex.pain_location ?? ex.pain_status}
+                  {ex.pain_severity != null ? ` (${ex.pain_severity}/10)` : ""}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       ) : (
         <MorningForm
           dict={formDict}

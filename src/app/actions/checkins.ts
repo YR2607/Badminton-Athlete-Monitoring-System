@@ -65,10 +65,12 @@ export async function submitMorningCheckin(input: unknown): Promise<ActionResult
     client_uuid: parsed.data.client_uuid,
   };
 
-  const { error } = await supabase
-    .from("morning_checkins")
-    .upsert(row, { onConflict: "athlete_id,checkin_date" });
-  if (error) return { error: error.code === "23505" ? "duplicate" : error.message };
+  // Insert-only: answers are locked after submission — edits go through
+  // the coach (day page). A retry hitting the unique constraint means the
+  // check-in was already submitted, not an error to report loudly.
+  const { error } = await supabase.from("morning_checkins").insert(row);
+  if (error)
+    return { error: error.code === "23505" ? "already_submitted" : error.message };
 
   try {
     await evaluateAthleteDay(createAdminClient(), athlete.id, today, profile.timezone);

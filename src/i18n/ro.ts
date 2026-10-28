@@ -99,6 +99,7 @@ const ro: Dictionary = {
     noTrainingScheduled:
       "Astăzi nu e antrenament în program — completează dacă totuși te-ai antrenat",
     postDone: "Chestionarul după antrenament completat",
+    allDone: "Totul e completat pentru azi — bravo!",
     readiness: "Pregătire",
     readinessGood: "Te simți normal — antrenează-te conform planului",
     readinessModerate: "Recuperarea e sub nivelul obișnuit — ai grijă și spune antrenorului",
@@ -366,7 +367,9 @@ const ro: Dictionary = {
     submit: "Trimite",
     submitting: "Se trimite…",
     submitted: "Chestionar salvat. Mulțumim!",
-    alreadyFilled: "Chestionarul de azi e deja completat",
+    alreadyFilled: "Chestionarul de dimineață de azi e deja trimis",
+    locked: "Răspunsurile nu pot fi modificate după trimitere. Dacă ai greșit — spune antrenorului, el poate corecta.",
+    yourAnswers: "Răspunsurile tale:",
   },
   postTraining: {
     title: "Chestionar după antrenament",
