@@ -119,6 +119,10 @@ const ro: Dictionary = {
     weekPassportSessions: "Antrenamente",
     weekPassportCheckins: "Chestionare",
     weekPassportReadiness: "Scor mediu",
+    surveysTitle: "Chestionarele și sarcinile de azi",
+    ostrcLabel: "Chestionar săptămânal de sănătate",
+    academyLabel: "Lecția zilei în Academie",
+    completed: "Finalizat",
   },
   push: {
     bannerTitle: "Memento-uri pentru chestionare",

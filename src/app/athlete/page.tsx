@@ -8,6 +8,8 @@ import { dailyConditionSeries, postsByLocalDate, bandForScore } from "@/lib/read
 import { dayStatuses, sessionDateByIdMap } from "@/lib/checkins";
 import { bandAdviceKey } from "@/lib/alerts";
 import { isFlagEnabled } from "@/lib/flags";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { selectDailyLesson } from "@/lib/academy";
 import { dailyLoads, plannedForDate, type PlanOverride, type ScheduleInput, type SessionInput } from "@/lib/load";
 import { dateRange } from "@/lib/dates";
 import { AthleteDashboard } from "@/components/dashboard/athlete-dashboard";
@@ -17,8 +19,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart } from "@/components/charts/series-chart";
-import { CheckCircle2, Circle, Sunrise, Sunset } from "lucide-react";
-import type { MorningCheckin, PostTrainingCheckin, ReadinessSnapshot } from "@/lib/types";
+import { TodayChecklist } from "@/components/today-checklist";
+import type { AcademyItem, AcademyResponse, MorningCheckin, PostTrainingCheckin, ReadinessSnapshot, TodaySurveyStatus } from "@/lib/types";
 
 export default async function AthleteHome() {
   const profile = (await getCurrentProfile())!;
@@ -74,7 +76,6 @@ export default async function AthleteHome() {
   const scheduledToday = todayStatus.scheduled === true;
   const morningDone = todayStatus.morning !== null;
   const postDone = todayStatus.evening !== null;
-  const doneCount = (morningDone ? 1 : 0) + (postDone ? 1 : 0);
 
   const snap = snapshot as ReadinessSnapshot | null;
   const score = snap?.readiness_score ?? null;
@@ -194,7 +195,8 @@ export default async function AthleteHome() {
 
   // Phase 3: weekly OSTRC-O2 survey prompt (flag 'ostrc' + parental consent).
   const ostrcOn = await isFlagEnabled("ostrc", groupIds);
-  let ostrcDue = false;
+  let ostrcEnabled = false;
+  let ostrcDone = false;
   if (ostrcOn) {
     const { isoWeekMonday } = await import("@/lib/ostrc");
     const [{ data: consent }, { data: wk }] = await Promise.all([
@@ -213,7 +215,8 @@ export default async function AthleteHome() {
         .eq("week_start_date", isoWeekMonday(today))
         .limit(1),
     ]);
-    ostrcDue = consent?.status === "granted" && !(wk ?? []).length;
+    ostrcEnabled = consent?.status === "granted";
+    ostrcDone = (wk ?? []).length > 0;
   }
 
   // Phase 5: context calendar (flag 'events') — own + group events.
@@ -239,6 +242,40 @@ export default async function AthleteHome() {
   // Field tests for the athlete's physical radar (flag 'field_tests').
   const testsOn = await isFlagEnabled("field_tests", groupIds);
   const academyOn = await isFlagEnabled("academy", groupIds);
+  let academyTotal = 0;
+  let academyDone = 0;
+  if (academyOn) {
+    const admin = createAdminClient();
+    const [{ data: acItems }, { data: acResp }] = await Promise.all([
+      admin.from("academy_items").select("*").eq("published", true),
+      supabase
+        .from("academy_responses")
+        .select("item_id, assigned_date")
+        .eq("athlete_id", athlete.id),
+    ]);
+    const items = (acItems as AcademyItem[] | null) ?? [];
+    const responses =
+      (acResp as Pick<AcademyResponse, "item_id" | "assigned_date">[] | null) ?? [];
+    const daily = selectDailyLesson(items, responses, {
+      athleteId: athlete.id,
+      today,
+      level: athlete.academy_level ?? "beginner",
+      groupIds,
+    });
+    academyTotal = daily.length;
+    const answeredIds = new Set(responses.map((r) => r.item_id));
+    academyDone = daily.filter((i) => answeredIds.has(i.id)).length;
+  }
+  const surveyStatus: TodaySurveyStatus = {
+    morningDone,
+    postDone,
+    scheduledToday,
+    ostrcEnabled,
+    ostrcDone,
+    academyOn,
+    academyTotal,
+    academyDone,
+  };
   let fieldTests: import("@/lib/types").FieldTest[] = [];
   let testResults: import("@/lib/types").FieldTestResult[] = [];
   const groupMedian: Record<string, number | null> = {};
@@ -266,70 +303,7 @@ export default async function AthleteHome() {
         <div className="rounded-xl border border-warn/40 bg-warn/10 p-4 text-sm">{d.painNotice}</div>
       ) : null}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between text-base">
-            {d.todayStatus}
-            <span className="text-sm font-normal text-muted">
-              {d.progressOf.replace("{done}", String(doneCount)).replace("{total}", "2")}
-            </span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          {[
-            {
-              key: "morning",
-              done: morningDone,
-              icon: <Sunrise size={20} />,
-              label: d.morningLabel,
-              href: "/athlete/morning",
-            },
-            {
-              key: "post",
-              done: postDone,
-              icon: <Sunset size={20} />,
-              label: d.postLabel,
-              href: "/athlete/training",
-            },
-          ]
-            .filter((row) => !row.done)
-            .map((row) => (
-              <div
-                key={row.key}
-                className="flex items-center justify-between gap-3 rounded-xl border border-warn/40 bg-warn/5 p-3"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <Circle className="shrink-0 text-warn" size={22} />
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-1.5 text-sm font-medium">
-                      <span className="text-muted">{row.icon}</span>
-                      {row.label}
-                    </p>
-                    <p className="text-xs text-warn">
-                      {row.key === "post" && !scheduledToday
-                        ? d.noTrainingScheduled
-                        : d.notFilled}
-                    </p>
-                  </div>
-                </div>
-                <Link href={row.href} className="shrink-0">
-                  <Button
-                    size="sm"
-                    variant={row.key === "post" && !scheduledToday ? "secondary" : "default"}
-                  >
-                    {d.fillBtn}
-                  </Button>
-                </Link>
-              </div>
-            ))}
-          {doneCount === 2 && (
-            <p className="flex items-center gap-2 rounded-xl border border-ok/30 bg-ok/5 p-3 text-sm text-ok">
-              <CheckCircle2 className="shrink-0" size={20} />
-              {d.allDone}
-            </p>
-          )}
-        </CardContent>
-      </Card>
+      <TodayChecklist d={d} status={surveyStatus} />
 
       <Card>
         <CardHeader>
@@ -354,17 +328,6 @@ export default async function AthleteHome() {
           </div>
         </CardContent>
       </Card>
-
-      {ostrcDue && (
-        <Card className="border-accent/40 bg-accent/5">
-          <CardContent className="flex items-center justify-between gap-3 pt-4">
-            <p className="text-sm">{dict.ostrc.homeCard}</p>
-            <Link href="/athlete/ostrc">
-              <Button size="sm">{dict.ostrc.fillNow}</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      )}
 
       {cardEmpty && (
         <Card className="border-accent/30 bg-accent/5">

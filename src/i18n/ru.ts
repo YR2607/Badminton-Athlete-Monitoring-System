@@ -120,6 +120,10 @@ const ru = {
     weekPassportSessions: "Тренировок",
     weekPassportCheckins: "Анкет заполнено",
     weekPassportReadiness: "Средний балл",
+    surveysTitle: "Анкеты и задания на сегодня",
+    ostrcLabel: "Анкета здоровья недели",
+    academyLabel: "Задание дня в Академии",
+    completed: "Выполнено",
   },
   push: {
     bannerTitle: "Напоминания об анкетах",

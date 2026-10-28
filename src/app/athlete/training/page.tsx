@@ -8,6 +8,8 @@ import { dayStatuses } from "@/lib/checkins";
 import { plannedForDate, type PlanOverride } from "@/lib/load";
 import { TrainingForm } from "@/components/forms/training-form";
 import { Card, CardContent } from "@/components/ui/card";
+import { TodayChecklist } from "@/components/today-checklist";
+import { getTodaySurveyStatus } from "@/lib/today-surveys";
 import { CheckCircle2, Trophy } from "lucide-react";
 import type { CalendarEvent, PostTrainingCheckin, TrainingSchedule, TrainingSession } from "@/lib/types";
 
@@ -20,7 +22,7 @@ export default async function TrainingPage() {
   const today = todayInTz(profile.timezone);
   const yesterday = addDays(today, -1);
 
-  const [{ data: posts }, { data: membership }, { data: sessionsTodayRows }] = await Promise.all([
+  const [{ data: posts }, { data: memberships }, { data: sessionsTodayRows }] = await Promise.all([
     supabase
       .from("post_training_checkins")
       .select("id, submitted_at")
@@ -30,9 +32,7 @@ export default async function TrainingPage() {
       .from("group_memberships")
       .select("group_id")
       .eq("athlete_id", athlete.id)
-      .is("left_at", null)
-      .limit(1)
-      .maybeSingle(),
+      .is("left_at", null),
     supabase
       .from("training_sessions")
       .select("id, started_at, duration_minutes, match_discipline, match_result")
@@ -40,7 +40,10 @@ export default async function TrainingPage() {
       .gte("started_at", `${addDays(today, -1)}T00:00:00Z`),
   ]);
 
-  const groupId = membership?.group_id ?? null;
+  const groupIds = ((memberships as { group_id: string }[] | null) ?? []).map(
+    (m) => m.group_id,
+  );
+  const groupId = groupIds[0] ?? null;
   const [srpe, { data: schedules }, { data: planOverrides }, { data: tournEvents }] = await Promise.all([
     isFlagEnabled("srpe", groupId ? [groupId] : []),
     groupId
@@ -92,6 +95,15 @@ export default async function TrainingPage() {
     tz: profile.timezone,
   });
   const doneToday = todayStatus.evening !== null;
+
+  // Unified checklist — the other questionnaires stay visible here too.
+  const surveyStatus = await getTodaySurveyStatus(supabase, {
+    athleteId: athlete.id,
+    groupIds,
+    today,
+    tz: profile.timezone,
+    academyLevel: athlete.academy_level ?? "beginner",
+  });
 
   return (
     <div className="mx-auto max-w-lg space-y-5">
@@ -147,6 +159,12 @@ export default async function TrainingPage() {
         defaultMinutes={defaultMinutes}
         allowYesterday={yesterdayPlan.scheduled}
         tournamentMode={Boolean(activeTournament)}
+      />
+
+      <TodayChecklist
+        d={dict.athleteHome}
+        status={surveyStatus}
+        exclude="post"
       />
     </div>
   );

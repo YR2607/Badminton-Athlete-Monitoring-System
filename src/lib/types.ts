@@ -465,3 +465,22 @@ export interface AcademyTestAttempt {
   submitted_at: string | null;
 }
 
+/** Everything an athlete still has to fill in today — one checklist across
+ * morning/post health check-ins, the weekly OSTRC survey and the Academy
+ * daily lesson, so kids always see every pending questionnaire. */
+export interface TodaySurveyStatus {
+  morningDone: boolean;
+  postDone: boolean;
+  /** A training was scheduled for today (drives the post-check-in hint). */
+  scheduledToday: boolean;
+  /** OSTRC flag on + parental consent granted → the weekly survey exists. */
+  ostrcEnabled: boolean;
+  /** OSTRC response already submitted for the current ISO week. */
+  ostrcDone: boolean;
+  academyOn: boolean;
+  /** Cards in today's Academy daily lesson (0 when none available). */
+  academyTotal: number;
+  /** How many of today's lesson cards are already answered. */
+  academyDone: number;
+}
+

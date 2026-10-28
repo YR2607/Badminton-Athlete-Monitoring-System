@@ -6,6 +6,8 @@ import { todayInTz } from "@/lib/dates";
 import { isFlagEnabled } from "@/lib/flags";
 import { MorningForm } from "@/components/forms/morning-form";
 import { Card, CardContent } from "@/components/ui/card";
+import { TodayChecklist } from "@/components/today-checklist";
+import { getTodaySurveyStatus } from "@/lib/today-surveys";
 import type { MorningCheckin } from "@/lib/types";
 
 export default async function MorningPage() {
@@ -22,17 +24,25 @@ export default async function MorningPage() {
     .eq("checkin_date", today)
     .maybeSingle();
 
-  const { data: membership } = await supabase
+  const { data: memberships } = await supabase
     .from("group_memberships")
     .select("group_id")
     .eq("athlete_id", athlete.id)
-    .is("left_at", null)
-    .limit(1)
-    .maybeSingle();
-  const zscoreOn = await isFlagEnabled(
-    "zscore_baseline",
-    membership?.group_id ? [membership.group_id] : [],
+    .is("left_at", null);
+  const groupIds = ((memberships as { group_id: string }[] | null) ?? []).map(
+    (m) => m.group_id,
   );
+  const zscoreOn = await isFlagEnabled("zscore_baseline", groupIds);
+
+  // Unified checklist — keep every other pending questionnaire visible while
+  // the athlete fills the morning health card.
+  const surveyStatus = await getTodaySurveyStatus(supabase, {
+    athleteId: athlete.id,
+    groupIds,
+    today,
+    tz: profile.timezone,
+    academyLevel: athlete.academy_level ?? "beginner",
+  });
 
   // Prefill sleep_hours with the athlete's own recent average (rounded to 0.5h)
   // so morning check-in takes one less tap when sleep duration is steady.
@@ -68,9 +78,11 @@ export default async function MorningPage() {
   const ex = existing as MorningCheckin | null;
 
   return (
-    <div className="mx-auto max-w-lg">
-      <h1 className="text-xl font-bold">{dict.morning.title}</h1>
-      <p className="mb-4 text-sm text-muted">{dict.morning.subtitle}</p>
+    <div className="mx-auto max-w-lg space-y-4">
+      <div>
+        <h1 className="text-xl font-bold">{dict.morning.title}</h1>
+        <p className="text-sm text-muted">{dict.morning.subtitle}</p>
+      </div>
       {ex ? (
         <Card>
           <CardContent className="space-y-3 pt-4">
@@ -103,6 +115,11 @@ export default async function MorningPage() {
           defaultSleepHours={defaultSleepHours}
         />
       )}
+      <TodayChecklist
+        d={dict.athleteHome}
+        status={surveyStatus}
+        exclude="morning"
+      />
     </div>
   );
 }

@@ -7,6 +7,8 @@ import { isoWeekMonday } from "@/lib/ostrc";
 import { todayInTz } from "@/lib/dates";
 import { OstrcWizard } from "./wizard";
 import { OstrcHeatmap } from "@/components/ostrc-heatmap";
+import { TodayChecklist } from "@/components/today-checklist";
+import { getTodaySurveyStatus } from "@/lib/today-surveys";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { OstrcResponse, OstrcZone } from "@/lib/types";
 
@@ -43,7 +45,15 @@ export default async function OstrcPage() {
       .limit(60),
   ]);
 
-  const week = isoWeekMonday(todayInTz(profile.timezone));
+  const today = todayInTz(profile.timezone);
+  const week = isoWeekMonday(today);
+  const surveyStatus = await getTodaySurveyStatus(supabase, {
+    athleteId: athlete.id,
+    groupIds,
+    today,
+    tz: profile.timezone,
+    academyLevel: athlete.academy_level ?? "beginner",
+  });
   const historyRows = (history as OstrcResponse[] | null) ?? [];
   const thisWeek = historyRows.filter((r) => r.week_start_date === week);
 
@@ -78,6 +88,11 @@ export default async function OstrcPage() {
           </CardContent>
         </Card>
       )}
+      <TodayChecklist
+        d={dict.athleteHome}
+        status={surveyStatus}
+        exclude="ostrc"
+      />
     </div>
   );
 }

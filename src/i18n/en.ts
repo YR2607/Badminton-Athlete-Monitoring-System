@@ -119,6 +119,10 @@ const en: Dictionary = {
     weekPassportSessions: "Sessions",
     weekPassportCheckins: "Check-ins",
     weekPassportReadiness: "Avg score",
+    surveysTitle: "Today's forms & tasks",
+    ostrcLabel: "Weekly health survey",
+    academyLabel: "Academy daily lesson",
+    completed: "Done",
   },
   push: {
     bannerTitle: "Check-in reminders",
