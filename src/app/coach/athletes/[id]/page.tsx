@@ -302,7 +302,10 @@ export default async function AthleteDetailPage({
               )}
             </div>
             {attendanceStats && attendanceStats.scheduled > 0 && (
-              <div className="rounded-xl border border-border/60 px-3 py-2 text-sm">
+              <div
+                className="rounded-xl border border-border/60 px-3 py-2 text-sm"
+                title={dict.attendance.hint}
+              >
                 <p className="text-xs text-muted">{dict.attendance.stat30}</p>
                 <p className="mt-0.5 font-bold tabular-nums">
                   {attendanceStats.attended}/{attendanceStats.scheduled}
@@ -350,6 +353,7 @@ export default async function AthleteDetailPage({
             <div>
               <p className="text-xs text-muted">{dd.today.morningScore}</p>
               <p
+                title={dict.common.readinessHint}
                 className={cn(
                   "text-2xl font-bold tabular-nums leading-tight",
                   todayScore === null
@@ -591,7 +595,7 @@ export default async function AthleteDetailPage({
       {latestSnap && (
         <Card>
           <CardContent className="flex flex-wrap items-center gap-4 pt-4">
-            <div>
+            <div title={dict.coach.tipBaseline}>
               <p className="text-xs text-muted">{dd.baseline}</p>
               <p className="font-semibold">
                 {latestSnap.baseline_avg !== null
@@ -599,13 +603,16 @@ export default async function AthleteDetailPage({
                   : "—"}
               </p>
             </div>
-            <div>
+            <div title={dict.coach.tipVsNorm}>
               <p className="text-xs text-muted">{dd.currentVsBaseline}</p>
               <p className="font-semibold">
                 {latestSnap.readiness_score !== null ? Math.round(Number(latestSnap.readiness_score)) : "—"}
               </p>
             </div>
-            <Badge tone={latestSnap.confidence === "sufficient" ? "ok" : "warn"}>
+            <Badge
+              tone={latestSnap.confidence === "sufficient" ? "ok" : "warn"}
+              title={dict.coach.tipObs}
+            >
               {latestSnap.input_data_count} {dd.observations} ·{" "}
               {latestSnap.confidence === "sufficient" ? "OK" : dict.common.insufficientData}
             </Badge>
@@ -739,7 +746,11 @@ export default async function AthleteDetailPage({
                   </span>
                   <span className="flex items-center gap-2 text-muted">
                     {p.location ?? p.status}
-                    {p.status === "acute_instability" && <Badge tone="danger">!</Badge>}
+                    {p.status === "acute_instability" && (
+                      <Badge tone="danger" title={dict.coach.tipAcute}>
+                        !
+                      </Badge>
+                    )}
                   </span>
                 </li>
               ))}

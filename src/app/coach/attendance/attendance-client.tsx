@@ -107,6 +107,7 @@ export function AttendanceClient({
               className="ml-auto"
               disabled={pending !== null}
               onClick={allPresent}
+              title={d.tipAllPresent}
             >
               ✅ {d.allPresent}
             </Button>
@@ -127,13 +128,14 @@ export function AttendanceClient({
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{r.name}</p>
                     <p className="text-xs text-muted">
-                      {r.hasSession ? `🏸 ${d.hasSession}` : ""}
+                      {r.hasSession ? <span title={d.tipAuto}>🏸 {d.hasSession}</span> : ""}
                       {r.status && (
                         <button
                           type="button"
                           className="ml-2 underline"
                           onClick={() => mark(r.id, null)}
                           disabled={busy}
+                          title={d.tipClear}
                         >
                           {label(r.status)} · ✕
                         </button>
@@ -147,7 +149,13 @@ export function AttendanceClient({
                         type="button"
                         disabled={busy}
                         onClick={() => mark(r.id, r.status === b.key ? null : b.key)}
-                        title={d[b.key]}
+                        title={
+                          b.key === "present"
+                            ? d.present
+                            : b.key === "absent"
+                              ? d.tipAbsent
+                              : d.tipExcused
+                        }
                         className={cn(
                           "rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors",
                           effective === b.key

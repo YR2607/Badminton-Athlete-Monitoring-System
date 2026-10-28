@@ -246,7 +246,18 @@ export function AlertList({
             {visible.map((a) => (
               <li key={a.id} className="rounded-lg border border-border p-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone={sevTone[a.severity]}>
+                  <Badge
+                    tone={sevTone[a.severity]}
+                    title={
+                      a.severity === "priority"
+                        ? dict.coach.tipSevP
+                        : a.severity === "review_load"
+                          ? dict.coach.tipSevR
+                          : a.severity === "attention"
+                            ? dict.coach.tipSevA
+                            : dict.coach.tipSevN
+                    }
+                  >
                     {d.severity[a.severity as keyof typeof d.severity]}
                   </Badge>
                   <span className="text-xs text-muted">

@@ -108,25 +108,25 @@ export default async function CoachDashboard({
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Card>
+        <Card title={d.statTipTotal}>
           <CardContent className="pt-4">
             <p className="text-2xl font-bold">{rows.length}</p>
             <p className="text-xs text-muted">{d.athletesInGroup}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card title={d.statTipFilled}>
           <CardContent className="pt-4">
             <p className="text-2xl font-bold text-ok">{filled}</p>
             <p className="text-xs text-muted">{d.filledToday}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card title={d.statTipNoToday}>
           <CardContent className="pt-4">
             <p className="text-2xl font-bold text-warn">{rows.length - filled}</p>
             <p className="text-xs text-muted">{d.sumNoToday}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card title={d.statTipPriority}>
           <CardContent className="pt-4">
             <p className="text-2xl font-bold text-danger">{priority}</p>
             <p className="text-xs text-muted">
@@ -134,13 +134,13 @@ export default async function CoachDashboard({
             </p>
           </CardContent>
         </Card>
-        <Card>
+        <Card title={d.statTipDeclining}>
           <CardContent className="pt-4">
             <p className="text-2xl font-bold text-warn">{declining}</p>
             <p className="text-xs text-muted">{d.sumDeclining}</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card title={d.statTipPendingPost}>
           <CardContent className="pt-4">
             <p className="text-2xl font-bold">{pendingPosts}</p>
             <p className="text-xs text-muted">{d.sumPendingPost}</p>
@@ -158,13 +158,13 @@ export default async function CoachDashboard({
               </div>
               <div className="flex gap-2">
                 <Link href="/coach/attendance">
-                  <Button size="sm" variant="secondary">
+                  <Button size="sm" variant="secondary" title={dict.pro.attendanceBtnHint}>
                     ✅ {dict.nav.attendance}
                   </Button>
                 </Link>
                 {briefAsk.length > 0 && (
                   <Link href="/coach/kiosk">
-                    <Button size="sm">
+                    <Button size="sm" title={dict.pro.kioskBtnHint}>
                       📋 {dict.pro.kioskBtn} ({briefAsk.length})
                     </Button>
                   </Link>
@@ -175,7 +175,7 @@ export default async function CoachDashboard({
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-xl border border-danger/30 bg-danger/5 p-3">
-                <p className="text-xs font-semibold text-danger">
+                <p className="text-xs font-semibold text-danger" title={d.bucketTipCheck}>
                   🔴 {d.briefingCheck} ({briefCheck.length})
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -198,7 +198,7 @@ export default async function CoachDashboard({
               </div>
 
               <div className="rounded-xl border border-warn/30 bg-warn/5 p-3">
-                <p className="text-xs font-semibold text-warn">
+                <p className="text-xs font-semibold text-warn" title={d.bucketTipReduce}>
                   🟡 {d.briefingReduce} ({briefReduce.length})
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -221,7 +221,7 @@ export default async function CoachDashboard({
               </div>
 
               <div className="rounded-xl border border-border bg-foreground/[0.02] p-3">
-                <p className="text-xs font-semibold text-muted">
+                <p className="text-xs font-semibold text-muted" title={d.bucketTipAsk}>
                   ⚪ {d.briefingAsk} ({briefAsk.length})
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -242,7 +242,7 @@ export default async function CoachDashboard({
               </div>
 
               <div className="rounded-xl border border-ok/30 bg-ok/5 p-3">
-                <p className="text-xs font-semibold text-ok">
+                <p className="text-xs font-semibold text-ok" title={d.bucketTipReady}>
                   🟢 {d.briefingReady} ({briefReady.length})
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
@@ -279,7 +279,7 @@ export default async function CoachDashboard({
                       .replace("{name}", nextTournament.title)
                       .replace("{d}", String(taperDaysLeft))}
               </span>
-              <Badge tone={taperDaysLeft <= 7 ? "warn" : "accent"}>
+              <Badge tone={taperDaysLeft <= 7 ? "warn" : "accent"} title={dict.pro.taperPhaseHint}>
                 {taperDaysLeft <= 7 ? dict.pro.taperPhaseTaper : dict.pro.taperPhaseLoad}
               </Badge>
             </CardTitle>
@@ -291,7 +291,10 @@ export default async function CoachDashboard({
               {taperRatio !== null ? ` (${Math.round(taperRatio * 100)}%)` : ""}
             </span>
             {taperDaysLeft <= 7 && taperRatio !== null && (
-              <Badge tone={taperRatio <= 0.85 ? "ok" : "warn"}>
+              <Badge
+                tone={taperRatio <= 0.85 ? "ok" : "warn"}
+                title={dict.pro.taperRatioHint}
+              >
                 {taperRatio <= 0.85 ? dict.pro.taperFreshOk : dict.pro.taperOverloadWarn}
               </Badge>
             )}
@@ -321,8 +324,4 @@ export default async function CoachDashboard({
   );
 }
 
-export function SeverityBadge({ severity, dict }: { severity: string; dict: ReturnType<typeof getDictionary> }) {
-  const tone =
-    severity === "priority" ? "danger" : severity === "review_load" ? "warn" : severity === "attention" ? "accent" : "neutral";
-  return <Badge tone={tone}>{dict.alerts.severity[severity as keyof typeof dict.alerts.severity] ?? severity}</Badge>;
-}
+

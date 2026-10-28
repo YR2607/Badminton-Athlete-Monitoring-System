@@ -143,13 +143,39 @@ export function CoachTable({
               className="rounded-xl border border-border bg-surface p-3 transition-colors hover:border-accent/40 active:bg-foreground/[0.03]"
             >
               <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                <Badge tone={statusTone(r.status)}>{d.status[r.status]}</Badge>
-                {r.openAlerts.some((a) => a.severity === "priority") && <Badge tone="danger">!</Badge>}
-                {r.openAlerts.some((a) => a.severity === "review_load") && <Badge tone="warn">↺</Badge>}
-                {r.openAlerts.some((a) => a.severity === "attention") && <Badge tone="accent">•</Badge>}
-                {r.hasPain && <Badge tone="danger">{d.hasPain}</Badge>}
-                {r.pendingPostCount > 0 && <Badge tone="warn">{d.pendingPost}</Badge>}
-                {r.scheduledMissedYesterday === true && <Badge tone="warn">{d.schedMissed}</Badge>}
+                <Badge tone={statusTone(r.status)} title={d.tipStatus}>
+                  {d.status[r.status]}
+                </Badge>
+                {r.openAlerts.some((a) => a.severity === "priority") && (
+                  <Badge tone="danger" title={d.tipAlertP}>
+                    !
+                  </Badge>
+                )}
+                {r.openAlerts.some((a) => a.severity === "review_load") && (
+                  <Badge tone="warn" title={d.tipAlertR}>
+                    ↺
+                  </Badge>
+                )}
+                {r.openAlerts.some((a) => a.severity === "attention") && (
+                  <Badge tone="accent" title={d.tipAlertA}>
+                    •
+                  </Badge>
+                )}
+                {r.hasPain && (
+                  <Badge tone="danger" title={d.tipPain}>
+                    {d.hasPain}
+                  </Badge>
+                )}
+                {r.pendingPostCount > 0 && (
+                  <Badge tone="warn" title={d.tipPending}>
+                    {d.pendingPost}
+                  </Badge>
+                )}
+                {r.scheduledMissedYesterday === true && (
+                  <Badge tone="warn" title={d.tipMissed}>
+                    {d.schedMissed}
+                  </Badge>
+                )}
               </div>
 
               <div className="flex items-start justify-between gap-2">
@@ -170,7 +196,7 @@ export function CoachTable({
                         {Math.round(r.todayScore)}
                       </p>
                       {r.readinessDelta !== null && (
-                        <p className="mt-0.5 text-[10px] text-muted">
+                        <p className="mt-0.5 text-[10px] text-muted" title={d.tipDelta}>
                           {r.readinessDelta > 0 ? "▲" : "▼"} {Math.abs(r.readinessDelta)}{" "}
                           {d.vsBaseline}
                         </p>
@@ -196,7 +222,10 @@ export function CoachTable({
               )}
 
               <div className="mt-2 flex flex-wrap items-end justify-between gap-2">
-                <span className={cn("text-accent", !spark.length && "invisible")}>
+                <span
+                  title={d.tipSpark}
+                  className={cn("text-accent", !spark.length && "invisible")}
+                >
                   <Sparkline points={spark} width={84} height={24} />
                 </span>
                 <span className="flex flex-col items-end gap-0.5">

@@ -282,6 +282,7 @@ export function GroupBodyHeatmap({
           })}
         </div>
         <p className="text-xs text-muted">{dict.pro.bodyMapGroupHint}</p>
+        <p className="text-[11px] text-muted/80">{dict.coach.heatLegend}</p>
       </div>
     </div>
   );
