@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Dictionary } from "@/i18n";
 import {
+  createMonthlyReviewTest,
   deleteAcademyItem,
   importAiAcademyBatch,
   setAthleteAcademyLevel,
@@ -14,6 +15,7 @@ import {
   ACADEMY_LEVELS,
   ACADEMY_TOPICS,
   buildAiPromptForCoach,
+  computeLibraryItemStats,
   localizeText,
   parseAiAcademyPayload,
   type AiBatchPayload,
@@ -92,6 +94,7 @@ function AnswerReview({
 export function CoachAcademyClient({
   dict,
   locale,
+  today,
   items,
   tests,
   groups,
@@ -102,6 +105,7 @@ export function CoachAcademyClient({
 }: {
   dict: Dictionary;
   locale: Locale;
+  today: string;
   items: AcademyItem[];
   tests: AcademyTest[];
   groups: Group[];
@@ -114,6 +118,13 @@ export function CoachAcademyClient({
   const a = dict.academy;
   const c = a.coach;
   const [tab, setTab] = useState<CoachTab>("ai");
+  const [libFilter, setLibFilter] = useState<"all" | "shown_month" | "reserve">("all");
+  const [libTopic, setLibTopic] = useState<AcademyTopic | "all">("all");
+  const [monthlyQCount, setMonthlyQCount] = useState<number>(10);
+  const [buildingMonthly, setBuildingMonthly] = useState(false);
+
+  const libStats = computeLibraryItemStats(items, responses, today);
+  const existingTitles = items.map((it) => localizeText(it.title, "ru"));
 
   // AI prompt builder state
   const [aiMode, setAiMode] = useState<"daily_pack" | "monthly_test" | "visual_tactics">("daily_pack");
@@ -150,7 +161,28 @@ export function CoachAcademyClient({
     topic: aiTopic,
     difficulty: aiDifficulty,
     count: aiCount,
+    existingTitles,
   });
+
+  async function handleBuildMonthlyTest() {
+    if (buildingMonthly) return;
+    setBuildingMonthly(true);
+    const res = await createMonthlyReviewTest({
+      questionCount: monthlyQCount,
+      openImmediately: true,
+    });
+    setBuildingMonthly(false);
+    if (!res.ok) {
+      toast.error(res.error ?? dict.common.error);
+      return;
+    }
+    toast.success(
+      c.monthlyBuilderDone
+        .replace("{n}", String(res.questionCount ?? 0))
+        .replace("{m}", String(res.fromThisMonthCount ?? 0)),
+    );
+    router.refresh();
+  }
 
   async function copyPrompt() {
     try {
@@ -251,6 +283,46 @@ export function CoachAcademyClient({
         <p className="text-sm text-muted">{c.subtitle}</p>
       </div>
 
+      {/* Clear inventory KPI strip: total in DB, shown this month, in reserve, tests */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-2xl font-bold tabular-nums">{libStats.totalItems}</p>
+            <p className="text-xs font-medium">{c.kpiTotalTitle}</p>
+            <p className="text-[11px] text-muted">
+              {c.kpiTotalSub
+                .replace("{q}", String(libStats.quizItems))
+                .replace("{f}", String(libStats.factItems))}
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-2xl font-bold text-accent tabular-nums">
+              {libStats.usedThisMonthCount}
+            </p>
+            <p className="text-xs font-medium">{c.kpiShownMonthTitle}</p>
+            <p className="text-[11px] text-muted">{c.kpiShownMonthSub}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-2xl font-bold text-ok tabular-nums">
+              {libStats.unusedReserveCount}
+            </p>
+            <p className="text-xs font-medium">{c.kpiReserveTitle}</p>
+            <p className="text-[11px] text-muted">{c.kpiReserveSub}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-2xl font-bold tabular-nums">{tests.length}</p>
+            <p className="text-xs font-medium">{c.kpiTestsTitle}</p>
+            <p className="text-[11px] text-muted">{c.kpiTestsSub}</p>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="flex flex-wrap gap-1.5 rounded-xl border border-border bg-surface p-1.5">
         {(
           [
@@ -279,6 +351,18 @@ export function CoachAcademyClient({
       {/* TAB 1: 1-CLICK AI GENERATOR & BATCH JSON IMPORTER */}
       {tab === "ai" && (
         <div className="space-y-4">
+          <Card className="border-accent/30 bg-accent/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">📖 {c.guideHowTitle}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1.5 text-xs text-muted">
+              <p>{c.guideStep1}</p>
+              <p>{c.guideStep2}</p>
+              <p>{c.guideStep3}</p>
+              <p>{c.guideStep4}</p>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">{c.aiTitle}</CardTitle>
@@ -342,6 +426,9 @@ export function CoachAcademyClient({
                 <Button type="button" onClick={() => void copyPrompt()}>
                   {c.copyPromptBtn}
                 </Button>
+                <span className="text-xs text-muted">
+                  ✓ {c.promptAvoidInfo.replace("{n}", String(items.length))}
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -455,50 +542,171 @@ export function CoachAcademyClient({
       {/* TAB 2: CONTENT LIBRARY */}
       {tab === "library" && (
         <div className="space-y-3">
-          {items.map((it) => (
-            <Card key={it.id}>
-              <CardContent className="space-y-2 pt-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <Badge tone={it.published ? "ok" : "neutral"}>
-                      {it.published ? "Published" : "Draft"}
-                    </Badge>
-                    <Badge tone="accent">{a.topics[it.topic]}</Badge>
-                    <Badge tone="neutral">{a.levels[it.difficulty]}</Badge>
-                    <Badge tone="neutral">{a.itemTypes[it.item_type]}</Badge>
-                    {it.scheduled_date && <Badge tone="warn">📅 {it.scheduled_date}</Badge>}
-                  </div>
-                  <div className="flex gap-1.5">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={busyId === it.id}
-                      onClick={() => void handleTogglePub(it)}
-                    >
-                      {c.togglePubBtn}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={busyId === it.id}
-                      onClick={() => void handleDelete(it.id)}
-                    >
-                      {c.deleteBtn}
-                    </Button>
-                  </div>
-                </div>
-                <p className="font-semibold text-sm">{localizeText(it.title, locale)}</p>
-                <p className="text-xs text-muted">{localizeText(it.body, locale)}</p>
-                {it.court_diagram && <TacticalCourtDiagram diagram={it.court_diagram} />}
-              </CardContent>
-            </Card>
-          ))}
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-surface p-2.5">
+            <div className="flex flex-wrap gap-1.5">
+              {(
+                [
+                  ["all", c.filterAll.replace("{n}", String(items.length))],
+                  [
+                    "shown_month",
+                    c.filterShownMonth.replace("{n}", String(libStats.usedThisMonthCount)),
+                  ],
+                  [
+                    "reserve",
+                    c.filterReserve.replace("{n}", String(libStats.unusedReserveCount)),
+                  ],
+                ] as ["all" | "shown_month" | "reserve", string][]
+              ).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setLibFilter(k)}
+                  className={cn(
+                    "rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors",
+                    libFilter === k
+                      ? "bg-accent text-accent-foreground"
+                      : "bg-foreground/5 text-muted hover:text-foreground",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <Select
+              className="w-48"
+              value={libTopic}
+              onChange={(e) => setLibTopic(e.target.value as AcademyTopic | "all")}
+            >
+              <option value="all">{a.tabTopics}: {items.length}</option>
+              {ACADEMY_TOPICS.map((t) => (
+                <option key={t} value={t}>
+                  {a.topics[t]}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          {items
+            .filter((it) => {
+              const u = libStats.byItemId[it.id];
+              if (libFilter === "shown_month" && !u?.usedThisMonth) return false;
+              if (libFilter === "reserve" && u?.everUsed) return false;
+              if (libTopic !== "all" && it.topic !== libTopic) return false;
+              return true;
+            })
+            .map((it) => {
+              const u = libStats.byItemId[it.id];
+              return (
+                <Card key={it.id}>
+                  <CardContent className="space-y-2 pt-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge
+                          tone={
+                            u?.usedThisMonth ? "accent" : u?.everUsed ? "neutral" : "ok"
+                          }
+                        >
+                          {u?.usedThisMonth
+                            ? c.badgeShownMonth
+                            : u?.everUsed
+                              ? c.badgeShownPast
+                              : c.badgeNeverShown}
+                        </Badge>
+                        <Badge tone="neutral">{a.topics[it.topic]}</Badge>
+                        <Badge tone="neutral">{a.levels[it.difficulty]}</Badge>
+                        <Badge tone="neutral">{a.itemTypes[it.item_type]}</Badge>
+                        {it.scheduled_date && <Badge tone="warn">📅 {it.scheduled_date}</Badge>}
+                        {!it.published && <Badge tone="neutral">Draft</Badge>}
+                      </div>
+                      <div className="flex gap-1.5">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled={busyId === it.id}
+                          onClick={() => void handleTogglePub(it)}
+                        >
+                          {c.togglePubBtn}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={busyId === it.id}
+                          onClick={() => void handleDelete(it.id)}
+                        >
+                          {c.deleteBtn}
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="font-semibold text-sm">{localizeText(it.title, locale)}</p>
+                    <p className="text-xs text-muted">{localizeText(it.body, locale)}</p>
+                    {it.court_diagram && <TacticalCourtDiagram diagram={it.court_diagram} />}
+                    {it.options.length > 0 && (
+                      <AnswerReview item={it} selected={[]} locale={locale} />
+                    )}
+                    <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-muted">
+                      <span>
+                        👥{" "}
+                        {c.answeredStat
+                          .replace("{n}", String(u?.answeredByCount ?? 0))
+                          .replace("{p}", String(u?.accuracyPct ?? "—"))}
+                      </span>
+                      {u?.lastSeenDate && (
+                        <span>
+                          🕒 {c.lastSeenStat.replace("{d}", u.lastSeenDate)}
+                        </span>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
         </div>
       )}
 
       {/* TAB 3: MONTHLY TESTS */}
       {tab === "tests" && (
         <div className="space-y-3">
+          <Card className="border-accent/40 bg-accent/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">🏁 {c.monthlyBuilderTitle}</CardTitle>
+              <p className="text-xs text-muted">
+                {c.monthlyBuilderDesc
+                  .replace(
+                    "{m}",
+                    String(
+                      items.filter(
+                        (i) => i.item_type !== "fact" && libStats.byItemId[i.id]?.usedThisMonth,
+                      ).length,
+                    ),
+                  )
+                  .replace("{q}", String(libStats.quizItems))}
+              </p>
+            </CardHeader>
+            <CardContent className="flex flex-wrap items-center gap-2">
+              <Select
+                className="w-32"
+                value={String(monthlyQCount)}
+                onChange={(e) => setMonthlyQCount(Number(e.target.value))}
+              >
+                {[5, 8, 10, 12, 15].map((n) => (
+                  <option key={n} value={n}>
+                    {a.questionsCount.replace("{n}", String(n))}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                size="sm"
+                disabled={buildingMonthly}
+                onClick={() => void handleBuildMonthlyTest()}
+              >
+                {c.monthlyBuilderBtn.replace(
+                  "{n}",
+                  String(Math.min(monthlyQCount, libStats.quizItems)),
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
           {tests.map((t) => (
             <Card key={t.id}>
               <CardHeader className="pb-2">
@@ -514,8 +722,30 @@ export function CoachAcademyClient({
                   </div>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-2">
                 <p className="text-xs text-muted">{localizeText(t.description, locale)}</p>
+                <details className="rounded-lg bg-foreground/[0.03] p-2 text-xs">
+                  <summary className="cursor-pointer font-medium">
+                    {a.questionsCount.replace("{n}", String(t.question_ids.length))}
+                  </summary>
+                  <ol className="mt-1.5 list-decimal space-y-1 pl-4 text-muted">
+                    {t.question_ids.map((qid) => {
+                      const q = itemsById.get(qid);
+                      return (
+                        <li key={qid}>
+                          <span className="text-foreground">
+                            {q ? localizeText(q.title, locale) : qid}
+                          </span>
+                          {q && (
+                            <span className="ml-1.5 text-[11px] text-muted">
+                              ({a.topics[q.topic]})
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </details>
               </CardContent>
             </Card>
           ))}

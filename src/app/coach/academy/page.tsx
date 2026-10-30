@@ -2,6 +2,7 @@ import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getDictionary } from "@/i18n";
+import { todayInTz } from "@/lib/dates";
 import { scopedAthleteIds } from "@/lib/coach-data";
 import { computeGroupErrorAnalytics } from "@/lib/academy";
 import { CoachAcademyClient, type CoachAthleteAcademyRow } from "./coach-academy-client";
@@ -107,6 +108,7 @@ export default async function CoachAcademyPage() {
     <CoachAcademyClient
       dict={dict}
       locale={me.preferred_language}
+      today={todayInTz(me.timezone)}
       items={items}
       tests={tests}
       groups={groups}

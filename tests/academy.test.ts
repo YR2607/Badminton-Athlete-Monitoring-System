@@ -3,6 +3,7 @@ import {
   buildAiPromptForCoach,
   computeAthleteAcademyProgress,
   computeGroupErrorAnalytics,
+  computeLibraryItemStats,
   gradeAcademyAnswer,
   gradeTestAttempt,
   isAttemptExpired,
@@ -12,6 +13,7 @@ import {
   testWindowStatus,
   redactAcademyItem,
   selectDailyLesson,
+  selectMonthlyReviewQuestionIds,
 } from "@/lib/academy";
 import type {
   AcademyItem,
@@ -332,5 +334,52 @@ describe("testWindowStatus", () => {
   });
   it("reports closed after the window", () => {
     expect(testWindowStatus(t, "2026-11-03").status).toBe("closed");
+  });
+});
+
+describe("computeLibraryItemStats & selectMonthlyReviewQuestionIds", () => {
+  it("tracks shown-this-month, reserve items, and builds monthly test from this month's questions", () => {
+    const items: AcademyItem[] = [
+      mkItem({ id: "q-month", item_type: "tactical" }),
+      mkItem({ id: "q-sched", item_type: "rules", scheduled_date: "2026-10-12" }),
+      mkItem({ id: "q-reserve", item_type: "single_choice" }),
+      mkItem({ id: "f-1", item_type: "fact", options: [], correct_option_ids: [] }),
+    ];
+    const responses = [
+      {
+        item_id: "q-month",
+        athlete_id: "ath-1",
+        is_correct: true,
+        assigned_date: "2026-10-05",
+      },
+      {
+        item_id: "q-month",
+        athlete_id: "ath-2",
+        is_correct: false,
+        assigned_date: "2026-10-06",
+      },
+    ];
+
+    const stats = computeLibraryItemStats(items, responses, "2026-10-30");
+    expect(stats.totalItems).toBe(4);
+    expect(stats.quizItems).toBe(3);
+    expect(stats.factItems).toBe(1);
+    expect(stats.usedThisMonthCount).toBe(2); // q-month + q-sched
+    expect(stats.unusedReserveCount).toBe(2); // q-reserve + f-1
+    expect(stats.byItemId["q-month"].answeredByCount).toBe(2);
+    expect(stats.byItemId["q-month"].accuracyPct).toBe(50);
+
+    const review = selectMonthlyReviewQuestionIds(items, responses, "2026-10-30", 2);
+    expect(review.questionIds).toEqual(["q-month", "q-sched"]);
+    expect(review.fromThisMonthCount).toBe(2);
+
+    const prompt = buildAiPromptForCoach({
+      mode: "daily_pack",
+      topic: "rules",
+      difficulty: "beginner",
+      count: 3,
+      existingTitles: ["Подача по диагонали"],
+    });
+    expect(prompt).toContain("Подача по диагонали");
   });
 });

@@ -640,6 +640,7 @@ export function buildAiPromptForCoach(opts: {
   topic: AcademyTopic | "all";
   difficulty: AcademyLevel;
   count: number;
+  existingTitles?: readonly string[];
 }): string {
   const topicNote =
     opts.topic === "all"
@@ -653,11 +654,19 @@ export function buildAiPromptForCoach(opts: {
         ? `Generate ${opts.count} visual tactical problems (item_type: "visual_tactical") with a "court_diagram" object (x: 0..100 court width, y: 0..50 opponent half, y: 50..100 player half).`
         : `Generate ${opts.count} daily badminton learning tasks (mix of "fact", "tactical", "find_mistake", "rules", "single_choice", "multi_choice").`;
 
+  const avoidNote =
+    opts.existingTitles && opts.existingTitles.length > 0
+      ? `\nDO NOT repeat or closely duplicate these questions that are ALREADY in our database:\n${opts.existingTitles
+          .slice(0, 40)
+          .map((t) => `- ${t}`)
+          .join("\n")}\n`
+      : "";
+
   return `You are a BWF-certified badminton coach and sports scientist creating educational tasks for youth badminton players (ages 10–17) in RallyMonitor Academy.
 
 ${modeNote}
 Difficulty level: "${opts.difficulty}".
-${topicNote}
+${topicNote}${avoidNote}
 
 STRICT RULES:
 1. Use ONLY verified BWF Laws of Badminton, BWF Coach Education tactics, and peer-reviewed youth sports science. Never invent rules or dubious facts.
@@ -757,4 +766,141 @@ export function testWindowStatus(
   }
   if (today > test.available_until) return { status: "closed", daysUntil: 0 };
   return { status: "open", daysUntil: 0 };
+}
+
+export interface LibraryItemUsage {
+  itemId: string;
+  /** Distinct athletes who answered this card (ever). */
+  answeredByCount: number;
+  /** Correct % across all responses (null when no responses yet). */
+  accuracyPct: number | null;
+  /** Most recent assigned_date or scheduled_date (null if never shown). */
+  lastSeenDate: string | null;
+  /** Was this card answered or scheduled in the current YYYY-MM month? */
+  usedThisMonth: boolean;
+  /** Has at least one athlete answered this card or was it scheduled in the past? */
+  everUsed: boolean;
+}
+
+export interface LibrarySummaryStats {
+  totalItems: number;
+  publishedItems: number;
+  quizItems: number;
+  factItems: number;
+  usedThisMonthCount: number;
+  usedEverCount: number;
+  unusedReserveCount: number;
+  byItemId: Record<string, LibraryItemUsage>;
+}
+
+/**
+ * Computes transparent library inventory & usage stats for coaches:
+ *  - total cards in DB (facts vs quiz questions),
+ *  - which questions were already shown/answered this month,
+ *  - how many fresh cards remain in reserve.
+ */
+export function computeLibraryItemStats(
+  items: readonly AcademyItem[],
+  responses: readonly Pick<AcademyResponse, "item_id" | "athlete_id" | "is_correct" | "assigned_date">[],
+  today: string,
+): LibrarySummaryStats {
+  const monthPrefix = today.slice(0, 7);
+  const respsByItem = new Map<
+    string,
+    Pick<AcademyResponse, "item_id" | "athlete_id" | "is_correct" | "assigned_date">[]
+  >();
+  for (const r of responses) {
+    const list = respsByItem.get(r.item_id) ?? [];
+    list.push(r);
+    respsByItem.set(r.item_id, list);
+  }
+
+  const byItemId: Record<string, LibraryItemUsage> = {};
+  let usedThisMonthCount = 0;
+  let usedEverCount = 0;
+  let unusedReserveCount = 0;
+
+  for (const it of items) {
+    const list = respsByItem.get(it.id) ?? [];
+    const distinctAthletes = new Set(list.map((r) => r.athlete_id)).size;
+    const correctCount = list.filter((r) => r.is_correct).length;
+    const accuracyPct = list.length > 0 ? Math.round((correctCount / list.length) * 100) : null;
+
+    const dates: string[] = [];
+    for (const r of list) {
+      if (r.assigned_date) dates.push(r.assigned_date);
+    }
+    if (it.scheduled_date && it.scheduled_date <= today) {
+      dates.push(it.scheduled_date);
+    }
+    dates.sort();
+    const lastSeenDate = dates.length > 0 ? dates[dates.length - 1] : null;
+
+    const usedThisMonth =
+      list.some((r) => r.assigned_date?.startsWith(monthPrefix)) ||
+      Boolean(it.scheduled_date && it.scheduled_date.startsWith(monthPrefix) && it.scheduled_date <= today);
+    const everUsed = list.length > 0 || Boolean(it.scheduled_date && it.scheduled_date <= today);
+
+    if (usedThisMonth) usedThisMonthCount++;
+    if (everUsed) usedEverCount++;
+    else if (it.published) unusedReserveCount++;
+
+    byItemId[it.id] = {
+      itemId: it.id,
+      answeredByCount: distinctAthletes,
+      accuracyPct,
+      lastSeenDate,
+      usedThisMonth,
+      everUsed,
+    };
+  }
+
+  return {
+    totalItems: items.length,
+    publishedItems: items.filter((i) => i.published).length,
+    quizItems: items.filter((i) => i.item_type !== "fact").length,
+    factItems: items.filter((i) => i.item_type === "fact").length,
+    usedThisMonthCount,
+    usedEverCount,
+    unusedReserveCount,
+    byItemId,
+  };
+}
+
+/**
+ * Selects question IDs for the end-of-month review test:
+ * prioritizes quiz items (non-fact) that athletes actually encountered this month
+ * (via responses or scheduled_date in current YYYY-MM), and fills any remaining
+ * slots from other published quiz items so the test always has enough questions.
+ */
+export function selectMonthlyReviewQuestionIds(
+  items: readonly AcademyItem[],
+  responses: readonly Pick<AcademyResponse, "item_id" | "assigned_date">[],
+  today: string,
+  maxQuestions = 10,
+): { questionIds: string[]; fromThisMonthCount: number } {
+  const monthPrefix = today.slice(0, 7);
+  const quizPool = items.filter((i) => i.published && i.item_type !== "fact");
+  const seenThisMonthIds = new Set<string>();
+
+  for (const r of responses) {
+    if (r.assigned_date?.startsWith(monthPrefix)) {
+      seenThisMonthIds.add(r.item_id);
+    }
+  }
+  for (const it of quizPool) {
+    if (it.scheduled_date && it.scheduled_date.startsWith(monthPrefix) && it.scheduled_date <= today) {
+      seenThisMonthIds.add(it.id);
+    }
+  }
+
+  const fromMonth = quizPool.filter((i) => seenThisMonthIds.has(i.id));
+  const fallback = quizPool.filter((i) => !seenThisMonthIds.has(i.id));
+
+  const picked = [...fromMonth, ...fallback].slice(0, maxQuestions);
+  const fromThisMonthCount = picked.filter((i) => seenThisMonthIds.has(i.id)).length;
+  return {
+    questionIds: picked.map((i) => i.id),
+    fromThisMonthCount,
+  };
 }

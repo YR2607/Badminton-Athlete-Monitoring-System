@@ -12,6 +12,7 @@ import {
   isAttemptExpired,
   parseAiAcademyPayload,
   redactAcademyItem,
+  selectMonthlyReviewQuestionIds,
 } from "@/lib/academy";
 import type {
   AcademyItem,
@@ -451,4 +452,102 @@ export async function setAthleteAcademyLevel(input: {
   revalidatePath("/coach/academy");
   revalidatePath("/athlete/academy");
   return { ok: true };
+}
+
+/**
+ * 1-click builder for the end-of-month review test: collects all quiz questions
+ * that athletes encountered in the current month (plus fallback from the library
+ * if fewer than `questionCount`) and publishes/updates the monthly test.
+ */
+export async function createMonthlyReviewTest(input?: {
+  questionCount?: number;
+  openImmediately?: boolean;
+}): Promise<{
+  ok?: boolean;
+  error?: string;
+  questionCount?: number;
+  fromThisMonthCount?: number;
+}> {
+  const profile = await getCurrentProfile();
+  if (!profile || (profile.role !== "coach" && profile.role !== "admin")) {
+    return { error: "forbidden" };
+  }
+
+  const today = todayInTz(profile.timezone);
+  const [y, m] = today.split("-").map(Number);
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const monthPrefix = today.slice(0, 7);
+  const lastDay = `${monthPrefix}-${String(daysInMonth).padStart(2, "0")}`;
+
+  const admin = createAdminClient();
+  const [{ data: rawItems }, { data: rawResps }] = await Promise.all([
+    admin.from("academy_items").select("*").eq("published", true).order("created_at", { ascending: true }),
+    admin.from("academy_responses").select("item_id, assigned_date"),
+  ]);
+
+  const items = (rawItems as AcademyItem[] | null) ?? [];
+  const resps =
+    (rawResps as Pick<AcademyResponse, "item_id" | "assigned_date">[] | null) ?? [];
+
+  const maxQ = Math.min(20, Math.max(3, input?.questionCount ?? 10));
+  const { questionIds, fromThisMonthCount } = selectMonthlyReviewQuestionIds(
+    items,
+    resps,
+    today,
+    maxQ,
+  );
+  if (questionIds.length === 0) return { error: "no_questions" };
+
+  const selectedSet = new Set(questionIds);
+  const topics = [
+    ...new Set(items.filter((i) => selectedSet.has(i.id)).map((i) => i.topic)),
+  ];
+  const openNow = input?.openImmediately ?? true;
+  const availableFrom = openNow ? today : addDays(lastDay, -2);
+  const availableUntil = addDays(lastDay, 5);
+  const code = `monthly_review_${monthPrefix.replace("-", "_")}`;
+
+  const { error } = await admin.from("academy_tests").upsert(
+    {
+      code,
+      title: {
+        ru: `Итоговый зачёт месяца (${monthPrefix}) — по пройденным вопросам`,
+        en: `Monthly Review (${monthPrefix}) — from this month's lessons`,
+        ro: `Testul lunii (${monthPrefix}) — din lecțiile parcurse`,
+      },
+      description: {
+        ru: `Проверочный зачёт составлен из вопросов, которые вы проходили в ежедневных уроках за ${monthPrefix}. После сдачи откроется полный разбор каждого ответа!`,
+        en: `Review test built from the questions covered in daily lessons during ${monthPrefix}. Full explanations appear after submission!`,
+        ro: `Test construit din întrebările parcurse în lecțiile zilnice din ${monthPrefix}. Explicațiile apar după trimitere!`,
+      },
+      topics,
+      difficulty: "beginner",
+      question_ids: questionIds,
+      question_count: questionIds.length,
+      time_limit_minutes: 12,
+      target_group_id: null,
+      target_athlete_ids: [],
+      available_from: availableFrom,
+      available_until: availableUntil,
+      max_attempts: 2,
+      published: true,
+      created_by: profile.id,
+    },
+    { onConflict: "code" },
+  );
+
+  if (error) return { error: error.message };
+
+  await audit("academy.monthly_review.create", "academy_tests", profile.id, {
+    code,
+    questionCount: questionIds.length,
+    fromThisMonthCount,
+  });
+  revalidatePath("/coach/academy");
+  revalidatePath("/athlete/academy");
+  return {
+    ok: true,
+    questionCount: questionIds.length,
+    fromThisMonthCount,
+  };
 }
