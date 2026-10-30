@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { coachDashboard } from "@/lib/coach-data";
@@ -38,6 +39,35 @@ export default async function CoachDashboard({
       .limit(3),
   ]);
   const eventsOn = flagEnabled(flags, "events", null);
+
+  // Day-overview strip: today's attendance marks, this week's OSTRC survey,
+  // today's Academy lesson — each tile deep-links into its section.
+  const admin = createAdminClient();
+  const athleteIds = rows.map((r) => r.athlete.id);
+  const { isoWeekMonday } = await import("@/lib/ostrc");
+  const [{ data: attRows }, { data: ostrcRows }, { data: acadRows }] =
+    athleteIds.length
+      ? await Promise.all([
+          admin
+            .from("attendance")
+            .select("athlete_id")
+            .eq("att_date", coachToday)
+            .in("athlete_id", athleteIds),
+          admin
+            .from("ostrc_responses")
+            .select("athlete_id")
+            .eq("week_start_date", isoWeekMonday(coachToday))
+            .in("athlete_id", athleteIds),
+          admin
+            .from("academy_responses")
+            .select("athlete_id")
+            .eq("assigned_date", coachToday)
+            .in("athlete_id", athleteIds),
+        ])
+      : [{ data: [] }, { data: [] }, { data: [] }];
+  const attMarked = new Set(((attRows ?? []) as { athlete_id: string }[]).map((r) => r.athlete_id)).size;
+  const ostrcFilled = new Set(((ostrcRows ?? []) as { athlete_id: string }[]).map((r) => r.athlete_id)).size;
+  const acadDone = new Set(((acadRows ?? []) as { athlete_id: string }[]).map((r) => r.athlete_id)).size;
 
   const filled = rows.filter((r) => r.todayCheckin).length;
   const openAlerts = rows.flatMap((r) => r.openAlerts);
@@ -146,6 +176,46 @@ export default async function CoachDashboard({
             <p className="text-xs text-muted">{d.sumPendingPost}</p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Day overview — one-glance links into the auxiliary sections. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          {
+            href: "/coach/attendance",
+            value: `${attMarked}/${rows.length}`,
+            label: dict.nav.attendance,
+            sub: d.quickAttSub,
+          },
+          {
+            href: "/analytics",
+            value: `${ostrcFilled}/${rows.length}`,
+            label: dict.ostrc.title,
+            sub: d.quickOstrcSub,
+          },
+          {
+            href: "/coach/academy",
+            value: `${acadDone}/${rows.length}`,
+            label: dict.nav.academy,
+            sub: d.quickAcadSub,
+          },
+          {
+            href: "/coach/alerts",
+            value: String(openAlerts.length),
+            label: dict.nav.alerts,
+            sub: d.quickAlertsSub,
+          },
+        ].map((t) => (
+          <Link key={t.href} href={t.href}>
+            <Card className="h-full transition-colors hover:border-accent/50">
+              <CardContent className="pt-4">
+                <p className="text-2xl font-bold tabular-nums">{t.value}</p>
+                <p className="text-xs font-medium">{t.label} →</p>
+                <p className="text-[11px] text-muted">{t.sub}</p>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
       </div>
 
       {rows.length > 0 && (
