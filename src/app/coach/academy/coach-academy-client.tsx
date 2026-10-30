@@ -51,43 +51,55 @@ export interface CoachAthleteAcademyRow {
 
 type CoachTab = "ai" | "library" | "tests" | "analytics";
 
-/** One option list with the athlete's pick (▸) vs the correct answer (✓). */
+/** One option list with the athlete's pick (▸) vs the correct answer (✓).
+ *  `showQuestion` also renders the full question body + tactical court
+ *  diagram so coaches see the whole task, not just the options. */
 function AnswerReview({
   item,
   selected,
   locale,
+  showQuestion = false,
 }: {
   item: AcademyItem;
   selected: string[];
   locale: Locale;
+  showQuestion?: boolean;
 }) {
   const correct = new Set(item.correct_option_ids ?? []);
   const chosen = new Set(selected);
-  if (item.options.length === 0) return null;
+  if (item.options.length === 0 && !item.court_diagram && !showQuestion) return null;
   return (
-    <ul className="mt-1 space-y-0.5">
-      {item.options.map((o) => {
-        const isCorrect = correct.has(o.id);
-        const isChosen = chosen.has(o.id);
-        return (
-          <li
-            key={o.id}
-            className={cn(
-              "rounded px-1.5 py-0.5 text-[11px]",
-              isCorrect
-                ? "bg-ok/15 font-medium text-ok"
-                : isChosen
-                  ? "bg-danger/15 text-danger"
-                  : "text-muted",
-            )}
-          >
-            {isChosen ? "▸ " : ""}
-            {o.id.toUpperCase()}: {localizeText(o.text, locale)}
-            {isCorrect ? " ✓" : ""}
-          </li>
-        );
-      })}
-    </ul>
+    <div className="mt-1 space-y-1.5">
+      {showQuestion && (
+        <p className="text-[11px] text-muted">{localizeText(item.body, locale)}</p>
+      )}
+      {item.court_diagram && <TacticalCourtDiagram diagram={item.court_diagram} />}
+      {item.options.length > 0 && (
+        <ul className="space-y-0.5">
+          {item.options.map((o) => {
+            const isCorrect = correct.has(o.id);
+            const isChosen = chosen.has(o.id);
+            return (
+              <li
+                key={o.id}
+                className={cn(
+                  "rounded px-1.5 py-0.5 text-[11px]",
+                  isCorrect
+                    ? "bg-ok/15 font-medium text-ok"
+                    : isChosen
+                      ? "bg-danger/15 text-danger"
+                      : "text-muted",
+                )}
+              >
+                {isChosen ? "▸ " : ""}
+                {o.id.toUpperCase()}: {localizeText(o.text, locale)}
+                {isCorrect ? " ✓" : ""}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -639,10 +651,7 @@ export function CoachAcademyClient({
                     </div>
                     <p className="font-semibold text-sm">{localizeText(it.title, locale)}</p>
                     <p className="text-xs text-muted">{localizeText(it.body, locale)}</p>
-                    {it.court_diagram && <TacticalCourtDiagram diagram={it.court_diagram} />}
-                    {it.options.length > 0 && (
-                      <AnswerReview item={it} selected={[]} locale={locale} />
-                    )}
+                    <AnswerReview item={it} selected={[]} locale={locale} />
                     <div className="flex flex-wrap items-center gap-3 pt-1 text-[11px] text-muted">
                       <span>
                         👥{" "}
@@ -868,6 +877,7 @@ export function CoachAcademyClient({
                                 item={it}
                                 selected={resp.selected_option_ids}
                                 locale={locale}
+                                showQuestion
                               />
                             </div>
                           );
@@ -911,6 +921,7 @@ export function CoachAcademyClient({
                                             item={it}
                                             selected={sel}
                                             locale={locale}
+                                            showQuestion
                                           />
                                         </div>
                                       );
