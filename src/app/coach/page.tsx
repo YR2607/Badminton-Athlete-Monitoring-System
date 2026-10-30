@@ -11,6 +11,7 @@ import { GroupBodyHeatmap, type GroupPainEntry } from "@/components/forms/body-m
 import { LoadBarChart } from "@/components/charts/series-chart";
 import { addDays, dateRange, localDate, todayInTz } from "@/lib/dates";
 import { analyzeLoadWave } from "@/lib/load";
+import { isoWeekMonday } from "@/lib/ostrc";
 import type { TrainingSession } from "@/lib/types";
 import { ageInDays } from "@/lib/athlete-status";
 import { CoachTable } from "./table";
@@ -47,7 +48,6 @@ export default async function CoachDashboard({
   // today's Academy lesson — each tile deep-links into its section.
   const admin = createAdminClient();
   const athleteIds = rows.map((r) => r.athlete.id);
-  const { isoWeekMonday } = await import("@/lib/ostrc");
   const [{ data: attRows }, { data: ostrcRows }, { data: acadRows }] =
     athleteIds.length
       ? await Promise.all([
