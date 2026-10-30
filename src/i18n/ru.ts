@@ -1181,6 +1181,11 @@ const ru = {
     attemptsUsed: "Попыток: {u} из {m}",
     testScore: "Результат: {s}% ({c} из {t})",
     testExpired: "Время попытки истекло",
+    monthProgress: "Уроки месяца: {done} из {elapsed} дн. (всего {total})",
+    monthTestInfo: "Итоговый тест месяца — {date}",
+    testWindow: "окно {from} — {until}",
+    testOpensIn: "откроется через {d} дн.",
+    testClosed: "окно закрыто",
     badges: {
       first_step: {
         title: "Первый розыгрыш",
@@ -1234,6 +1239,14 @@ const ru = {
       newManualTitle: "Добавить задание вручную",
       deleteBtn: "Удалить",
       togglePubBtn: "Публикация",
+      viewAnswersBtn: "Ответы",
+      hideAnswersBtn: "Скрыть",
+      lastAnswersTitle: "Последние ответы",
+      noAnswersYet: "Ответов пока нет",
+      attemptsTitle: "Попытки месячных тестов",
+      attemptN: "попытка {n}",
+      chosenTag: "выбор спортсмена",
+      correctTag: "верный ответ",
     },
   },
 };

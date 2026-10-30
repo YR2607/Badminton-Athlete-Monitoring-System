@@ -1179,6 +1179,11 @@ const en: Dictionary = {
     attemptsUsed: "Attempts: {u} of {m}",
     testScore: "Score: {s}% ({c} of {t})",
     testExpired: "Attempt time expired",
+    monthProgress: "Lessons this month: {done} of {elapsed} days ({total} total)",
+    monthTestInfo: "Monthly test — {date}",
+    testWindow: "window {from} — {until}",
+    testOpensIn: "opens in {d}d",
+    testClosed: "window closed",
     badges: {
       first_step: {
         title: "First Rally",
@@ -1232,6 +1237,14 @@ const en: Dictionary = {
       newManualTitle: "Add task manually",
       deleteBtn: "Delete",
       togglePubBtn: "Toggle publish",
+      viewAnswersBtn: "Answers",
+      hideAnswersBtn: "Hide",
+      lastAnswersTitle: "Latest answers",
+      noAnswersYet: "No answers yet",
+      attemptsTitle: "Monthly test attempts",
+      attemptN: "attempt {n}",
+      chosenTag: "athlete's pick",
+      correctTag: "correct answer",
     },
   },
 };

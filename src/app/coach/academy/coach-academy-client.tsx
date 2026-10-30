@@ -28,7 +28,9 @@ import { cn } from "@/lib/utils";
 import type {
   AcademyItem,
   AcademyLevel,
+  AcademyResponse,
   AcademyTest,
+  AcademyTestAttempt,
   AcademyTopic,
   Group,
   Locale,
@@ -47,6 +49,46 @@ export interface CoachAthleteAcademyRow {
 
 type CoachTab = "ai" | "library" | "tests" | "analytics";
 
+/** One option list with the athlete's pick (▸) vs the correct answer (✓). */
+function AnswerReview({
+  item,
+  selected,
+  locale,
+}: {
+  item: AcademyItem;
+  selected: string[];
+  locale: Locale;
+}) {
+  const correct = new Set(item.correct_option_ids ?? []);
+  const chosen = new Set(selected);
+  if (item.options.length === 0) return null;
+  return (
+    <ul className="mt-1 space-y-0.5">
+      {item.options.map((o) => {
+        const isCorrect = correct.has(o.id);
+        const isChosen = chosen.has(o.id);
+        return (
+          <li
+            key={o.id}
+            className={cn(
+              "rounded px-1.5 py-0.5 text-[11px]",
+              isCorrect
+                ? "bg-ok/15 font-medium text-ok"
+                : isChosen
+                  ? "bg-danger/15 text-danger"
+                  : "text-muted",
+            )}
+          >
+            {isChosen ? "▸ " : ""}
+            {o.id.toUpperCase()}: {localizeText(o.text, locale)}
+            {isCorrect ? " ✓" : ""}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 export function CoachAcademyClient({
   dict,
   locale,
@@ -55,6 +97,8 @@ export function CoachAcademyClient({
   groups,
   errorStats,
   athleteRows,
+  responses,
+  attempts,
 }: {
   dict: Dictionary;
   locale: Locale;
@@ -63,6 +107,8 @@ export function CoachAcademyClient({
   groups: Group[];
   errorStats: GroupTopicErrorStat[];
   athleteRows: CoachAthleteAcademyRow[];
+  responses: AcademyResponse[];
+  attempts: AcademyTestAttempt[];
 }) {
   const router = useRouter();
   const a = dict.academy;
@@ -81,6 +127,23 @@ export function CoachAcademyClient({
   const [previewLang, setPreviewLang] = useState<Locale>(locale);
   const [importing, setImporting] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [openAthlete, setOpenAthlete] = useState<string | null>(null);
+
+  // Lookups for the per-athlete answer drill-down.
+  const itemsById = new Map(items.map((i) => [i.id, i]));
+  const testsById = new Map(tests.map((t) => [t.id, t]));
+  const responsesByAthlete = new Map<string, AcademyResponse[]>();
+  for (const r of responses) {
+    const l = responsesByAthlete.get(r.athlete_id) ?? [];
+    l.push(r);
+    responsesByAthlete.set(r.athlete_id, l);
+  }
+  const attemptsByAthlete = new Map<string, AcademyTestAttempt[]>();
+  for (const at of attempts) {
+    const l = attemptsByAthlete.get(at.athlete_id) ?? [];
+    l.push(at);
+    attemptsByAthlete.set(at.athlete_id, l);
+  }
 
   const generatedPrompt = buildAiPromptForCoach({
     mode: aiMode,
@@ -501,39 +564,138 @@ export function CoachAcademyClient({
               </Button>
             </CardHeader>
             <CardContent className="space-y-2">
-              {athleteRows.map((r) => (
-                <div
-                  key={r.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border p-3 text-sm"
-                >
-                  <div>
-                    <p className="font-semibold">
-                      {r.name}{" "}
-                      <span className="text-xs font-normal text-muted">({r.code})</span>
-                    </p>
-                    <p className="text-xs text-muted">
-                      XP: <b className="text-foreground">{r.xp}</b> · {a.completedLabel}:{" "}
-                      <b className="text-foreground">{r.completedCount}</b> · {a.accuracyLabel}:{" "}
-                      <b className="text-foreground">
-                        {r.accuracyPct !== null ? `${r.accuracyPct}%` : "—"}
-                      </b>
-                      {r.bestTestPct !== null ? ` · Test: ${r.bestTestPct}%` : ""}
-                    </p>
+              {athleteRows.map((r) => {
+                const open = openAthlete === r.id;
+                const myResps = responsesByAthlete.get(r.id) ?? [];
+                const myAttempts = (attemptsByAthlete.get(r.id) ?? []).filter(
+                  (at) => at.status !== "in_progress",
+                );
+                return (
+                  <div key={r.id} className="rounded-xl border border-border p-3 text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="font-semibold">
+                          {r.name}{" "}
+                          <span className="text-xs font-normal text-muted">({r.code})</span>
+                        </p>
+                        <p className="text-xs text-muted">
+                          XP: <b className="text-foreground">{r.xp}</b> · {a.completedLabel}:{" "}
+                          <b className="text-foreground">{r.completedCount}</b> · {a.accuracyLabel}:{" "}
+                          <b className="text-foreground">
+                            {r.accuracyPct !== null ? `${r.accuracyPct}%` : "—"}
+                          </b>
+                          {r.bestTestPct !== null ? ` · Test: ${r.bestTestPct}%` : ""}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => setOpenAthlete(open ? null : r.id)}
+                        >
+                          {open ? c.hideAnswersBtn : c.viewAnswersBtn}
+                        </Button>
+                        <Select
+                          className="w-40"
+                          disabled={busyId === r.id}
+                          value={r.level}
+                          onChange={(e) =>
+                            void handleLevelChange(r.id, e.target.value as AcademyLevel)
+                          }
+                        >
+                          {ACADEMY_LEVELS.map((l) => (
+                            <option key={l} value={l}>
+                              {a.levels[l]}
+                            </option>
+                          ))}
+                        </Select>
+                      </div>
+                    </div>
+
+                    {open && (
+                      <div className="mt-3 space-y-2 border-t border-border/60 pt-3">
+                        <p className="text-[11px] font-semibold text-muted">
+                          {c.lastAnswersTitle} · ▸ {c.chosenTag} · ✓ {c.correctTag}
+                        </p>
+                        {myResps.length === 0 && (
+                          <p className="text-xs text-muted">{c.noAnswersYet}</p>
+                        )}
+                        {myResps.slice(0, 12).map((resp) => {
+                          const it = itemsById.get(resp.item_id);
+                          if (!it) return null;
+                          return (
+                            <div key={resp.id} className="rounded-lg bg-foreground/[0.03] p-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-xs font-medium">
+                                  {resp.is_correct ? "✅" : "❌"}{" "}
+                                  {localizeText(it.title, locale)}
+                                </p>
+                                <span className="shrink-0 text-[10px] text-muted">
+                                  {resp.assigned_date}
+                                </span>
+                              </div>
+                              <AnswerReview
+                                item={it}
+                                selected={resp.selected_option_ids}
+                                locale={locale}
+                              />
+                            </div>
+                          );
+                        })}
+
+                        {myAttempts.length > 0 && (
+                          <>
+                            <p className="pt-1 text-[11px] font-semibold text-muted">
+                              {c.attemptsTitle}
+                            </p>
+                            {myAttempts.map((at) => {
+                              const t = testsById.get(at.test_id);
+                              return (
+                                <details
+                                  key={at.id}
+                                  className="rounded-lg bg-foreground/[0.03] p-2"
+                                >
+                                  <summary className="cursor-pointer text-xs font-medium">
+                                    {t ? localizeText(t.title, locale) : at.test_id} ·{" "}
+                                    {c.attemptN.replace("{n}", String(at.attempt_number))} ·{" "}
+                                    <b>
+                                      {at.score_pct ?? "—"}% ({at.correct_count}/{at.total_count})
+                                    </b>
+                                  </summary>
+                                  <div className="mt-1.5 space-y-1.5">
+                                    {at.question_order.map((qid, qi) => {
+                                      const it = itemsById.get(qid);
+                                      if (!it) return null;
+                                      const sel = at.final_answers[qid] ?? [];
+                                      const correct = new Set(it.correct_option_ids ?? []);
+                                      const ok =
+                                        sel.length === correct.size &&
+                                        sel.every((s) => correct.has(s));
+                                      return (
+                                        <div key={qid}>
+                                          <p className="text-[11px] font-medium">
+                                            {ok ? "✅" : "❌"} {qi + 1}.{" "}
+                                            {localizeText(it.title, locale)}
+                                          </p>
+                                          <AnswerReview
+                                            item={it}
+                                            selected={sel}
+                                            locale={locale}
+                                          />
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </details>
+                              );
+                            })}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <Select
-                    className="w-40"
-                    disabled={busyId === r.id}
-                    value={r.level}
-                    onChange={(e) => void handleLevelChange(r.id, e.target.value as AcademyLevel)}
-                  >
-                    {ACADEMY_LEVELS.map((l) => (
-                      <option key={l} value={l}>
-                        {a.levels[l]}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
         </div>

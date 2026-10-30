@@ -21,10 +21,11 @@ export function navGroups(role: AppRole, d: Dictionary): { primary: NavItem[]; o
         { href: "/athlete/morning", label: d.nav.morning },
         { href: "/athlete/training", label: d.nav.training },
         { href: "/athlete/academy", label: d.nav.academy },
+      ],
+      overflow: [
         { href: "/athlete/history", label: d.nav.history },
         { href: "/athlete/settings", label: d.nav.profile },
       ],
-      overflow: [],
     };
   }
   if (role === "coach") {
@@ -49,11 +50,11 @@ export function navGroups(role: AppRole, d: Dictionary): { primary: NavItem[]; o
       { href: "/coach/attendance", label: d.nav.attendance },
       { href: "/coach/academy", label: d.nav.academy },
       { href: "/analytics", label: d.analytics.title },
-      { href: "/admin/users", label: d.nav.users },
     ],
     overflow: [
       { href: "/admin", label: d.nav.home },
       { href: "/coach/guide", label: d.nav.guide },
+      { href: "/admin/users", label: d.nav.users },
       { href: "/admin/groups", label: d.nav.groups },
       { href: "/admin/features", label: d.nav.features },
       { href: "/admin/tests", label: d.nav.tests },

@@ -1179,6 +1179,11 @@ const ro: Dictionary = {
     attemptsUsed: "Încercări: {u} din {m}",
     testScore: "Rezultat: {s}% ({c} din {t})",
     testExpired: "Timpul a expirat",
+    monthProgress: "Lecții luna aceasta: {done} din {elapsed} zile ({total} total)",
+    monthTestInfo: "Testul lunar — {date}",
+    testWindow: "fereastra {from} — {until}",
+    testOpensIn: "se deschide în {d} zile",
+    testClosed: "fereastra închisă",
     badges: {
       first_step: {
         title: "Primul Raliu",
@@ -1232,6 +1237,14 @@ const ro: Dictionary = {
       newManualTitle: "Adaugă sarcină manual",
       deleteBtn: "Șterge",
       togglePubBtn: "Publicare",
+      viewAnswersBtn: "Răspunsuri",
+      hideAnswersBtn: "Ascunde",
+      lastAnswersTitle: "Ultimele răspunsuri",
+      noAnswersYet: "Fără răspunsuri încă",
+      attemptsTitle: "Încercări la testele lunare",
+      attemptN: "încercarea {n}",
+      chosenTag: "alegerea sportivului",
+      correctTag: "răspuns corect",
     },
   },
 };

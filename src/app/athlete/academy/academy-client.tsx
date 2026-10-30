@@ -13,6 +13,8 @@ import {
 import {
   ACADEMY_TOPICS,
   localizeText,
+  monthLessonStats,
+  testWindowStatus,
   type AthleteAcademySummary,
 } from "@/lib/academy";
 import { TacticalCourtDiagram } from "@/components/academy/tactical-court";
@@ -94,6 +96,11 @@ export function AcademyClient({
   const activeTestMeta = activeAttempt
     ? tests.find((t) => t.id === activeAttempt.test_id) ?? null
     : null;
+
+  // "Lessons N of M days this month" counter — the monthly test lands on
+  // the last day of the month.
+  const month = monthLessonStats(responses, today);
+  const monthPct = Math.min(100, Math.round((month.daysDone / month.daysElapsed) * 100));
 
   // Countdown timer for active in-progress monthly test
   useEffect(() => {
@@ -390,6 +397,34 @@ export function AcademyClient({
           <p className="text-xs text-muted">
             {a.dailyTitle} · {today} — {a.dailyHint}
           </p>
+          <Card className="border-accent/30 bg-accent/5">
+            <CardContent className="space-y-2 pt-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                <span className="font-medium">
+                  📆{" "}
+                  {a.monthProgress
+                    .replace("{done}", String(month.daysDone))
+                    .replace("{elapsed}", String(month.daysElapsed))
+                    .replace("{total}", String(month.daysInMonth))}
+                </span>
+                <span className="text-muted">
+                  🏁 {a.monthTestInfo.replace("{date}", month.lastDay)}
+                </span>
+              </div>
+              <div
+                className="h-2 overflow-hidden rounded-full bg-foreground/10"
+                role="progressbar"
+                aria-valuenow={monthPct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                <div
+                  className="h-full rounded-full bg-accent transition-all"
+                  style={{ width: `${monthPct}%` }}
+                />
+              </div>
+            </CardContent>
+          </Card>
           {dailyItems.map((it, idx) =>
             renderCard(
               it,
@@ -608,7 +643,10 @@ export function AcademyClient({
                 const bestSub = myAttempts
                   .filter((at) => at.status === "submitted")
                   .sort((x, y) => (y.score_pct ?? 0) - (x.score_pct ?? 0))[0];
-                const canStart = Boolean(inProg) || myAttempts.length < t.max_attempts;
+                const win = testWindowStatus(t, today);
+                const canStart =
+                  (win.status === "open" || Boolean(inProg)) &&
+                  (Boolean(inProg) || myAttempts.length < t.max_attempts);
 
                 return (
                   <Card key={t.id}>
@@ -630,6 +668,24 @@ export function AcademyClient({
                             {a.attemptsUsed
                               .replace("{u}", String(myAttempts.length))
                               .replace("{m}", String(t.max_attempts))}
+                          </Badge>
+                          <Badge
+                            tone={
+                              win.status === "open"
+                                ? "ok"
+                                : win.status === "upcoming"
+                                  ? "warn"
+                                  : "neutral"
+                            }
+                            title={a.testWindow
+                              .replace("{from}", t.available_from)
+                              .replace("{until}", t.available_until)}
+                          >
+                            {win.status === "open"
+                              ? `📅 ${t.available_until}`
+                              : win.status === "upcoming"
+                                ? a.testOpensIn.replace("{d}", String(win.daysUntil))
+                                : a.testClosed}
                           </Badge>
                         </div>
                       </div>

@@ -715,3 +715,46 @@ STRICT RULES:
   }
 }`;
 }
+
+/** Days of the current month that already have ≥1 completed daily-lesson
+ * card — powers the "lessons N of M days" counter. */
+export function monthLessonStats(
+  responses: readonly Pick<AcademyResponse, "assigned_date">[],
+  today: string,
+): {
+  daysDone: number;
+  daysElapsed: number;
+  daysInMonth: number;
+  /** YYYY-MM-DD of the last day of the current month (monthly-test day). */
+  lastDay: string;
+} {
+  const [y, m] = today.split("-").map(Number);
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const prefix = today.slice(0, 7);
+  const done = new Set(
+    responses
+      .map((r) => r.assigned_date)
+      .filter((d) => d.startsWith(prefix) && d <= today),
+  );
+  return {
+    daysDone: done.size,
+    daysElapsed: Number(today.slice(8, 10)),
+    daysInMonth,
+    lastDay: `${prefix}-${String(daysInMonth).padStart(2, "0")}`,
+  };
+}
+
+/** Availability-window status of a monthly test relative to today. */
+export function testWindowStatus(
+  test: Pick<AcademyTest, "available_from" | "available_until">,
+  today: string,
+): { status: "upcoming" | "open" | "closed"; daysUntil: number } {
+  if (today < test.available_from) {
+    const ms =
+      Date.parse(`${test.available_from}T00:00:00Z`) -
+      Date.parse(`${today}T00:00:00Z`);
+    return { status: "upcoming", daysUntil: Math.round(ms / 86400000) };
+  }
+  if (today > test.available_until) return { status: "closed", daysUntil: 0 };
+  return { status: "open", daysUntil: 0 };
+}

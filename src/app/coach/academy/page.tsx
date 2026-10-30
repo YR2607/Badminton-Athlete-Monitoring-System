@@ -112,6 +112,8 @@ export default async function CoachAcademyPage() {
       groups={groups}
       errorStats={errorStats}
       athleteRows={athleteRows}
+      responses={responses}
+      attempts={attempts}
     />
   );
 }

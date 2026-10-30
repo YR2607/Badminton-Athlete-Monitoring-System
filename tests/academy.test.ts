@@ -7,7 +7,9 @@ import {
   gradeTestAttempt,
   isAttemptExpired,
   localizeText,
+  monthLessonStats,
   parseAiAcademyPayload,
+  testWindowStatus,
   redactAcademyItem,
   selectDailyLesson,
 } from "@/lib/academy";
@@ -294,5 +296,41 @@ describe("Academy — AI prompt builder & batch JSON validator", () => {
       }),
     );
     expect(bad.ok).toBe(false);
+  });
+});
+
+describe("monthLessonStats", () => {
+  it("counts distinct lesson days in the current month only", () => {
+    const responses = [
+      { assigned_date: "2026-10-02" },
+      { assigned_date: "2026-10-02" },
+      { assigned_date: "2026-10-15" },
+      { assigned_date: "2026-09-30" }, // previous month — ignored
+      { assigned_date: "2026-11-01" }, // future day of next month — ignored
+    ];
+    const s = monthLessonStats(responses, "2026-10-30");
+    expect(s.daysDone).toBe(2);
+    expect(s.daysElapsed).toBe(30);
+    expect(s.daysInMonth).toBe(31);
+    expect(s.lastDay).toBe("2026-10-31");
+  });
+
+  it("handles February and empty responses", () => {
+    const s = monthLessonStats([], "2026-02-10");
+    expect(s).toMatchObject({ daysDone: 0, daysElapsed: 10, daysInMonth: 28, lastDay: "2026-02-28" });
+  });
+});
+
+describe("testWindowStatus", () => {
+  const t = { available_from: "2026-10-28", available_until: "2026-11-02" };
+  it("reports upcoming with a day countdown", () => {
+    expect(testWindowStatus(t, "2026-10-26")).toEqual({ status: "upcoming", daysUntil: 2 });
+  });
+  it("reports open inside the window (inclusive)", () => {
+    expect(testWindowStatus(t, "2026-10-28").status).toBe("open");
+    expect(testWindowStatus(t, "2026-11-02").status).toBe("open");
+  });
+  it("reports closed after the window", () => {
+    expect(testWindowStatus(t, "2026-11-03").status).toBe("closed");
   });
 });
