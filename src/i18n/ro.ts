@@ -980,7 +980,10 @@ const ro: Dictionary = {
   pro: {
     bodyMapTitle: "Atinge zona dureroasă (pe siluetă sau pe buton)",
     bodyMapGroupTitle: "Harta durerilor grupei (ultimele 7 zile)",
-    bodyMapGroupHint: "Atinge o zonă sau un nume pentru profilul sportivului. ★ — partea dominantă.",
+    bodyMapGroupHint: "Atinge o zonă sau un nume pentru profilul sportivului. ★ — partea dominantă. ×N — zona raportată de N ori săptămâna aceasta (durere persistentă).",
+    bodyMapReports: "{n} rapoarte în ultimele 7 zile — ultima {date}",
+    bodyMapMore: "încă {n}",
+    bodyMapLess: "restrânge",
     bodyZones: {
       shoulder: "Umăr",
       elbow: "Cot",

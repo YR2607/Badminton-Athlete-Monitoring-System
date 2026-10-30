@@ -980,7 +980,10 @@ const en: Dictionary = {
   pro: {
     bodyMapTitle: "Tap the painful area (on the body map or buttons)",
     bodyMapGroupTitle: "Group pain map (last 7 days)",
-    bodyMapGroupHint: "Tap a zone or name to open the athlete profile. ★ — dominant racket/lunge side.",
+    bodyMapGroupHint: "Tap a zone or name to open the athlete profile. ★ — dominant racket/lunge side. ×N — zone reported N times this week (persistent pain).",
+    bodyMapReports: "{n} reports in the last 7 days — latest {date}",
+    bodyMapMore: "+{n} more",
+    bodyMapLess: "show less",
     bodyZones: {
       shoulder: "Shoulder",
       elbow: "Elbow",

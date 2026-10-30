@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import type { Dictionary } from "@/i18n";
 import type { PainSide } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -192,6 +193,52 @@ export interface GroupPainEntry {
   dominantHit: boolean;
 }
 
+export interface MergedPainEntry extends GroupPainEntry {
+  /** How many times this athlete reported pain in this zone within the window. */
+  reportCount: number;
+  /** Peak severity across the window (latest report may carry null severity). */
+  maxSeverity: number | null;
+}
+
+/**
+ * Collapse repeated daily pain reports into one entry per athlete+zone:
+ * keeps the freshest report, counts how often the zone was flagged and
+ * tracks the peak severity — persistent pain stays visible as "×N" without
+ * flooding the map with duplicate chips.
+ */
+export function mergeGroupPainEntries(
+  entries: GroupPainEntry[],
+): MergedPainEntry[] {
+  const byKey = new Map<string, MergedPainEntry>();
+  for (const e of entries) {
+    const key = `${e.athleteId}:${detectBodyZone(e.location) ?? e.location ?? "?"}`;
+    const prev = byKey.get(key);
+    if (!prev) {
+      byKey.set(key, { ...e, reportCount: 1, maxSeverity: e.severity });
+      continue;
+    }
+    const reportCount = prev.reportCount + 1;
+    const maxSeverity =
+      e.severity != null && (prev.maxSeverity == null || e.severity > prev.maxSeverity)
+        ? e.severity
+        : prev.maxSeverity;
+    if (e.date >= prev.date) {
+      byKey.set(key, { ...e, reportCount, maxSeverity });
+    } else {
+      prev.reportCount = reportCount;
+      prev.maxSeverity = maxSeverity;
+    }
+  }
+  return [...byKey.values()].sort(
+    (a, b) =>
+      Number(b.dominantHit) - Number(a.dominantHit) ||
+      b.date.localeCompare(a.date) ||
+      a.athleteName.localeCompare(b.athleteName),
+  );
+}
+
+const CHIP_LIMIT = 10;
+
 export function GroupBodyHeatmap({
   entries,
   dict,
@@ -200,16 +247,20 @@ export function GroupBodyHeatmap({
   dict: Dictionary;
 }) {
   const zp = dict.pro.bodyZones;
-  if (entries.length === 0) return null;
+  const [expanded, setExpanded] = useState(false);
+  const merged = mergeGroupPainEntries(entries);
+  if (merged.length === 0) return null;
 
-  const byZone = new Map<BodyZoneKey, GroupPainEntry[]>();
-  for (const e of entries) {
+  const byZone = new Map<BodyZoneKey, MergedPainEntry[]>();
+  for (const e of merged) {
     const z = detectBodyZone(e.location);
     if (!z) continue;
     const list = byZone.get(z) ?? [];
     if (!list.some((x) => x.athleteId === e.athleteId)) list.push(e);
     byZone.set(z, list);
   }
+  const visible = expanded ? merged : merged.slice(0, CHIP_LIMIT);
+  const shortDate = (iso: string) => `${iso.slice(8, 10)}.${iso.slice(5, 7)}`;
 
   return (
     <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
@@ -252,13 +303,21 @@ export function GroupBodyHeatmap({
 
       <div className="flex-1 space-y-2 text-sm">
         <div className="flex flex-wrap gap-2">
-          {entries.map((e, i) => {
+          {visible.map((e) => {
             const zKey = detectBodyZone(e.location);
             const zLabel = zKey ? zp[zKey] : (e.location ?? dict.coach.hasPain);
+            const sev = e.severity ?? e.maxSeverity;
             return (
               <Link
-                key={`${e.athleteId}-${i}`}
+                key={`${e.athleteId}-${zKey ?? e.location ?? "?"}`}
                 href={`/coach/athletes/${e.athleteId}`}
+                title={
+                  e.reportCount > 1
+                    ? dict.pro.bodyMapReports
+                        .replace("{n}", String(e.reportCount))
+                        .replace("{date}", shortDate(e.date))
+                    : `${e.athleteName} · ${zLabel} · ${shortDate(e.date)}`
+                }
                 className={cn(
                   "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors",
                   e.dominantHit
@@ -269,8 +328,14 @@ export function GroupBodyHeatmap({
                 <span>{e.athleteName}</span>
                 <span className="text-muted">·</span>
                 <span>{zLabel}</span>
-                {e.severity != null && (
-                  <span className="font-semibold tabular-nums">{e.severity}/10</span>
+                {sev != null && (
+                  <span className="font-semibold tabular-nums">{sev}/10</span>
+                )}
+                <span className="text-muted tabular-nums">{shortDate(e.date)}</span>
+                {e.reportCount > 1 && (
+                  <span className="rounded bg-warn/20 px-1 font-semibold tabular-nums">
+                    ×{e.reportCount}
+                  </span>
                 )}
                 {e.dominantHit && (
                   <span title={dict.pro.dominantSideWarn} className="text-danger">
@@ -280,6 +345,17 @@ export function GroupBodyHeatmap({
               </Link>
             );
           })}
+          {merged.length > CHIP_LIMIT && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-foreground/5"
+            >
+              {expanded
+                ? dict.pro.bodyMapLess
+                : dict.pro.bodyMapMore.replace("{n}", String(merged.length - CHIP_LIMIT))}
+            </button>
+          )}
         </div>
         <p className="text-xs text-muted">{dict.pro.bodyMapGroupHint}</p>
         <p className="text-[11px] text-muted/80">{dict.coach.heatLegend}</p>
