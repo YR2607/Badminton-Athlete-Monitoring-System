@@ -124,6 +124,7 @@ export default async function CoachGuidePage() {
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted">{g.readinessBody}</p>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-muted">
@@ -144,6 +145,7 @@ export default async function CoachGuidePage() {
               ))}
             </tbody>
           </table>
+          </div>
           <p className="text-sm text-muted">{g.readinessEvening}</p>
         </CardContent>
       </Card>

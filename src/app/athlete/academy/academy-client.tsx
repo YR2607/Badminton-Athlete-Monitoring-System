@@ -342,25 +342,25 @@ export function AcademyClient({
       </div>
 
       {/* Summary KPI tiles */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <Card>
           <CardContent className="pt-4">
-            <p className="text-2xl font-bold text-accent tabular-nums">{progress.totalPoints}</p>
-            <p className="text-xs text-muted">{a.pointsLabel}</p>
+            <p className="text-xl font-bold text-accent tabular-nums sm:text-2xl">{progress.totalPoints}</p>
+            <p className="text-[11px] leading-tight text-muted sm:text-xs">{a.pointsLabel}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-2xl font-bold tabular-nums">{progress.completedCount}</p>
-            <p className="text-xs text-muted">{a.completedLabel}</p>
+            <p className="text-xl font-bold tabular-nums sm:text-2xl">{progress.completedCount}</p>
+            <p className="text-[11px] leading-tight text-muted sm:text-xs">{a.completedLabel}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-4">
-            <p className="text-2xl font-bold text-ok tabular-nums">
+            <p className="text-xl font-bold text-ok tabular-nums sm:text-2xl">
               {progress.accuracyPct !== null ? `${progress.accuracyPct}%` : "—"}
             </p>
-            <p className="text-xs text-muted">{a.accuracyLabel}</p>
+            <p className="text-[11px] leading-tight text-muted sm:text-xs">{a.accuracyLabel}</p>
           </CardContent>
         </Card>
       </div>

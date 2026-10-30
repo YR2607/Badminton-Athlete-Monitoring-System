@@ -113,9 +113,9 @@ export function TodayChecklist({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center justify-between text-base">
-          {d.surveysTitle}
-          <span className="text-sm font-normal text-muted">
+        <CardTitle className="flex items-baseline justify-between gap-2 text-base">
+          <span className="min-w-0">{d.surveysTitle}</span>
+          <span className="shrink-0 whitespace-nowrap text-xs font-normal text-muted">
             {d.progressOf
               .replace("{done}", String(doneCount))
               .replace("{total}", String(rows.length))}
