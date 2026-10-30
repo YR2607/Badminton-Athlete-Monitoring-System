@@ -8,7 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GroupBodyHeatmap, type GroupPainEntry } from "@/components/forms/body-map";
-import { addDays, todayInTz } from "@/lib/dates";
+import { LoadBarChart } from "@/components/charts/series-chart";
+import { addDays, dateRange, localDate, todayInTz } from "@/lib/dates";
+import { analyzeLoadWave } from "@/lib/load";
+import type { TrainingSession } from "@/lib/types";
 import { ageInDays } from "@/lib/athlete-status";
 import { CoachTable } from "./table";
 
@@ -68,6 +71,37 @@ export default async function CoachDashboard({
   const attMarked = new Set(((attRows ?? []) as { athlete_id: string }[]).map((r) => r.athlete_id)).size;
   const ostrcFilled = new Set(((ostrcRows ?? []) as { athlete_id: string }[]).map((r) => r.athlete_id)).size;
   const acadDone = new Set(((acadRows ?? []) as { athlete_id: string }[]).map((r) => r.athlete_id)).size;
+
+  // 14-day BWF load wave (mean active AU per day across the group).
+  const { data: waveSessionsRaw } = athleteIds.length
+    ? await supabase
+        .from("training_sessions")
+        .select("athlete_id, session_rpe, duration_minutes, started_at")
+        .in("athlete_id", athleteIds)
+        .gte("started_at", `${addDays(coachToday, -13)}T00:00:00Z`)
+        .lt("started_at", `${addDays(coachToday, 1)}T00:00:00Z`)
+    : { data: [] };
+  const tzOf = (athleteId: string) =>
+    rows.find((r) => r.athlete.id === athleteId)?.profile?.timezone ??
+    profile.timezone;
+  const wave14Days = dateRange(addDays(coachToday, -13), coachToday).map((dt) => {
+    const dayTotals = new Map<string, number>();
+    for (const s of (waveSessionsRaw ?? []) as TrainingSession[]) {
+      if (s.session_rpe == null || s.duration_minutes == null) continue;
+      const sd = localDate(new Date(s.started_at), tzOf(s.athlete_id));
+      if (sd !== dt) continue;
+      dayTotals.set(
+        s.athlete_id,
+        (dayTotals.get(s.athlete_id) ?? 0) + s.session_rpe * s.duration_minutes,
+      );
+    }
+    const vals = [...dayTotals.values()];
+    const avg = vals.length
+      ? Math.round(vals.reduce((x, y) => x + y, 0) / vals.length)
+      : 0;
+    return { date: dt, load: avg };
+  });
+  const wave14 = analyzeLoadWave(wave14Days);
 
   const filled = rows.filter((r) => r.todayCheckin).length;
   const openAlerts = rows.flatMap((r) => r.openAlerts);
@@ -217,6 +251,44 @@ export default async function CoachDashboard({
           </Link>
         ))}
       </div>
+
+      {/* 14-day BWF load wave (peaks 🔴 & deloads 🟢) */}
+      {wave14Days.some((day) => day.load > 0) && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">{dict.dashboard.waveTitle}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1.5">
+            <LoadBarChart
+              data={wave14Days.map((x) => ({
+                date: x.date.slice(5),
+                load: x.load,
+                wave: wave14.tags.get(x.date) ?? null,
+              }))}
+              label={dict.dashboard.fact}
+            />
+            <p className="text-[11px] text-muted">{dict.dashboard.waveLegend}</p>
+            {wave14.status !== "insufficient" && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+                <span
+                  className={
+                    wave14.status === "monotonous" ? "text-warn" : "text-ok"
+                  }
+                >
+                  {wave14.status === "monotonous"
+                    ? `⚠️ ${dict.dashboard.waveMonotonous}`
+                    : `✅ ${dict.dashboard.waveGood}`}
+                </span>
+                <span className="text-muted">
+                  {dict.dashboard.wavePeaks.replace("{p}", String(wave14.peaks))} ·{" "}
+                  {dict.dashboard.waveRecoveries.replace("{r}", String(wave14.recoveries))} ·{" "}
+                  {dict.dashboard.waveAvg.replace("{m}", String(wave14.meanActive))}
+                </span>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {rows.length > 0 && (
         <Card>
