@@ -265,7 +265,7 @@ export default async function AthleteDetailPage({
                 "🏸"
               )}
             </div>
-            <div className="min-w-0 flex-1 space-y-1.5 text-sm">
+            <div className="min-w-[200px] flex-1 space-y-1.5 text-sm">
               <div className="flex flex-wrap gap-1.5">
                 {getAvatarPreset(a.photo_path) && (
                   <Badge tone="neutral" title={getAvatarPreset(a.photo_path)!.subtitle[me.preferred_language]}>
@@ -313,7 +313,7 @@ export default async function AthleteDetailPage({
             </div>
             {attendanceStats && attendanceStats.scheduled > 0 && (
               <div
-                className="rounded-xl border border-border/60 px-3 py-2 text-sm"
+                className="w-full rounded-xl border border-border/60 px-3 py-2 text-sm sm:w-auto sm:ml-auto"
                 title={dict.attendance.hint}
               >
                 <p className="text-xs text-muted">{dict.attendance.stat30}</p>
