@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import type { Dictionary } from "@/i18n";
 import type { CoachAthleteRow } from "@/lib/coach-data";
@@ -8,8 +8,9 @@ import { STATUS_ORDER, type AthleteStatus } from "@/lib/athlete-status";
 import { Badge } from "@/components/ui/badge";
 import { Input, Select } from "@/components/ui/input";
 import { Sparkline } from "@/components/charts/sparkline";
+import { avatarPublicUrl, getAvatarPreset } from "@/lib/avatars";
 import { cn } from "@/lib/utils";
-import type { Group } from "@/lib/types";
+import type { Group, Locale } from "@/lib/types";
 
 type SortKey = "priority" | "name" | "scoreDesc" | "scoreAsc";
 
@@ -41,10 +42,12 @@ export function CoachTable({
   rows,
   groups,
   dict,
+  locale,
 }: {
   rows: CoachAthleteRow[];
   groups: Group[];
   dict: Dictionary;
+  locale: Locale;
 }) {
   const d = dict.coach;
   const [q, setQ] = useState("");
@@ -136,6 +139,40 @@ export function CoachTable({
         {filtered.map((r) => {
           const name = r.profile?.display_name ?? r.athlete.athlete_code;
           const spark = r.series.slice(-7).map((p) => p.score);
+          const preset = r.athlete.photo_path
+            ? getAvatarPreset(r.athlete.photo_path)
+            : undefined;
+          // Cap the badge row: 7 possible status chips used to wrap into
+          // 2–3 ragged lines on mobile and break the card layout.
+          const badges: ReactNode[] = [
+            <Badge key="st" tone={statusTone(r.status)} title={d.tipStatus}>
+              {d.status[r.status]}
+            </Badge>,
+          ];
+          if (r.openAlerts.some((a) => a.severity === "priority"))
+            badges.push(
+              <Badge key="ap" tone="danger" title={d.tipAlertP}>!</Badge>,
+            );
+          if (r.openAlerts.some((a) => a.severity === "review_load"))
+            badges.push(
+              <Badge key="ar" tone="warn" title={d.tipAlertR}>↺</Badge>,
+            );
+          if (r.openAlerts.some((a) => a.severity === "attention"))
+            badges.push(
+              <Badge key="aa" tone="accent" title={d.tipAlertA}>•</Badge>,
+            );
+          if (r.hasPain)
+            badges.push(
+              <Badge key="pain" tone="danger" title={d.tipPain}>{d.hasPain}</Badge>,
+            );
+          if (r.pendingPostCount > 0)
+            badges.push(
+              <Badge key="pp" tone="warn" title={d.tipPending}>{d.pendingPost}</Badge>,
+            );
+          if (r.scheduledMissedYesterday === true)
+            badges.push(
+              <Badge key="sm" tone="warn" title={d.tipMissed}>{d.schedMissed}</Badge>,
+            );
           return (
             <Link
               key={r.athlete.id}
@@ -143,50 +180,39 @@ export function CoachTable({
               className="rounded-xl border border-border bg-surface p-3 transition-colors hover:border-accent/40 active:bg-foreground/[0.03]"
             >
               <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                <Badge tone={statusTone(r.status)} title={d.tipStatus}>
-                  {d.status[r.status]}
-                </Badge>
-                {r.openAlerts.some((a) => a.severity === "priority") && (
-                  <Badge tone="danger" title={d.tipAlertP}>
-                    !
-                  </Badge>
-                )}
-                {r.openAlerts.some((a) => a.severity === "review_load") && (
-                  <Badge tone="warn" title={d.tipAlertR}>
-                    ↺
-                  </Badge>
-                )}
-                {r.openAlerts.some((a) => a.severity === "attention") && (
-                  <Badge tone="accent" title={d.tipAlertA}>
-                    •
-                  </Badge>
-                )}
-                {r.hasPain && (
-                  <Badge tone="danger" title={d.tipPain}>
-                    {d.hasPain}
-                  </Badge>
-                )}
-                {r.pendingPostCount > 0 && (
-                  <Badge tone="warn" title={d.tipPending}>
-                    {d.pendingPost}
-                  </Badge>
-                )}
-                {r.scheduledMissedYesterday === true && (
-                  <Badge tone="warn" title={d.tipMissed}>
-                    {d.schedMissed}
+                {badges.slice(0, 4)}
+                {badges.length > 4 && (
+                  <Badge tone="neutral" title={badges.slice(4).length.toString()}>
+                    +{badges.length - 4}
                   </Badge>
                 )}
               </div>
 
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate font-medium">{name}</p>
-                  <p className="text-xs text-muted">
-                    {r.athlete.athlete_code} · {r.group?.name ?? "—"}
-                    {r.age ? ` · ${r.age}` : ""}
-                  </p>
+                <div className="flex min-w-0 items-center gap-2">
+                  {preset && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={avatarPublicUrl(r.athlete.photo_path!)}
+                      alt=""
+                      referrerPolicy="no-referrer"
+                      className="h-9 w-9 shrink-0 rounded-full border border-border object-cover"
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{name}</p>
+                    <p className="truncate text-xs text-muted">
+                      {r.athlete.athlete_code} · {r.group?.name ?? "—"}
+                      {r.age ? ` · ${r.age}` : ""}
+                    </p>
+                    {preset && (
+                      <p className="truncate text-[10px] leading-tight text-muted/70">
+                        {preset.emoji} {preset.title[locale]}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div className="text-right">
+                <div className="shrink-0 text-right">
                   {r.todayScore !== null ? (
                     <>
                       <p

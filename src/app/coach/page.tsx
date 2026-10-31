@@ -455,7 +455,7 @@ export default async function CoachDashboard({
         </Card>
       )}
 
-      <CoachTable rows={rows} groups={groups} dict={dict} />
+      <CoachTable rows={rows} groups={groups} dict={dict} locale={profile.preferred_language} />
 
       <p className="text-xs text-muted">
         <Link href="/coach/alerts" className="underline">
