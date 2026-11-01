@@ -490,7 +490,7 @@ export function CoachAcademyClient({
                 <div>
                   <Label>Количество</Label>
                   <Select value={String(aiCount)} onChange={(e) => setAiCount(Number(e.target.value))}>
-                    {[3, 5, 7, 10, 15].map((n) => (
+                    {[3, 5, 7, 10, 15, 20, 30].map((n) => (
                       <option key={n} value={n}>
                         {n}
                       </option>

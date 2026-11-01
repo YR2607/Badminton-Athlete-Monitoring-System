@@ -651,8 +651,29 @@ export function buildAiPromptForCoach(opts: {
     opts.mode === "monthly_test"
       ? `Generate ${opts.count} questions AND include a "test" object at the root so it creates a ready monthly test.`
       : opts.mode === "visual_tactics"
-        ? `Generate ${opts.count} visual tactical problems (item_type: "visual_tactical") with a "court_diagram" object (x: 0..100 court width, y: 0..50 opponent half, y: 50..100 player half).`
+        ? `Generate ${opts.count} visual tactical problems (item_type: "visual_tactical") with a "court_diagram" object.
+
+COURT GEOMETRY — MUST BE REALISTIC BADMINTON POSITIONS:
+- Portrait court. x = 0..100 (left→right), y = 0..100 (top = opponent side → bottom = player side). The NET is exactly at y=50.
+- Team "you" is ALWAYS on the bottom half (y 55..92); team "opp" is on the top half (y 8..45). Players must stand ON the court.
+- Realistic zones: rear court y 6..20 (opp) / y 80..94 (you); mid court y 22..36 / y 64..78; forecourt near the net y 37..46 / y 54..63.
+- Singles: 1 player per side (usual base position: x 45..55, y ~30 for opp / y ~70 for you). Doubles: 2 per side (front+rear, or side-by-side on defense).
+- "shuttle" x,y = where the shuttle actually is in the described situation (e.g., a smash arriving deep at you → y 80..90; a net shot → y 44..48 on the opponent side).
+- "arrows" = the SHOT/MOVE OPTIONS the question is about. Each arrow's "to" must be a realistic badminton target:
+  • clear / lift  → opponent rear corners (x 8..25 or 75..92, y 6..15)
+  • drop shot     → opponent forecourt (x 15..85, y 38..46)
+  • net shot      → right at the net tape (y 44..48)
+  • smash / drive → mid-court lanes (x 20..80, y 24..38)
+  • serve return  → corresponding zone on the receiver's target side
+  • footwork move → a sensible court position on YOUR half (y 55..92)
+- Every arrow "label" MUST be "A"/"B"/"C"/... matching the option ids in "options" — option text describes that shot; correct_option_ids marks the tactically best choice. The described body MUST match what the diagram shows.
+- NEVER draw arrows that teleport, pass backwards through the net, land outside the court, or contradict the question text.`
         : `Generate ${opts.count} daily badminton learning tasks (mix of "fact", "tactical", "find_mistake", "rules", "single_choice", "multi_choice").`;
+
+  const monthPlanNote =
+    opts.count >= 20
+      ? `\nThis pack covers a WHOLE MONTH of daily lessons (~${opts.count} cards). Structure it as a 4-week progression: week 1 = fundamentals & confidence-builders, weeks 2–3 = varied technique/tactics/rules, week 4 = integration & review questions. Vary the topic day to day (never 2 identical topics back to back); aim for ~1/3 "fact" items, the rest question types.\n`
+      : "";
 
   const avoidNote =
     opts.existingTitles && opts.existingTitles.length > 0
@@ -664,7 +685,7 @@ export function buildAiPromptForCoach(opts: {
 
   return `You are a BWF-certified badminton coach and sports scientist creating educational tasks for youth badminton players (ages 10–17) in RallyMonitor Academy.
 
-${modeNote}
+${modeNote}${monthPlanNote}
 Difficulty level: "${opts.difficulty}".
 ${topicNote}${avoidNote}
 
