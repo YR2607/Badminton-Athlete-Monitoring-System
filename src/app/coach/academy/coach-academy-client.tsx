@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Dictionary } from "@/i18n";
 import {
+  autoScheduleAcademyMonth,
   createMonthlyReviewTest,
   deleteAcademyItem,
   importAiAcademyBatch,
@@ -134,6 +135,13 @@ export function CoachAcademyClient({
   const [libTopic, setLibTopic] = useState<AcademyTopic | "all">("all");
   const [monthlyQCount, setMonthlyQCount] = useState<number>(10);
   const [buildingMonthly, setBuildingMonthly] = useState(false);
+  const [schedStart, setSchedStart] = useState(() => {
+    const d = new Date(`${today}T00:00:00`);
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  });
+  const [schedPerDay, setSchedPerDay] = useState<number>(3);
+  const [scheduling, setScheduling] = useState(false);
 
   const libStats = computeLibraryItemStats(items, responses, today);
   const existingTitles = items.map((it) => localizeText(it.title, "ru"));
@@ -212,6 +220,26 @@ export function CoachAcademyClient({
     count: aiCount,
     existingTitles,
   });
+
+  async function handleAutoSchedule() {
+    if (scheduling) return;
+    setScheduling(true);
+    const res = await autoScheduleAcademyMonth({
+      startDate: schedStart,
+      perDay: schedPerDay,
+    });
+    setScheduling(false);
+    if (!res.ok) {
+      toast.error(res.error ?? dict.common.error);
+      return;
+    }
+    toast.success(
+      c.schedAutoDone
+        .replace("{n}", String(res.scheduledCount ?? 0))
+        .replace("{d}", String(res.days ?? 0)),
+    );
+    router.refresh();
+  }
 
   async function handleBuildMonthlyTest() {
     if (buildingMonthly) return;
@@ -591,6 +619,49 @@ export function CoachAcademyClient({
       {/* TAB: SCHEDULE — what was shown, what's coming, upcoming test windows */}
       {tab === "schedule" && (
         <div className="space-y-4">
+          <Card className="border-accent/40 bg-accent/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">⚡ {c.schedAutoTitle}</CardTitle>
+              <p className="text-xs text-muted">
+                {c.schedAutoDesc
+                  .replace("{n}", String(libStats.unusedReserveCount))
+                  .replace("{p}", String(schedPerDay))}
+              </p>
+            </CardHeader>
+            <CardContent className="flex flex-wrap items-end gap-2">
+              <div>
+                <p className="text-[11px] text-muted">{c.schedStartLabel}</p>
+                <Input
+                  type="date"
+                  className="w-40"
+                  value={schedStart}
+                  onChange={(e) => setSchedStart(e.target.value)}
+                />
+              </div>
+              <div>
+                <p className="text-[11px] text-muted">{c.schedPerDayLabel}</p>
+                <Select
+                  className="w-28"
+                  value={String(schedPerDay)}
+                  onChange={(e) => setSchedPerDay(Number(e.target.value))}
+                >
+                  {[2, 3, 4].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <Button
+                size="sm"
+                disabled={scheduling || libStats.unusedReserveCount === 0}
+                onClick={() => void handleAutoSchedule()}
+              >
+                {c.schedAutoBtn}
+              </Button>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">📝 {c.schedTestsTitle}</CardTitle>
@@ -659,6 +730,13 @@ export function CoachAcademyClient({
                                   : `✅${okCount} ❌${resps.length - okCount}`}
                               </span>
                             </summary>
+                            {/* The full question for the coach to review. */}
+                            <AnswerReview
+                              item={it}
+                              selected={[]}
+                              locale={locale}
+                              showQuestion
+                            />
                             <ul className="mt-1.5 space-y-1 border-t border-border/40 pt-1.5 text-[11px]">
                               {resps.map((r) => (
                                 <li

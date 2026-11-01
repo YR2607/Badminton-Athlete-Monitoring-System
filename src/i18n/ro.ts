@@ -1289,6 +1289,12 @@ const ro: Dictionary = {
       schedPast: "Deja afișate (date trecute)",
       cardsCount: "{n} carduri",
       pickedTag: "a ales",
+      schedAutoTitle: "⚡ Completează programul lunii",
+      schedAutoDesc: "Distribuie {n} carduri din rezervă pe zile — câte {p} pe zi",
+      schedStartLabel: "De la data",
+      schedPerDayLabel: "carduri pe zi",
+      schedAutoBtn: "Programează",
+      schedAutoDone: "Programate {n} carduri pe {d} zile",
     },
   },
 };

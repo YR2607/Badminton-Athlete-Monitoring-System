@@ -1289,6 +1289,12 @@ const en: Dictionary = {
       schedPast: "Already shown (past dates)",
       cardsCount: "{n} cards",
       pickedTag: "picked",
+      schedAutoTitle: "⚡ Auto-fill the month schedule",
+      schedAutoDesc: "Spreads {n} reserve cards over the coming days — {p} per day",
+      schedStartLabel: "From date",
+      schedPerDayLabel: "cards per day",
+      schedAutoBtn: "Schedule",
+      schedAutoDone: "Scheduled {n} cards over {d} days",
     },
   },
 };

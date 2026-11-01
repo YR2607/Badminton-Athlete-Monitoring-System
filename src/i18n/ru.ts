@@ -1291,6 +1291,12 @@ const ru = {
       schedPast: "Уже были (прошедшие даты)",
       cardsCount: "{n} карточек",
       pickedTag: "выбрал",
+      schedAutoTitle: "⚡ Заполнить расписание на месяц",
+      schedAutoDesc: "Разложит {n} карточек из запаса по датам — по {p} в день",
+      schedStartLabel: "С какой даты",
+      schedPerDayLabel: "карточек в день",
+      schedAutoBtn: "Распланировать",
+      schedAutoDone: "Запланировано {n} карточек на {d} дн.",
     },
   },
 };

@@ -434,6 +434,56 @@ export async function deleteAcademyItem(id: string): Promise<{ ok?: boolean; err
   return { ok: true };
 }
 
+/**
+ * Auto-schedules unscheduled (reserve) published cards across the coming days:
+ * `perDay` cards per date starting from `startDate`. Lets a coach fill a whole
+ * month of lessons in one click.
+ */
+export async function autoScheduleAcademyMonth(input: {
+  startDate: string;
+  perDay: number;
+}): Promise<{ ok?: boolean; error?: string; scheduledCount?: number; days?: number }> {
+  const profile = await getCurrentProfile();
+  if (!profile || (profile.role !== "coach" && profile.role !== "admin")) {
+    return { error: "forbidden" };
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.startDate)) return { error: "validation" };
+  const perDay = Math.min(4, Math.max(1, Math.round(input.perDay || 3)));
+
+  const admin = createAdminClient();
+  const { data: rawItems } = await admin
+    .from("academy_items")
+    .select("id")
+    .eq("published", true)
+    .is("scheduled_date", null)
+    .order("created_at", { ascending: true });
+  const ids = ((rawItems as { id: string }[] | null) ?? []).map((i) => i.id);
+  if (ids.length === 0) return { ok: true, scheduledCount: 0, days: 0 };
+
+  const updates = ids.map((id, idx) =>
+    admin
+      .from("academy_items")
+      .update({ scheduled_date: addDays(input.startDate, Math.floor(idx / perDay)) })
+      .eq("id", id),
+  );
+  const results = await Promise.all(updates);
+  const failed = results.find((r) => r.error);
+  if (failed?.error) return { error: failed.error.message };
+
+  await audit("academy.auto_schedule", "academy_items", profile.id, {
+    count: ids.length,
+    perDay,
+    startDate: input.startDate,
+  });
+  revalidatePath("/coach/academy");
+  revalidatePath("/athlete/academy");
+  return {
+    ok: true,
+    scheduledCount: ids.length,
+    days: Math.ceil(ids.length / perDay),
+  };
+}
+
 export async function setAthleteAcademyLevel(input: {
   athleteId: string;
   level: AcademyLevel;
