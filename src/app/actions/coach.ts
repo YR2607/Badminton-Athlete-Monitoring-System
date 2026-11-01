@@ -7,7 +7,8 @@ import { coachNoteSchema, alertReviewSchema, recommendationReviewSchema, athlete
 import { evaluateAthleteDay } from "@/lib/evaluate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isFlagEnabled } from "@/lib/flags";
-import { localDate } from "@/lib/dates";
+import { localDate, localDayUtcBounds } from "@/lib/dates";
+import { plannedForDate, type PlanOverride, type ScheduleInput } from "@/lib/load";
 
 export type ActionResult = { ok?: boolean; error?: string };
 
@@ -545,12 +546,110 @@ export async function setAttendanceMark(input: {
     );
     if (error) return { error: error.message };
   }
+
+  // The week plan (/admin/groups) already defines the day's session —
+  // marking "present" assigns it; unmarking removes an empty auto-session.
+  if (input.status === "present") {
+    await assignPlannedSession(admin, input.athlete_id, input.att_date, me.timezone);
+  } else {
+    await clearEmptySessions(admin, input.athlete_id, input.att_date, me.timezone);
+  }
+
   await audit("attendance.mark", "attendance", input.athlete_id, {
     att_date: input.att_date,
     status: input.status,
   });
   revalidatePath("/coach/attendance");
   return { ok: true };
+}
+
+/** Assigns the day's planned session (week plan) to an athlete marked present. */
+async function assignPlannedSession(
+  admin: ReturnType<typeof createAdminClient>,
+  athleteId: string,
+  attDate: string,
+  tz: string,
+) {
+  const { data: membership } = await admin
+    .from("group_memberships")
+    .select("group_id")
+    .eq("athlete_id", athleteId)
+    .is("left_at", null)
+    .limit(1)
+    .maybeSingle();
+  const groupId = (membership as { group_id?: string } | null)?.group_id;
+  if (!groupId) return;
+
+  const [{ data: schedules }, { data: overrides }] = await Promise.all([
+    admin
+      .from("training_schedules")
+      .select("weekday, planned_minutes, planned_rpe")
+      .eq("group_id", groupId)
+      .eq("active", true),
+    admin
+      .from("session_plan_overrides")
+      .select("plan_date, cancelled, planned_minutes, planned_rpe")
+      .eq("group_id", groupId)
+      .eq("plan_date", attDate),
+  ]);
+  const plan = plannedForDate(
+    attDate,
+    (schedules as ScheduleInput[] | null) ?? [],
+    (overrides as PlanOverride[] | null) ?? [],
+  );
+  if (!plan.scheduled) return;
+
+  const { start, end } = localDayUtcBounds(attDate, tz);
+  const { data: existing } = await admin
+    .from("training_sessions")
+    .select("id")
+    .eq("athlete_id", athleteId)
+    .gte("started_at", start.toISOString())
+    .lt("started_at", end.toISOString())
+    .limit(1);
+  if (existing && existing.length > 0) return;
+
+  await admin.from("training_sessions").insert({
+    athlete_id: athleteId,
+    group_id: groupId,
+    started_at: `${attDate}T12:00:00Z`,
+    duration_minutes: plan.planned_minutes,
+    session_rpe: null,
+    focus_tags: [],
+  });
+}
+
+/** Deletes empty auto-created sessions for a date (only rows without an RPE
+ *  and not linked to a post-training check-in). */
+async function clearEmptySessions(
+  admin: ReturnType<typeof createAdminClient>,
+  athleteId: string,
+  attDate: string,
+  tz: string,
+) {
+  const { start, end } = localDayUtcBounds(attDate, tz);
+  const { data: daySessions } = await admin
+    .from("training_sessions")
+    .select("id")
+    .eq("athlete_id", athleteId)
+    .is("session_rpe", null)
+    .gte("started_at", start.toISOString())
+    .lt("started_at", end.toISOString());
+  const ids = ((daySessions as { id: string }[] | null) ?? []).map((s) => s.id);
+  if (ids.length === 0) return;
+
+  const { data: linked } = await admin
+    .from("post_training_checkins")
+    .select("training_session_id")
+    .in("training_session_id", ids);
+  const linkedIds = new Set(
+    ((linked as { training_session_id: string }[] | null) ?? []).map(
+      (l) => l.training_session_id,
+    ),
+  );
+  const deletable = ids.filter((id) => !linkedIds.has(id));
+  if (deletable.length === 0) return;
+  await admin.from("training_sessions").delete().in("id", deletable);
 }
 
 /** Bulk "everyone was there" — marks all active group members present. */
@@ -587,6 +686,12 @@ export async function markGroupPresent(input: {
     { onConflict: "athlete_id,att_date" },
   );
   if (error) return { error: error.message };
+
+  // Same plan assignment as the single-athlete path, for everyone marked.
+  for (const id of ids) {
+    await assignPlannedSession(admin, id, input.att_date, me.timezone);
+  }
+
   await audit("attendance.mark_group", "attendance", input.group_id, {
     att_date: input.att_date,
     count: ids.length,

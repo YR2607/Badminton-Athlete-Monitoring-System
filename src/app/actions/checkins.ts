@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile, getCurrentAthlete, audit } from "@/lib/auth";
 import { evaluateAthleteDay } from "@/lib/evaluate";
-import { addDays, localDate } from "@/lib/dates";
+import { addDays, localDate, localDayUtcBounds } from "@/lib/dates";
 import { isFlagEnabled } from "@/lib/flags";
 import { morningCheckinSchema, postTrainingSchema } from "@/lib/validation";
 
@@ -178,37 +178,73 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
     }
   }
 
-  const { data: inserted, error: sErr } = await supabase
-    .from("training_sessions")
-    .insert({
-      athlete_id: athlete.id,
-      group_id: membership?.group_id ?? null,
-      started_at: startedAt,
-      session_rpe: srpeOn ? (parsed.data.session_rpe ?? null) : null,
-      duration_minutes: srpeOn ? (parsed.data.session_minutes ?? null) : null,
-      focus_tags: parsed.data.focus_tags ?? [],
-      match_discipline: parsed.data.match_discipline ?? null,
-      match_result: parsed.data.match_result ?? null,
-      client_uuid: parsed.data.client_uuid,
-    })
-    .select("id")
-    .single();
+  // Reuse an empty same-day session auto-created by attendance marking —
+  // otherwise this check-in would spawn a duplicate session row.
+  // (Skipped for tournament matches: each match is its own session.)
+  const { start: sDayStart, end: sDayEnd } = localDayUtcBounds(
+    sessionDate,
+    profile.timezone,
+  );
+  const { data: emptySession } = isMatch
+    ? { data: null }
+    : await supabase
+        .from("training_sessions")
+        .select("id")
+        .eq("athlete_id", athlete.id)
+        .is("session_rpe", null)
+        .is("match_discipline", null)
+        .gte("started_at", sDayStart.toISOString())
+        .lt("started_at", sDayEnd.toISOString())
+        .order("started_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
 
-  // A retry after a partial failure may hit the client_uuid unique constraint
-  // with the session already created — reuse it instead of failing.
-  let session = inserted;
-  if (sErr) {
-    if (sErr.code !== "23505") return { error: sErr.message };
-    const { data: existing } = await supabase
+  let session = (emptySession as { id: string } | null) ?? null;
+  if (session) {
+    const { error: uErr } = await supabase
       .from("training_sessions")
+      .update({
+        session_rpe: srpeOn ? (parsed.data.session_rpe ?? null) : null,
+        duration_minutes: srpeOn ? (parsed.data.session_minutes ?? null) : null,
+        focus_tags: parsed.data.focus_tags ?? [],
+        match_discipline: parsed.data.match_discipline ?? null,
+        match_result: parsed.data.match_result ?? null,
+      })
+      .eq("id", session.id);
+    if (uErr) return { error: uErr.message };
+  } else {
+    const { data: inserted, error: sErr } = await supabase
+      .from("training_sessions")
+      .insert({
+        athlete_id: athlete.id,
+        group_id: membership?.group_id ?? null,
+        started_at: startedAt,
+        session_rpe: srpeOn ? (parsed.data.session_rpe ?? null) : null,
+        duration_minutes: srpeOn ? (parsed.data.session_minutes ?? null) : null,
+        focus_tags: parsed.data.focus_tags ?? [],
+        match_discipline: parsed.data.match_discipline ?? null,
+        match_result: parsed.data.match_result ?? null,
+        client_uuid: parsed.data.client_uuid,
+      })
       .select("id")
-      .eq("athlete_id", athlete.id)
-      .eq("client_uuid", parsed.data.client_uuid)
-      .maybeSingle();
-    if (!existing) return { error: "duplicate" };
-    session = existing;
+      .single();
+
+    // A retry after a partial failure may hit the client_uuid unique constraint
+    // with the session already created — reuse it instead of failing.
+    session = inserted;
+    if (sErr) {
+      if (sErr.code !== "23505") return { error: sErr.message };
+      const { data: existing } = await supabase
+        .from("training_sessions")
+        .select("id")
+        .eq("athlete_id", athlete.id)
+        .eq("client_uuid", parsed.data.client_uuid)
+        .maybeSingle();
+      if (!existing) return { error: "duplicate" };
+      session = existing;
+    }
+    if (!session) return { error: "error" };
   }
-  if (!session) return { error: "error" };
 
   const { error } = await supabase.from("post_training_checkins").insert({
     training_session_id: session.id,

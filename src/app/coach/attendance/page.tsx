@@ -4,7 +4,6 @@ import { createClient } from "@/lib/supabase/server";
 import { addDays, localDayUtcBounds, todayInTz } from "@/lib/dates";
 import { plannedForDate, type PlanOverride, type ScheduleInput } from "@/lib/load";
 import type { Athlete, Attendance, Group, Profile, TrainingSession } from "@/lib/types";
-import { GroupSessionForm } from "../group-session-form";
 import { AttendanceClient, type AttendanceRow } from "./attendance-client";
 
 export default async function AttendancePage({
@@ -126,7 +125,6 @@ export default async function AttendancePage({
         scheduled={scheduled}
         rows={rows}
       />
-      <GroupSessionForm groups={groupList} dict={dict} />
     </div>
   );
 }
