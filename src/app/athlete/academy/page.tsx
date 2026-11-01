@@ -93,13 +93,21 @@ export default async function AthleteAcademyPage() {
 
   // MANDATORY monthly test: while an open test has no submitted attempt,
   // daily lessons stay locked — the athlete must submit it (any result).
+  // Only tests of the current month count, and the mandatory regime kicks
+  // in starting November 2026 (October is skipped by request).
+  const MANDATORY_TEST_FROM = "2026-11";
   const mandatoryTest =
-    allTests.find(
-      (t) =>
-        t.available_from <= today &&
-        today <= t.available_until &&
-        !attempts.some((at) => at.test_id === t.id && at.status === "submitted"),
-    ) ?? null;
+    today.slice(0, 7) >= MANDATORY_TEST_FROM
+      ? (allTests.find(
+          (t) =>
+            t.available_from.slice(0, 7) === today.slice(0, 7) &&
+            t.available_from <= today &&
+            today <= t.available_until &&
+            !attempts.some(
+              (at) => at.test_id === t.id && at.status === "submitted",
+            ),
+        ) ?? null)
+      : null;
 
   // Missed daily lessons (backlog): replay the deterministic picker for each
   // past day of the month and collect cards the athlete never answered —
