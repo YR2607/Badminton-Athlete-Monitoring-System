@@ -49,7 +49,7 @@ export interface CoachAthleteAcademyRow {
   bestTestPct: number | null;
 }
 
-type CoachTab = "ai" | "library" | "tests" | "analytics";
+type CoachTab = "ai" | "schedule" | "library" | "tests" | "analytics";
 
 /** One option list with the athlete's pick (▸) vs the correct answer (✓).
  *  `showQuestion` also renders the full question body + tactical court
@@ -167,6 +167,43 @@ export function CoachAcademyClient({
     l.push(at);
     attemptsByAthlete.set(at.athlete_id, l);
   }
+
+  // Schedule tab data: who answered what, grouped per item + per date.
+  const athleteNameById = new Map(athleteRows.map((r) => [r.id, r.name]));
+  const responsesByItem = new Map<string, AcademyResponse[]>();
+  for (const r of responses) {
+    const l = responsesByItem.get(r.item_id) ?? [];
+    l.push(r);
+    responsesByItem.set(r.item_id, l);
+  }
+  const groupByDate = (list: AcademyItem[]) => {
+    const m = new Map<string, AcademyItem[]>();
+    for (const i of list) {
+      const d = i.scheduled_date ?? "";
+      const l = m.get(d) ?? [];
+      l.push(i);
+      m.set(d, l);
+    }
+    return [...m.entries()];
+  };
+  const futureGroups = groupByDate(
+    items.filter((i) => i.scheduled_date && i.scheduled_date >= today),
+  ).sort((a, b) => a[0].localeCompare(b[0]));
+  const pastGroups = groupByDate(
+    items.filter((i) => i.scheduled_date && i.scheduled_date < today),
+  ).sort((a, b) => b[0].localeCompare(a[0]));
+  const upcomingTests = tests
+    .filter((t) => t.available_until >= today)
+    .sort((a, b) => a.available_from.localeCompare(b.available_from));
+
+  /** Option letters (A, B, C…) for a set of chosen option ids. */
+  const optLetters = (it: AcademyItem, ids: string[]) =>
+    ids
+      .map((id) => {
+        const idx = it.options.findIndex((o) => o.id === id);
+        return idx >= 0 ? "ABCDE"[idx] : id.toUpperCase();
+      })
+      .join(", ");
 
   const generatedPrompt = buildAiPromptForCoach({
     mode: aiMode,
@@ -339,6 +376,7 @@ export function CoachAcademyClient({
         {(
           [
             ["ai", c.aiTab],
+            ["schedule", `📅 ${c.scheduleTab}`],
             ["library", c.libraryTab.replace("{n}", String(items.length))],
             ["tests", `${c.testsTab} (${tests.length})`],
             ["analytics", c.analyticsTab],
@@ -548,6 +586,121 @@ export function CoachAcademyClient({
               )}
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* TAB: SCHEDULE — what was shown, what's coming, upcoming test windows */}
+      {tab === "schedule" && (
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">📝 {c.schedTestsTitle}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-1.5">
+              {upcomingTests.map((t) => (
+                <div
+                  key={t.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm"
+                >
+                  <span className="min-w-0 font-medium">
+                    {localizeText(t.title, locale)}
+                  </span>
+                  <span className="flex shrink-0 gap-1.5">
+                    <Badge tone="neutral">
+                      {a.questionsCount.replace("{n}", String(t.question_count))}
+                    </Badge>
+                    <Badge tone={today < t.available_from ? "warn" : "ok"}>
+                      {today < t.available_from
+                        ? `📅 ${t.available_from}`
+                        : `✓ → ${t.available_until}`}
+                    </Badge>
+                  </span>
+                </div>
+              ))}
+              {upcomingTests.length === 0 && (
+                <p className="text-sm text-muted">{dict.common.noData}</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {(
+            [
+              [c.schedUpcoming, futureGroups],
+              [c.schedPast, pastGroups],
+            ] as [string, [string, AcademyItem[]][]][]
+          ).map(([title, groups]) => (
+            <Card key={title}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">{title}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {groups.map(([date, its]) => (
+                  <div key={date}>
+                    <p className="mb-1 text-xs font-semibold text-accent">
+                      📅 {date} ·{" "}
+                      {c.cardsCount.replace("{n}", String(its.length))}
+                    </p>
+                    <div className="space-y-1.5">
+                      {its.map((it) => {
+                        const resps = responsesByItem.get(it.id) ?? [];
+                        const okCount = resps.filter((r) => r.is_correct).length;
+                        return (
+                          <details
+                            key={it.id}
+                            className="rounded-lg border border-border/60 bg-surface px-2.5 py-1.5"
+                          >
+                            <summary className="flex cursor-pointer list-none items-center justify-between gap-2">
+                              <span className="min-w-0 truncate text-xs font-medium">
+                                {localizeText(it.title, locale)}
+                              </span>
+                              <span className="flex shrink-0 items-center gap-1.5 text-[11px] text-muted">
+                                <Badge tone="neutral">{a.topics[it.topic]}</Badge>
+                                {resps.length === 0
+                                  ? c.noAnswersYet
+                                  : `✅${okCount} ❌${resps.length - okCount}`}
+                              </span>
+                            </summary>
+                            <ul className="mt-1.5 space-y-1 border-t border-border/40 pt-1.5 text-[11px]">
+                              {resps.map((r) => (
+                                <li
+                                  key={r.id}
+                                  className="flex flex-wrap items-baseline gap-x-1.5"
+                                >
+                                  <span className={r.is_correct ? "text-ok" : "text-danger"}>
+                                    {r.is_correct ? "✅" : "❌"}
+                                  </span>
+                                  <span className="font-medium">
+                                    {athleteNameById.get(r.athlete_id) ?? "—"}
+                                  </span>
+                                  <span className="text-muted">
+                                    {c.pickedTag}:{" "}
+                                    {optLetters(it, r.selected_option_ids) || "—"}
+                                  </span>
+                                  {!r.is_correct && (
+                                    <span className="text-ok">
+                                      {c.correctTag}:{" "}
+                                      {optLetters(it, it.correct_option_ids)}
+                                    </span>
+                                  )}
+                                  <span className="text-muted/70">{r.assigned_date}</span>
+                                </li>
+                              ))}
+                              {resps.length === 0 && (
+                                <li className="text-muted">{c.noAnswersYet}</li>
+                              )}
+                            </ul>
+                          </details>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                {groups.length === 0 && (
+                  <p className="text-sm text-muted">{dict.common.noData}</p>
+                )}
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 

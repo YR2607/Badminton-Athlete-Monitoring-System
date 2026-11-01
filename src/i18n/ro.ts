@@ -1276,6 +1276,12 @@ const ro: Dictionary = {
       guideStep3: "3. Lipește promptul în ChatGPT, Claude sau Gemini → copiază răspunsul JSON în Pasul 2 mai jos → apasă «Publică în Academie».",
       guideStep4: "4. La sfârșitul lunii deschide fila «Teste lunare» și apasă «🏁 Creează testul lunii» — testul se construiește automat din întrebările parcurse luna aceasta!",
       promptAvoidInfo: "Promptul include automat lista celor {n} întrebări existente în bază pentru ca AI-ul să nu le repete.",
+      scheduleTab: "Program",
+      schedTestsTitle: "Următoarele ferestre de teste",
+      schedUpcoming: "Programate (zile viitoare)",
+      schedPast: "Deja afișate (date trecute)",
+      cardsCount: "{n} carduri",
+      pickedTag: "a ales",
     },
   },
 };

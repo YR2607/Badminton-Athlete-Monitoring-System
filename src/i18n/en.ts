@@ -1276,6 +1276,12 @@ const en: Dictionary = {
       guideStep3: "3. Paste the prompt into ChatGPT, Claude or Gemini → copy its JSON reply into Step 2 below → click 'Publish to Academy'.",
       guideStep4: "4. At the end of the month open the 'Monthly tests' tab and click '🏁 Build monthly test' — it automatically builds the exam from the questions covered this month!",
       promptAvoidInfo: "The prompt automatically includes {n} existing database questions so AI avoids duplicates.",
+      scheduleTab: "Schedule",
+      schedTestsTitle: "Upcoming test windows",
+      schedUpcoming: "Scheduled (upcoming days)",
+      schedPast: "Already shown (past dates)",
+      cardsCount: "{n} cards",
+      pickedTag: "picked",
     },
   },
 };
