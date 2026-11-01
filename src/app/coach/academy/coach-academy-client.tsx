@@ -218,7 +218,6 @@ export function CoachAcademyClient({
     setBuildingMonthly(true);
     const res = await createMonthlyReviewTest({
       questionCount: monthlyQCount,
-      openImmediately: true,
     });
     setBuildingMonthly(false);
     if (!res.ok) {

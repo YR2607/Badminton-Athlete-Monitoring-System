@@ -45,6 +45,8 @@ export function AcademyClient({
   tests,
   attempts,
   progress,
+  mandatoryTest,
+  backlog,
 }: {
   dict: Dictionary;
   locale: Locale;
@@ -56,6 +58,10 @@ export function AcademyClient({
   tests: AcademyTest[];
   attempts: AcademyTestAttempt[];
   progress: AthleteAcademySummary;
+  /** Open monthly test with no submitted attempt yet — locks daily lessons. */
+  mandatoryTest: AcademyTest | null;
+  /** Missed daily cards from earlier days of the month, oldest first. */
+  backlog: { item: PublicAcademyItem; date: string }[];
 }) {
   const router = useRouter();
   const a = dict.academy;
@@ -394,46 +400,94 @@ export function AcademyClient({
       {/* TAB 1: DAILY LESSON */}
       {tab === "today" && (
         <div className="space-y-3">
-          <p className="text-xs text-muted">
-            {a.dailyTitle} · {today} — {a.dailyHint}
-          </p>
-          <Card className="border-accent/30 bg-accent/5">
-            <CardContent className="space-y-2 pt-4">
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                <span className="font-medium">
-                  📆{" "}
-                  {a.monthProgress
-                    .replace("{done}", String(month.daysDone))
-                    .replace("{elapsed}", String(month.daysElapsed))
-                    .replace("{total}", String(month.daysInMonth))}
-                </span>
-                <span className="text-muted">
-                  🏁 {a.monthTestInfo.replace("{date}", month.lastDay)}
-                </span>
-              </div>
-              <div
-                className="h-2 overflow-hidden rounded-full bg-foreground/10"
-                role="progressbar"
-                aria-valuenow={monthPct}
-                aria-valuemin={0}
-                aria-valuemax={100}
-              >
-                <div
-                  className="h-full rounded-full bg-accent transition-all"
-                  style={{ width: `${monthPct}%` }}
-                />
-              </div>
-            </CardContent>
-          </Card>
-          {dailyItems.map((it, idx) =>
-            renderCard(
-              it,
-              it.item_type === "fact"
-                ? `1. ${a.stepFact}`
-                : idx === 1
-                  ? `2. ${a.stepTactics}`
-                  : `3. ${a.stepQuiz}`,
-            ),
+          {mandatoryTest ? (
+            /* Exam-day gate: daily lessons stay locked until the test is submitted. */
+            <Card className="border-danger/40 bg-danger/5">
+              <CardHeader>
+                <CardTitle className="text-base">
+                  {a.mandatoryTestTitle}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <p className="text-sm">{a.mandatoryTestBody}</p>
+                <p className="text-xs text-muted">
+                  📅 {localizeText(mandatoryTest.title, locale)} ·{" "}
+                  {a.mandatoryTestUntil.replace(
+                    "{date}",
+                    mandatoryTest.available_until,
+                  )}
+                </p>
+                <Button
+                  disabled={testBusy}
+                  onClick={() => {
+                    setTab("tests");
+                    void handleStartTest(mandatoryTest.id);
+                  }}
+                >
+                  {a.mandatoryTestBtn}
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <p className="text-xs text-muted">
+                {a.dailyTitle} · {today} — {a.dailyHint}
+              </p>
+              <Card className="border-accent/30 bg-accent/5">
+                <CardContent className="space-y-2 pt-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span className="font-medium">
+                      📆{" "}
+                      {a.monthProgress
+                        .replace("{done}", String(month.daysDone))
+                        .replace("{elapsed}", String(month.daysElapsed))
+                        .replace("{total}", String(month.daysInMonth))}
+                    </span>
+                    <span className="text-muted">
+                      🏁 {a.monthTestInfo.replace("{date}", month.lastDay)}
+                    </span>
+                  </div>
+                  <div
+                    className="h-2 overflow-hidden rounded-full bg-foreground/10"
+                    role="progressbar"
+                    aria-valuenow={monthPct}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                  >
+                    <div
+                      className="h-full rounded-full bg-accent transition-all"
+                      style={{ width: `${monthPct}%` }}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+              {dailyItems.map((it, idx) =>
+                renderCard(
+                  it,
+                  it.item_type === "fact"
+                    ? `1. ${a.stepFact}`
+                    : idx === 1
+                      ? `2. ${a.stepTactics}`
+                      : `3. ${a.stepQuiz}`,
+                ),
+              )}
+              {backlog.length > 0 && (
+                <Card className="border-warn/40 bg-warn/5">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">
+                      {a.backlogTitle.replace("{n}", String(backlog.length))}
+                    </CardTitle>
+                    <p className="text-xs text-muted">{a.backlogHint}</p>
+                  </CardHeader>
+                </Card>
+              )}
+              {backlog.map((b) =>
+                renderCard(
+                  b.item,
+                  `📅 ${a.backlogDayLabel.replace("{date}", b.date)}`,
+                ),
+              )}
+            </>
           )}
         </div>
       )}

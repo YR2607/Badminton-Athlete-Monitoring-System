@@ -502,8 +502,9 @@ export async function createMonthlyReviewTest(input?: {
   const topics = [
     ...new Set(items.filter((i) => selectedSet.has(i.id)).map((i) => i.topic)),
   ];
-  const openNow = input?.openImmediately ?? true;
-  const availableFrom = openNow ? today : addDays(lastDay, -2);
+  // The monthly test appears on the last day of the month by default.
+  const openNow = input?.openImmediately ?? false;
+  const availableFrom = openNow ? today : lastDay;
   const availableUntil = addDays(lastDay, 5);
   const code = `monthly_review_${monthPrefix.replace("-", "_")}`;
 

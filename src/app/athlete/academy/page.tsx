@@ -3,7 +3,7 @@ import { getCurrentAthlete, getCurrentProfile, homeForRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getDictionary } from "@/i18n";
-import { todayInTz } from "@/lib/dates";
+import { addDays, todayInTz } from "@/lib/dates";
 import { isFlagEnabled } from "@/lib/flags";
 import {
   computeAthleteAcademyProgress,
@@ -91,6 +91,46 @@ export default async function AthleteAcademyPage() {
 
   const progress = computeAthleteAcademyProgress(items, responses, attempts);
 
+  // MANDATORY monthly test: while an open test has no submitted attempt,
+  // daily lessons stay locked — the athlete must submit it (any result).
+  const mandatoryTest =
+    allTests.find(
+      (t) =>
+        t.available_from <= today &&
+        today <= t.available_until &&
+        !attempts.some((at) => at.test_id === t.id && at.status === "submitted"),
+    ) ?? null;
+
+  // Missed daily lessons (backlog): replay the deterministic picker for each
+  // past day of the month and collect cards the athlete never answered —
+  // so they can catch up after the mandatory test is done.
+  const backlog: { item: (typeof publicDaily)[number]; date: string }[] = [];
+  {
+    const monthStart = `${today.slice(0, 7)}-01`;
+    const seen = new Set<string>();
+    let d = today;
+    let scanned = 0;
+    while (d > monthStart && scanned < 14 && backlog.length < 9) {
+      d = addDays(d, -1);
+      scanned++;
+      const missed = selectDailyLesson(items, responses, {
+        athleteId: athlete.id,
+        today: d,
+        level,
+        groupIds,
+      }).filter((it) => !answeredSet.has(it.id) && !seen.has(it.id));
+      for (const it of missed) {
+        if (backlog.length >= 9) break;
+        seen.add(it.id);
+        backlog.push({
+          item: redactAcademyItem(it, false, `${athlete.id}:${it.id}`),
+          date: d,
+        });
+      }
+    }
+    backlog.sort((a, b) => a.date.localeCompare(b.date));
+  }
+
   return (
     <AcademyClient
       dict={dict}
@@ -103,6 +143,8 @@ export default async function AthleteAcademyPage() {
       tests={allTests}
       attempts={attempts}
       progress={progress}
+      mandatoryTest={mandatoryTest}
+      backlog={backlog}
     />
   );
 }
