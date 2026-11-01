@@ -39,7 +39,6 @@ export function navGroups(role: AppRole, d: Dictionary): { primary: NavItem[]; o
       overflow: [
         { href: "/coach/tests", label: d.nav.tests },
         { href: "/coach/alerts", label: d.nav.alerts },
-        { href: "/coach/export", label: d.export.title },
         { href: "/coach/guide", label: d.nav.guide },
       ],
     };

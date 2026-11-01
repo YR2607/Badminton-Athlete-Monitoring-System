@@ -15,6 +15,7 @@ import { isoWeekMonday } from "@/lib/ostrc";
 import type { TrainingSession } from "@/lib/types";
 import { ageInDays } from "@/lib/athlete-status";
 import { CoachTable } from "./table";
+import { AlertList } from "@/app/coach/athletes/[id]/alert-list";
 import { ChevronDown } from "lucide-react";
 
 export default async function CoachDashboard({
@@ -134,6 +135,13 @@ export default async function CoachDashboard({
 
   const filled = rows.filter((r) => r.todayCheckin).length;
   const openAlerts = rows.flatMap((r) => r.openAlerts);
+  const priorityAlerts = openAlerts.filter((a) => a.severity === "priority");
+  const alertOptions = rows
+    .map((r) => ({
+      id: r.athlete.id,
+      name: r.profile?.display_name ?? r.athlete.athlete_code,
+    }))
+    .sort((x, y) => x.name.localeCompare(y.name));
   const priority = rows.filter((r) => r.status === "needs_check").length;
 
   const sorted = [...rows].sort((a, b) =>
@@ -197,6 +205,19 @@ export default async function CoachDashboard({
         <h1 className="text-xl font-bold">{d.dashboard}</h1>
         <p className="text-sm text-muted">{d.dashboardHint}</p>
       </div>
+
+      {priorityAlerts.length > 0 && (
+        <Card className="border-danger/50 bg-danger/5">
+          <CardHeader>
+            <CardTitle>
+              🚨 {d.priorityAlertsTitle} ({priorityAlerts.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <AlertList alerts={priorityAlerts} dict={dict} athletes={alertOptions} />
+          </CardContent>
+        </Card>
+      )}
 
       {plannedToday && attMarked === 0 && (
         <Card className="border-accent/40 bg-accent/5">
@@ -269,13 +290,6 @@ export default async function CoachDashboard({
                     ✅ {dict.nav.attendance}
                   </Button>
                 </Link>
-                {briefAsk.length > 0 && (
-                  <Link href="/coach/kiosk">
-                    <Button size="sm" title={dict.pro.kioskBtnHint}>
-                      📋 {dict.pro.kioskBtn} ({briefAsk.length})
-                    </Button>
-                  </Link>
-                )}
               </div>
             </div>
           </CardHeader>

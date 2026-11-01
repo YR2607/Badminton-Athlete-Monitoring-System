@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart } from "@/components/charts/series-chart";
 import { TodayChecklist } from "@/components/today-checklist";
+import { PushReminderCard } from "@/components/push-subscribe";
 import { ChevronDown } from "lucide-react";
 import type { AcademyItem, AcademyResponse, MorningCheckin, PostTrainingCheckin, ReadinessSnapshot, TodaySurveyStatus } from "@/lib/types";
 
@@ -141,7 +142,7 @@ export default async function AthleteHome() {
 
   // Phase 9: engagement card — check-in streak + a simple personal insight
   // (only with enough data; no alarming wording).
-  const engageOn = await isFlagEnabled("push", groupIds);
+  const pushOn = await isFlagEnabled("push", groupIds);
   const recentList = (recent as MorningCheckin[]) ?? [];
   const filledSet = new Set(recentList.map((c) => c.checkin_date));
   let streak = 0;
@@ -306,6 +307,8 @@ export default async function AthleteHome() {
 
       <TodayChecklist d={d} status={surveyStatus} />
 
+      {pushOn && <PushReminderCard dict={dict} />}
+
       <Card>
         <CardHeader>
           <CardTitle>{d.readiness}</CardTitle>
@@ -327,7 +330,7 @@ export default async function AthleteHome() {
               )}
             </div>
           </div>
-          {engageOn && (streak >= 2 || sleepDiff !== null) && (
+          {pushOn && (streak >= 2 || sleepDiff !== null) && (
             <div className="mt-3 space-y-1.5 border-t border-border/60 pt-3 text-sm">
               {streak >= 2 && (
                 <p>🔥 {d.streak.replace("{n}", String(streak))}</p>
