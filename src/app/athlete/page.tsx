@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart } from "@/components/charts/series-chart";
 import { TodayChecklist } from "@/components/today-checklist";
+import { ChevronDown } from "lucide-react";
 import type { AcademyItem, AcademyResponse, MorningCheckin, PostTrainingCheckin, ReadinessSnapshot, TodaySurveyStatus } from "@/lib/types";
 
 export default async function AthleteHome() {
@@ -326,8 +327,22 @@ export default async function AthleteHome() {
               )}
             </div>
           </div>
+          {engageOn && (streak >= 2 || sleepDiff !== null) && (
+            <div className="mt-3 space-y-1.5 border-t border-border/60 pt-3 text-sm">
+              {streak >= 2 && (
+                <p>🔥 {d.streak.replace("{n}", String(streak))}</p>
+              )}
+              {sleepDiff !== null && (
+                <p className="text-muted">{d.sleepInsight.replace("{d}", String(sleepDiff))}</p>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
+
+      {eventsOn && (
+        <EventsPanel dict={dict} events={eventRows} athleteId={athlete.id} mode="athlete" />
+      )}
 
       {cardEmpty && (
         <Card className="border-accent/30 bg-accent/5">
@@ -342,35 +357,15 @@ export default async function AthleteHome() {
         </Card>
       )}
 
-      {academyOn && (
-        <Card className="border-accent/30 bg-accent/5">
-          <CardContent className="flex items-center justify-between gap-3 pt-4">
-            <div>
-              <p className="text-sm font-medium">🎓 {dict.academy.title}</p>
-              <p className="text-xs text-muted">{dict.academy.subtitle}</p>
-            </div>
-            <Link href="/athlete/academy" className="shrink-0">
-              <Button size="sm">{dict.academy.openBtn}</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      )}
-
-      {engageOn && (streak >= 2 || sleepDiff !== null) && (
-        <Card>
-          <CardContent className="space-y-1.5 pt-4 text-sm">
-            {streak >= 2 && (
-              <p>
-                🔥 {d.streak.replace("{n}", String(streak))}
-              </p>
-            )}
-            {sleepDiff !== null && (
-              <p className="text-muted">{d.sleepInsight.replace("{d}", String(sleepDiff))}</p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
+      <details className="group rounded-xl border border-border bg-surface">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-4">
+          <span className="text-base font-semibold">📈 {d.progressTitle}</span>
+          <span className="flex items-center gap-2 text-xs text-muted">
+            {d.progressHint}
+            <ChevronDown size={16} className="transition-transform group-open:rotate-180" />
+          </span>
+        </summary>
+        <div className="space-y-4 px-4 pb-4">
       {checkins7.length > 0 && (
         <Card>
           <CardHeader>
@@ -427,10 +422,6 @@ export default async function AthleteHome() {
         />
       )}
 
-      {eventsOn && (
-        <EventsPanel dict={dict} events={eventRows} athleteId={athlete.id} mode="athlete" />
-      )}
-
       {dashboardOn && (srpeOn || zscoreOn) && (
         <AthleteDashboard
           dict={dict}
@@ -482,6 +473,8 @@ export default async function AthleteHome() {
           )}
         </CardContent>
       </Card>
+        </div>
+      </details>
     </div>
   );
 }

@@ -10,11 +10,12 @@ import { Button } from "@/components/ui/button";
 import { GroupBodyHeatmap, type GroupPainEntry } from "@/components/forms/body-map";
 import { LoadBarChart } from "@/components/charts/series-chart";
 import { addDays, dateRange, localDate, todayInTz } from "@/lib/dates";
-import { analyzeLoadWave } from "@/lib/load";
+import { analyzeLoadWave, plannedForDate, type PlanOverride, type ScheduleInput } from "@/lib/load";
 import { isoWeekMonday } from "@/lib/ostrc";
 import type { TrainingSession } from "@/lib/types";
 import { ageInDays } from "@/lib/athlete-status";
 import { CoachTable } from "./table";
+import { ChevronDown } from "lucide-react";
 
 export default async function CoachDashboard({
   searchParams,
@@ -72,6 +73,34 @@ export default async function CoachDashboard({
   const ostrcFilled = new Set(((ostrcRows ?? []) as { athlete_id: string }[]).map((r) => r.athlete_id)).size;
   const acadDone = new Set(((acadRows ?? []) as { athlete_id: string }[]).map((r) => r.athlete_id)).size;
 
+  // Is any of the coach's groups scheduled to train today (template or override)?
+  const groupIds = groups.map((g) => g.id);
+  const [{ data: schedRows }, { data: overrideRows }] = groupIds.length
+    ? await Promise.all([
+        supabase
+          .from("training_schedules")
+          .select("weekday, planned_minutes, planned_rpe, group_id")
+          .in("group_id", groupIds)
+          .eq("active", true),
+        supabase
+          .from("session_plan_overrides")
+          .select("plan_date, cancelled, start_time, planned_minutes, planned_rpe, group_id")
+          .in("group_id", groupIds)
+          .eq("plan_date", coachToday),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const plannedToday = groups.some((g) =>
+    plannedForDate(
+      coachToday,
+      ((schedRows ?? []) as (ScheduleInput & { group_id: string })[]).filter(
+        (s) => s.group_id === g.id,
+      ),
+      ((overrideRows ?? []) as (PlanOverride & { group_id: string })[]).filter(
+        (o) => o.group_id === g.id,
+      ),
+    ).scheduled,
+  );
+
   // 14-day BWF load wave (mean active AU per day across the group).
   const { data: waveSessionsRaw } = athleteIds.length
     ? await supabase
@@ -106,8 +135,6 @@ export default async function CoachDashboard({
   const filled = rows.filter((r) => r.todayCheckin).length;
   const openAlerts = rows.flatMap((r) => r.openAlerts);
   const priority = rows.filter((r) => r.status === "needs_check").length;
-  const declining = rows.filter((r) => r.status === "declining").length;
-  const pendingPosts = rows.filter((r) => r.pendingPostCount > 0).length;
 
   const sorted = [...rows].sort((a, b) =>
     (a.profile?.display_name ?? a.athlete.athlete_code).localeCompare(
@@ -171,71 +198,47 @@ export default async function CoachDashboard({
         <p className="text-sm text-muted">{d.dashboardHint}</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Card title={d.statTipTotal}>
-          <CardContent className="pt-4">
-            <p className="text-2xl font-bold">{rows.length}</p>
-            <p className="text-xs text-muted">{d.athletesInGroup}</p>
+      {plannedToday && attMarked === 0 && (
+        <Card className="border-accent/40 bg-accent/5">
+          <CardContent className="flex items-center justify-between gap-3 pt-4">
+            <p className="text-sm font-medium">✅ {d.attCtaText}</p>
+            <Link href="/coach/attendance" className="shrink-0">
+              <Button size="sm">{d.attCtaBtn}</Button>
+            </Link>
           </CardContent>
         </Card>
-        <Card title={d.statTipFilled}>
-          <CardContent className="pt-4">
-            <p className="text-2xl font-bold text-ok">{filled}</p>
-            <p className="text-xs text-muted">{d.filledToday}</p>
-          </CardContent>
-        </Card>
-        <Card title={d.statTipNoToday}>
-          <CardContent className="pt-4">
-            <p className="text-2xl font-bold text-warn">{rows.length - filled}</p>
-            <p className="text-xs text-muted">{d.sumNoToday}</p>
-          </CardContent>
-        </Card>
-        <Card title={d.statTipPriority}>
-          <CardContent className="pt-4">
-            <p className="text-2xl font-bold text-danger">{priority}</p>
-            <p className="text-xs text-muted">
-              {d.sumPriority} · {d.openAlerts}: {openAlerts.length}
-            </p>
-          </CardContent>
-        </Card>
-        <Card title={d.statTipDeclining}>
-          <CardContent className="pt-4">
-            <p className="text-2xl font-bold text-warn">{declining}</p>
-            <p className="text-xs text-muted">{d.sumDeclining}</p>
-          </CardContent>
-        </Card>
-        <Card title={d.statTipPendingPost}>
-          <CardContent className="pt-4">
-            <p className="text-2xl font-bold">{pendingPosts}</p>
-            <p className="text-xs text-muted">{d.sumPendingPost}</p>
-          </CardContent>
-        </Card>
-      </div>
+      )}
 
-      {/* Day overview — one-glance links into the auxiliary sections. */}
+      {/* Day overview — one-glance links into the daily sections. */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           {
+            href: "#athletes",
+            value: `${filled}/${rows.length}`,
+            valueClass: filled === rows.length ? "text-ok" : "",
+            label: d.tileCheckins,
+            sub: d.tileCheckinsSub
+              .replace("{p}", String(priority))
+              .replace("{o}", `${ostrcFilled}/${rows.length}`),
+          },
+          {
             href: "/coach/attendance",
             value: `${attMarked}/${rows.length}`,
+            valueClass: "",
             label: dict.nav.attendance,
             sub: d.quickAttSub,
           },
           {
-            href: "/analytics",
-            value: `${ostrcFilled}/${rows.length}`,
-            label: dict.ostrc.title,
-            sub: d.quickOstrcSub,
-          },
-          {
             href: "/coach/academy",
             value: `${acadDone}/${rows.length}`,
+            valueClass: "",
             label: dict.nav.academy,
             sub: d.quickAcadSub,
           },
           {
             href: "/coach/alerts",
             value: String(openAlerts.length),
+            valueClass: openAlerts.length > 0 ? "text-danger" : "",
             label: dict.nav.alerts,
             sub: d.quickAlertsSub,
           },
@@ -243,7 +246,7 @@ export default async function CoachDashboard({
           <Link key={t.href} href={t.href}>
             <Card className="h-full transition-colors hover:border-accent/50">
               <CardContent className="pt-4">
-                <p className="text-2xl font-bold tabular-nums">{t.value}</p>
+                <p className={`text-2xl font-bold tabular-nums ${t.valueClass}`}>{t.value}</p>
                 <p className="text-xs font-medium">{t.label} →</p>
                 <p className="text-[11px] text-muted">{t.sub}</p>
               </CardContent>
@@ -251,44 +254,6 @@ export default async function CoachDashboard({
           </Link>
         ))}
       </div>
-
-      {/* 14-day BWF load wave (peaks 🔴 & deloads 🟢) */}
-      {wave14Days.some((day) => day.load > 0) && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">{dict.dashboard.waveTitle}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-1.5">
-            <LoadBarChart
-              data={wave14Days.map((x) => ({
-                date: x.date.slice(5),
-                load: x.load,
-                wave: wave14.tags.get(x.date) ?? null,
-              }))}
-              label={dict.dashboard.fact}
-            />
-            <p className="text-[11px] text-muted">{dict.dashboard.waveLegend}</p>
-            {wave14.status !== "insufficient" && (
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-                <span
-                  className={
-                    wave14.status === "monotonous" ? "text-warn" : "text-ok"
-                  }
-                >
-                  {wave14.status === "monotonous"
-                    ? `⚠️ ${dict.dashboard.waveMonotonous}`
-                    : `✅ ${dict.dashboard.waveGood}`}
-                </span>
-                <span className="text-muted">
-                  {dict.dashboard.wavePeaks.replace("{p}", String(wave14.peaks))} ·{" "}
-                  {dict.dashboard.waveRecoveries.replace("{r}", String(wave14.recoveries))} ·{" "}
-                  {dict.dashboard.waveAvg.replace("{m}", String(wave14.meanActive))}
-                </span>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {rows.length > 0 && (
         <Card>
@@ -444,18 +409,69 @@ export default async function CoachDashboard({
         </Card>
       )}
 
-      {groupPainEntries.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{dict.pro.bodyMapGroupTitle}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <GroupBodyHeatmap entries={groupPainEntries} dict={dict} />
-          </CardContent>
-        </Card>
-      )}
+      <div id="athletes">
+        <CoachTable rows={rows} groups={groups} dict={dict} locale={profile.preferred_language} />
+      </div>
 
-      <CoachTable rows={rows} groups={groups} dict={dict} locale={profile.preferred_language} />
+      <details className="group rounded-xl border border-border bg-surface">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-4">
+          <span className="text-base font-semibold">📊 {d.groupHealthTitle}</span>
+          <span className="flex items-center gap-2 text-xs text-muted">
+            {d.groupHealthHint}
+            <ChevronDown size={16} className="transition-transform group-open:rotate-180" />
+          </span>
+        </summary>
+        <div className="space-y-4 px-4 pb-4">
+          {/* 14-day BWF load wave (peaks 🔴 & deloads 🟢) */}
+          {wave14Days.some((day) => day.load > 0) && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">{dict.dashboard.waveTitle}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1.5">
+                <LoadBarChart
+                  data={wave14Days.map((x) => ({
+                    date: x.date.slice(5),
+                    load: x.load,
+                    wave: wave14.tags.get(x.date) ?? null,
+                  }))}
+                  label={dict.dashboard.fact}
+                />
+                <p className="text-[11px] text-muted">{dict.dashboard.waveLegend}</p>
+                {wave14.status !== "insufficient" && (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
+                    <span
+                      className={
+                        wave14.status === "monotonous" ? "text-warn" : "text-ok"
+                      }
+                    >
+                      {wave14.status === "monotonous"
+                        ? `⚠️ ${dict.dashboard.waveMonotonous}`
+                        : `✅ ${dict.dashboard.waveGood}`}
+                    </span>
+                    <span className="text-muted">
+                      {dict.dashboard.wavePeaks.replace("{p}", String(wave14.peaks))} ·{" "}
+                      {dict.dashboard.waveRecoveries.replace("{r}", String(wave14.recoveries))} ·{" "}
+                      {dict.dashboard.waveAvg.replace("{m}", String(wave14.meanActive))}
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {groupPainEntries.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>{dict.pro.bodyMapGroupTitle}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <GroupBodyHeatmap entries={groupPainEntries} dict={dict} />
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </details>
 
       <p className="text-xs text-muted">
         <Link href="/coach/alerts" className="underline">

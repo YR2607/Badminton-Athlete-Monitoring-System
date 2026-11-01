@@ -124,6 +124,8 @@ const ru = {
     ostrcLabel: "Анкета здоровья недели",
     academyLabel: "Задание дня в Академии",
     completed: "Выполнено",
+    progressTitle: "Мой прогресс",
+    progressHint: "неделя, бейджи, тесты, графики",
   },
   push: {
     bannerTitle: "Напоминания об анкетах",
@@ -582,6 +584,12 @@ const ru = {
     tipSevA: "Понаблюдать в ближайшие дни",
     tipSevN: "Информационный сигнал",
     heatLegend: "● жёлтая точка — болит у 1 спортсмена · ● красная — у 2+ за неделю · ★ — ведущая сторона",
+    attCtaText: "Сегодня тренировка — отметь, кто пришёл",
+    attCtaBtn: "Отметить",
+    tileCheckins: "Анкеты сегодня",
+    tileCheckinsSub: "приоритет: {p} · OSTRC: {o}",
+    groupHealthTitle: "Нагрузка и здоровье группы",
+    groupHealthHint: "волна нагрузки, карта болей",
   },
   athleteDetail: {
     profile: "Профиль",

@@ -123,6 +123,8 @@ const ro: Dictionary = {
     ostrcLabel: "Chestionar săptămânal de sănătate",
     academyLabel: "Lecția zilei în Academie",
     completed: "Finalizat",
+    progressTitle: "Progresul meu",
+    progressHint: "săptămâna, insigne, teste, grafice",
   },
   push: {
     bannerTitle: "Memento-uri pentru chestionare",
@@ -580,6 +582,12 @@ const ro: Dictionary = {
     tipSevA: "Urmăriți în zilele următoare",
     tipSevN: "Semnal informațional",
     heatLegend: "● punct galben — doare la 1 sportiv · ● roșu — la 2+ săptămâna · ★ — partea dominantă",
+    attCtaText: "Antrenament azi — marchează cine a venit",
+    attCtaBtn: "Marchează",
+    tileCheckins: "Chestionare azi",
+    tileCheckinsSub: "prioritate: {p} · OSTRC: {o}",
+    groupHealthTitle: "Încărcare și sănătatea grupei",
+    groupHealthHint: "valul încărcării, harta durerilor",
   },
   athleteDetail: {
     profile: "Profil",

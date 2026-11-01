@@ -123,6 +123,8 @@ const en: Dictionary = {
     ostrcLabel: "Weekly health survey",
     academyLabel: "Academy daily lesson",
     completed: "Done",
+    progressTitle: "My progress",
+    progressHint: "week, badges, tests, charts",
   },
   push: {
     bannerTitle: "Check-in reminders",
@@ -580,6 +582,12 @@ const en: Dictionary = {
     tipSevA: "Keep an eye on this over the next days",
     tipSevN: "Informational signal",
     heatLegend: "● yellow dot — 1 athlete hurts · ● red — 2+ this week · ★ — dominant side",
+    attCtaText: "Training today — mark who came",
+    attCtaBtn: "Mark",
+    tileCheckins: "Check-ins today",
+    tileCheckinsSub: "priority: {p} · OSTRC: {o}",
+    groupHealthTitle: "Group load & health",
+    groupHealthHint: "load wave, pain map",
   },
   athleteDetail: {
     profile: "Profile",
