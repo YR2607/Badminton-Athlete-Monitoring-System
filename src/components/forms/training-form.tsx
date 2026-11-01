@@ -246,23 +246,9 @@ export function TrainingForm({
                 </p>
               )}
             </div>
-            <div>
-              <Label htmlFor="s_min">{d.minutes}</Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="s_min"
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={600}
-                  className="w-28"
-                  {...register("session_minutes", {
-                    setValueAs: (v) => (v === "" || v == null ? undefined : Number(v)),
-                  })}
-                />
-                <span className="text-sm text-muted">{d.minutesUnit}</span>
-              </div>
-            </div>
+            {/* Duration is marked by the coach (attendance/schedule); the form
+                still submits planned_minutes via defaultValues so sRPE load
+                (rpe x min) keeps working without asking the athlete. */}
 
             <div>
               <p className="mb-2 text-sm font-medium">{dict.pro.focusLabel}</p>
