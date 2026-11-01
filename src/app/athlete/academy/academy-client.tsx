@@ -465,10 +465,12 @@ export function AcademyClient({
                 renderCard(
                   it,
                   it.item_type === "fact"
-                    ? `1. ${a.stepFact}`
-                    : idx === 1
-                      ? `2. ${a.stepTactics}`
-                      : `3. ${a.stepQuiz}`,
+                    ? `${idx + 1}. ${a.stepFact}`
+                    : ["visual_tactical", "tactical", "find_mistake"].includes(
+                          it.item_type,
+                        )
+                      ? `${idx + 1}. ${a.stepTactics}`
+                      : `${idx + 1}. ${a.stepQuiz}`,
                 ),
               )}
               {backlog.length > 0 && (

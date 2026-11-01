@@ -94,7 +94,7 @@ describe("Academy — answer grading", () => {
 });
 
 describe("Academy — daily lesson assignment", () => {
-  it("prioritizes calendar-scheduled items for today and caps daily set at 3 cards without backlog penalties", () => {
+  it("prioritizes calendar-scheduled items for today and caps daily set at 6 cards without backlog penalties", () => {
     const items: AcademyItem[] = [
       mkItem({ id: "f1", code: "f1", item_type: "fact", topic: "history_facts" }),
       mkItem({ id: "t1", code: "t1", item_type: "tactical", topic: "singles_tactics" }),
@@ -115,7 +115,8 @@ describe("Academy — daily lesson assignment", () => {
       level: "beginner",
     });
 
-    expect(lesson.length).toBe(3);
+    // All 4 published items fit into the 6-card lesson (scheduled first).
+    expect(lesson.length).toBe(4);
     expect(lesson.some((i) => i.id === "sched-today")).toBe(true);
     expect(lesson.some((i) => i.id === "unpub")).toBe(false);
   });

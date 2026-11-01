@@ -189,10 +189,11 @@ export function selectDailyLesson(
   );
   const answeredEverIds = new Set(responses.map((r) => r.item_id));
 
+  const DAILY_SIZE = 6;
   const picked: AcademyItem[] = [];
   const pickedIds = new Set<string>();
   const add = (it: AcademyItem | undefined) => {
-    if (it && !pickedIds.has(it.id) && picked.length < 3) {
+    if (it && !pickedIds.has(it.id) && picked.length < DAILY_SIZE) {
       picked.push(it);
       pickedIds.add(it.id);
     }
@@ -202,7 +203,7 @@ export function selectDailyLesson(
   for (const it of eligible) {
     if (answeredTodayIds.has(it.id)) add(it);
   }
-  if (picked.length >= 3) return picked.slice(0, 3);
+  if (picked.length >= DAILY_SIZE) return picked.slice(0, DAILY_SIZE);
 
   // Prefer unanswered items matching athlete's level, then other levels, then recycle.
   const rankPool = (pool: AcademyItem[]) => {
@@ -219,20 +220,32 @@ export function selectDailyLesson(
         : unansweredOther.length > 0
           ? unansweredOther
           : fallbackAll;
-    return deterministicShuffle(chosen, `${opts.athleteId}:${opts.today}`)[0];
+    // Prefer a topic the lesson does not cover yet — wider spread per day.
+    const pickedTopics = new Set(picked.map((p) => p.topic));
+    const freshTopic = chosen.filter((i) => !pickedTopics.has(i.topic));
+    return deterministicShuffle(
+      freshTopic.length > 0 ? freshTopic : chosen,
+      `${opts.athleteId}:${opts.today}`,
+    )[0];
   };
 
   // Slot 1: interesting fact
   if (!picked.some((p) => p.item_type === "fact")) {
     add(rankPool(eligible.filter((i) => i.item_type === "fact")));
   }
-  // Slot 2: tactical / visual_tactical / find_mistake
+  // Slots 2-3: up to 2 tactical / visual_tactical / find_mistake cards.
   const tacticalTypes: AcademyItemType[] = ["visual_tactical", "tactical", "find_mistake"];
-  if (!picked.some((p) => tacticalTypes.includes(p.item_type))) {
-    add(rankPool(eligible.filter((i) => tacticalTypes.includes(i.item_type))));
+  while (
+    picked.length < DAILY_SIZE &&
+    picked.filter((p) => tacticalTypes.includes(p.item_type)).length < 2
+  ) {
+    const next = rankPool(eligible.filter((i) => tacticalTypes.includes(i.item_type)));
+    if (!next) break;
+    add(next);
   }
-  // Slot 3: knowledge question (rules / technique / recovery / psychology / choice)
-  while (picked.length < 3) {
+  // Remaining slots: knowledge questions (rules / technique / recovery /
+  // psychology / choice) — fresh topics preferred via rankPool.
+  while (picked.length < DAILY_SIZE) {
     const next = rankPool(eligible.filter((i) => i.item_type !== "fact"));
     if (!next) break;
     add(next);
