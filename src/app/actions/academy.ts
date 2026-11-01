@@ -450,6 +450,32 @@ export async function toggleAcademyItemPublished(input: {
   return { ok: true };
 }
 
+/** Publishes every draft item in one click — the pool model: you add cards,
+ *  the system serves them automatically; no per-card publishing needed. */
+export async function publishAllDraftItems(): Promise<{
+  ok?: boolean;
+  error?: string;
+  count?: number;
+}> {
+  const profile = await getCurrentProfile();
+  if (!profile || (profile.role !== "coach" && profile.role !== "admin")) {
+    return { error: "forbidden" };
+  }
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("academy_items")
+    .update({ published: true })
+    .eq("published", false)
+    .select("id");
+  if (error) return { error: error.message };
+  await audit("academy.publish_all_drafts", "academy_items", profile.id, {
+    count: data?.length ?? 0,
+  });
+  revalidatePath("/coach/academy");
+  revalidatePath("/athlete/academy");
+  return { ok: true, count: data?.length ?? 0 };
+}
+
 export async function deleteAcademyItem(id: string): Promise<{ ok?: boolean; error?: string }> {
   const profile = await getCurrentProfile();
   if (!profile || (profile.role !== "coach" && profile.role !== "admin")) {

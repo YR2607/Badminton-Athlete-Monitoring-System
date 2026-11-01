@@ -7,6 +7,7 @@ import type { Dictionary } from "@/i18n";
 import {
   autoScheduleMonth,
   createMonthlyReviewTest,
+  publishAllDraftItems,
   deleteAcademyItem,
   importAiAcademyBatch,
   setAthleteAcademyLevel,
@@ -131,13 +132,29 @@ export function CoachAcademyClient({
   const a = dict.academy;
   const c = a.coach;
   const [tab, setTab] = useState<CoachTab>("ai");
-  const [libFilter, setLibFilter] = useState<"all" | "shown_month" | "reserve">("all");
+  const [libFilter, setLibFilter] = useState<
+    "all" | "shown_month" | "reserve" | "drafts"
+  >("all");
   const [libTopic, setLibTopic] = useState<AcademyTopic | "all">("all");
   const [monthlyQCount, setMonthlyQCount] = useState<number>(10);
   const [buildingMonthly, setBuildingMonthly] = useState(false);
   const [planMonth, setPlanMonth] = useState(() => today.slice(0, 7));
   const [planPerDay, setPlanPerDay] = useState<number>(2);
   const [scheduling, setScheduling] = useState(false);
+  const [publishingAll, setPublishingAll] = useState(false);
+
+  async function handlePublishAll() {
+    if (publishingAll) return;
+    setPublishingAll(true);
+    const res = await publishAllDraftItems();
+    setPublishingAll(false);
+    if (!res.ok) {
+      toast.error(res.error ?? dict.common.error);
+      return;
+    }
+    toast.success(c.publishAllDone.replace("{n}", String(res.count ?? 0)));
+    router.refresh();
+  }
 
   const libStats = computeLibraryItemStats(items, responses, today);
   const existingTitles = items.map((it) => ({
@@ -604,6 +621,7 @@ export function CoachAcademyClient({
                     value={scheduleStart}
                     onChange={(e) => setScheduleStart(e.target.value)}
                   />
+                  <p className="mt-1 text-[11px] text-muted">{c.poolHint}</p>
                 </div>
                 <div>
                   <Label>{c.targetGroupLabel}</Label>
@@ -917,7 +935,11 @@ export function CoachAcademyClient({
                     "reserve",
                     c.filterReserve.replace("{n}", String(libStats.unusedReserveCount)),
                   ],
-                ] as ["all" | "shown_month" | "reserve", string][]
+                  [
+                    "drafts",
+                    c.filterDrafts.replace("{n}", String(libStats.draftsCount)),
+                  ],
+                ] as ["all" | "shown_month" | "reserve" | "drafts", string][]
               ).map(([k, label]) => (
                 <button
                   key={k}
@@ -934,18 +956,32 @@ export function CoachAcademyClient({
                 </button>
               ))}
             </div>
-            <Select
-              className="w-48"
-              value={libTopic}
-              onChange={(e) => setLibTopic(e.target.value as AcademyTopic | "all")}
-            >
-              <option value="all">{a.tabTopics}: {items.length}</option>
-              {ACADEMY_TOPICS.map((t) => (
-                <option key={t} value={t}>
-                  {a.topics[t]}
+            <div className="flex items-center gap-2">
+              {libStats.draftsCount > 0 && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={publishingAll}
+                  onClick={() => void handlePublishAll()}
+                >
+                  {c.publishAllBtn.replace("{n}", String(libStats.draftsCount))}
+                </Button>
+              )}
+              <Select
+                className="w-48"
+                value={libTopic}
+                onChange={(e) => setLibTopic(e.target.value as AcademyTopic | "all")}
+              >
+                <option value="all">
+                  {a.tabTopics}: {items.length}
                 </option>
-              ))}
-            </Select>
+                {ACADEMY_TOPICS.map((t) => (
+                  <option key={t} value={t}>
+                    {a.topics[t]}
+                  </option>
+                ))}
+              </Select>
+            </div>
           </div>
 
           {items
@@ -953,6 +989,7 @@ export function CoachAcademyClient({
               const u = libStats.byItemId[it.id];
               if (libFilter === "shown_month" && !u?.usedThisMonth) return false;
               if (libFilter === "reserve" && u?.everUsed) return false;
+              if (libFilter === "drafts" && it.published) return false;
               if (libTopic !== "all" && it.topic !== libTopic) return false;
               return true;
             })
