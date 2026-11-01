@@ -592,7 +592,7 @@ export default async function AthleteDetailPage({
                   tone && v !== null && (v >= 70 ? "text-ok" : v >= 45 ? "text-warn" : "text-danger"),
                 )}
               >
-                {v ?? "—"}
+                {v !== null ? Math.round(v) : "—"}
               </p>
               <p className="text-xs text-muted">{label}</p>
               {sub && <p className="text-[10px] text-muted/70">{sub}</p>}
