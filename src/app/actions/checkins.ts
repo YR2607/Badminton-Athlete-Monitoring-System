@@ -201,7 +201,9 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
 
   let session = (emptySession as { id: string } | null) ?? null;
   if (session) {
-    const { error: uErr } = await supabase
+    // Admin client: sessions_update_today RLS only allows same-day updates, so
+    // a backfilled check-in (yesterday's session) would silently match 0 rows.
+    const { error: uErr } = await createAdminClient()
       .from("training_sessions")
       .update({
         session_rpe: srpeOn ? (parsed.data.session_rpe ?? null) : null,
@@ -210,7 +212,8 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
         match_discipline: parsed.data.match_discipline ?? null,
         match_result: parsed.data.match_result ?? null,
       })
-      .eq("id", session.id);
+      .eq("id", session.id)
+      .eq("athlete_id", athlete.id);
     if (uErr) return { error: uErr.message };
   } else {
     const { data: inserted, error: sErr } = await supabase

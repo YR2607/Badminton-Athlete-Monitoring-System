@@ -1297,6 +1297,14 @@ const en: Dictionary = {
       schedAutoDone: "Scheduled {n} cards over {d} days",
     },
   },
+  errors: {
+    title: "Something went wrong",
+    text: "An unexpected error occurred. Please try again.",
+    retry: "Try again",
+    home: "Go home",
+    notFoundTitle: "Page not found",
+    notFoundText: "This page does not exist or has been moved.",
+  },
 };
 
 export default en;

@@ -1297,6 +1297,14 @@ const ro: Dictionary = {
       schedAutoDone: "Programate {n} carduri pe {d} zile",
     },
   },
+  errors: {
+    title: "Ceva a mers prost",
+    text: "A apărut o eroare neașteptată. Încearcă din nou.",
+    retry: "Încearcă din nou",
+    home: "La pagina principală",
+    notFoundTitle: "Pagina nu a fost găsită",
+    notFoundText: "Această pagină nu există sau a fost mutată.",
+  },
 };
 
 export default ro;

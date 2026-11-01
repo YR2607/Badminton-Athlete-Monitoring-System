@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
 import type { Dictionary } from "./index";
 import type { Locale } from "@/lib/types";
 
@@ -16,6 +16,12 @@ export function I18nProvider({
   locale: Locale;
   children: ReactNode;
 }) {
+  // The root <html lang> is static; keep it in sync so standalone error
+  // boundaries (outside this provider) can pick the right dictionary.
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
+
   return (
     <LocaleContext.Provider value={locale}>
       <DictContext.Provider value={dict}>{children}</DictContext.Provider>
