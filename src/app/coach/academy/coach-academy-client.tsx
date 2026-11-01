@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Dictionary } from "@/i18n";
 import {
-  autoScheduleAcademyMonth,
+  autoScheduleMonth,
   createMonthlyReviewTest,
   deleteAcademyItem,
   importAiAcademyBatch,
@@ -135,16 +135,15 @@ export function CoachAcademyClient({
   const [libTopic, setLibTopic] = useState<AcademyTopic | "all">("all");
   const [monthlyQCount, setMonthlyQCount] = useState<number>(10);
   const [buildingMonthly, setBuildingMonthly] = useState(false);
-  const [schedStart, setSchedStart] = useState(() => {
-    const d = new Date(`${today}T00:00:00`);
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().slice(0, 10);
-  });
-  const [schedPerDay, setSchedPerDay] = useState<number>(3);
+  const [planMonth, setPlanMonth] = useState(() => today.slice(0, 7));
+  const [planPerDay, setPlanPerDay] = useState<number>(2);
   const [scheduling, setScheduling] = useState(false);
 
   const libStats = computeLibraryItemStats(items, responses, today);
-  const existingTitles = items.map((it) => localizeText(it.title, "ru"));
+  const existingTitles = items.map((it) => ({
+    topic: it.topic,
+    title: localizeText(it.title, "ru"),
+  }));
 
   // AI prompt builder state
   const [aiMode, setAiMode] = useState<"daily_pack" | "monthly_test" | "visual_tactics">("daily_pack");
@@ -213,30 +212,84 @@ export function CoachAcademyClient({
       })
       .join(", ");
 
+  // Topic coverage (all items incl. drafts) → the 3 thinnest topics are pushed
+  // into the AI prompt so generated packs fill real gaps in the library.
+  const underCoveredTopics = [...ACADEMY_TOPICS]
+    .sort(
+      (aT, bT) =>
+        (libStats.byTopic[aT]?.total ?? 0) - (libStats.byTopic[bT]?.total ?? 0) ||
+        ACADEMY_TOPICS.indexOf(aT) - ACADEMY_TOPICS.indexOf(bT),
+    )
+    .slice(0, 3);
+  // Readable per-month code prefix (e.g. "m202611_") so imported batches never
+  // reuse codes that already exist in the library.
+  const codePrefix = `m${today.slice(0, 7).replace("-", "")}_`;
+
   const generatedPrompt = buildAiPromptForCoach({
     mode: aiMode,
     topic: aiTopic,
     difficulty: aiDifficulty,
     count: aiCount,
     existingTitles,
+    underCoveredTopics,
+    codePrefix,
   });
 
-  async function handleAutoSchedule() {
+  // ── Month planner ────────────────────────────────────────────────────────
+  const [todayYear, todayMonthNum] = today.split("-").map(Number);
+  const monthOptions = [0, 1, 2, 3].map((offset) => {
+    const mIdx = todayMonthNum - 1 + offset;
+    const y = todayYear + Math.floor(mIdx / 12);
+    const m = (mIdx % 12) + 1;
+    const value = `${y}-${String(m).padStart(2, "0")}`;
+    const label = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(locale, {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    });
+    return { value, label };
+  });
+
+  const [planYear, planMonthNum] = planMonth.split("-").map(Number);
+  const planDaysInMonth = new Date(Date.UTC(planYear, planMonthNum, 0)).getUTCDate();
+  const planFirstDay = `${planMonth}-01`;
+  const planLastDay = `${planMonth}-${String(planDaysInMonth).padStart(2, "0")}`;
+  const planScheduledByDay = new Map<string, number>();
+  let planScheduledCount = 0;
+  for (const it of items) {
+    if (
+      it.scheduled_date &&
+      it.scheduled_date >= planFirstDay &&
+      it.scheduled_date <= planLastDay
+    ) {
+      planScheduledCount++;
+      planScheduledByDay.set(
+        it.scheduled_date,
+        (planScheduledByDay.get(it.scheduled_date) ?? 0) + 1,
+      );
+    }
+  }
+  let planDaysNeedingCards = 0;
+  for (let d = 1; d <= planDaysInMonth; d++) {
+    const date = `${planMonth}-${String(d).padStart(2, "0")}`;
+    if (date < today) continue;
+    if ((planScheduledByDay.get(date) ?? 0) < planPerDay) planDaysNeedingCards++;
+  }
+  const planReserveCount = items.filter((i) => i.published && !i.scheduled_date).length;
+
+  async function handleMonthPlan() {
     if (scheduling) return;
     setScheduling(true);
-    const res = await autoScheduleAcademyMonth({
-      startDate: schedStart,
-      perDay: schedPerDay,
-    });
+    const res = await autoScheduleMonth({ month: planMonth, perDay: planPerDay });
     setScheduling(false);
     if (!res.ok) {
       toast.error(res.error ?? dict.common.error);
       return;
     }
     toast.success(
-      c.schedAutoDone
+      c.monthPlanDone
         .replace("{n}", String(res.scheduledCount ?? 0))
-        .replace("{d}", String(res.days ?? 0)),
+        .replace("{d}", String(res.daysUsed ?? 0)),
     );
     router.refresh();
   }
@@ -293,7 +346,11 @@ export function CoachAcademyClient({
       toast.error(res.error ?? dict.common.error);
       return;
     }
-    toast.success(`${dict.common.saved}: ${res.importedCount ?? 0}`);
+    const renamedNote =
+      (res.renamedCount ?? 0) > 0
+        ? ` · ${c.renamedCodesNote.replace("{n}", String(res.renamedCount))}`
+        : "";
+    toast.success(`${dict.common.saved}: ${res.importedCount ?? 0}${renamedNote}`);
     setRawJson("");
     setPreview(null);
     router.refresh();
@@ -359,8 +416,9 @@ export function CoachAcademyClient({
         <p className="text-sm text-muted">{c.subtitle}</p>
       </div>
 
-      {/* Clear inventory KPI strip: total in DB, shown this month, in reserve, tests */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Clear inventory KPI strip: total in DB, already shown, in reserve,
+          scheduled ahead, drafts, tests */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <Card>
           <CardContent className="pt-4">
             <p className="text-2xl font-bold tabular-nums">{libStats.totalItems}</p>
@@ -375,9 +433,9 @@ export function CoachAcademyClient({
         <Card>
           <CardContent className="pt-4">
             <p className="text-2xl font-bold text-accent tabular-nums">
-              {libStats.usedThisMonthCount}
+              {libStats.usedEverCount}
             </p>
-            <p className="text-xs font-medium">{c.kpiShownMonthTitle}</p>
+            <p className="text-xs font-medium">✓ {c.tileUsed}</p>
             <p className="text-[11px] text-muted">{c.kpiShownMonthSub}</p>
           </CardContent>
         </Card>
@@ -386,8 +444,24 @@ export function CoachAcademyClient({
             <p className="text-2xl font-bold text-ok tabular-nums">
               {libStats.unusedReserveCount}
             </p>
-            <p className="text-xs font-medium">{c.kpiReserveTitle}</p>
+            <p className="text-xs font-medium">🆕 {c.kpiReserveTitle}</p>
             <p className="text-[11px] text-muted">{c.kpiReserveSub}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-2xl font-bold text-warn tabular-nums">
+              {libStats.scheduledFutureCount}
+            </p>
+            <p className="text-xs font-medium">📅 {c.tileScheduled}</p>
+            <p className="text-[11px] text-muted">{c.tileScheduledSub}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-2xl font-bold tabular-nums">{libStats.draftsCount}</p>
+            <p className="text-xs font-medium">📝 {c.tileDrafts}</p>
+            <p className="text-[11px] text-muted">{c.tileDraftsSub}</p>
           </CardContent>
         </Card>
         <Card>
@@ -621,44 +695,53 @@ export function CoachAcademyClient({
         <div className="space-y-4">
           <Card className="border-accent/40 bg-accent/5">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">⚡ {c.schedAutoTitle}</CardTitle>
+              <CardTitle className="text-base">{c.monthPlanTitle}</CardTitle>
               <p className="text-xs text-muted">
-                {c.schedAutoDesc
-                  .replace("{n}", String(libStats.unusedReserveCount))
-                  .replace("{p}", String(schedPerDay))}
+                {c.monthPlanLine
+                  .replace("{n}", String(planDaysNeedingCards))
+                  .replace("{s}", String(planScheduledCount))
+                  .replace("{r}", String(planReserveCount))}
               </p>
             </CardHeader>
-            <CardContent className="flex flex-wrap items-end gap-2">
-              <div>
-                <p className="text-[11px] text-muted">{c.schedStartLabel}</p>
-                <Input
-                  type="date"
-                  className="w-40"
-                  value={schedStart}
-                  onChange={(e) => setSchedStart(e.target.value)}
-                />
-              </div>
-              <div>
-                <p className="text-[11px] text-muted">{c.schedPerDayLabel}</p>
-                <Select
-                  className="w-28"
-                  value={String(schedPerDay)}
-                  onChange={(e) => setSchedPerDay(Number(e.target.value))}
+            <CardContent className="space-y-2">
+              <div className="flex flex-wrap items-end gap-2">
+                <div>
+                  <p className="text-[11px] text-muted">{c.monthPlanMonthLabel}</p>
+                  <Select
+                    className="w-44"
+                    value={planMonth}
+                    onChange={(e) => setPlanMonth(e.target.value)}
+                  >
+                    {monthOptions.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div>
+                  <p className="text-[11px] text-muted">{c.schedPerDayLabel}</p>
+                  <Select
+                    className="w-28"
+                    value={String(planPerDay)}
+                    onChange={(e) => setPlanPerDay(Number(e.target.value))}
+                  >
+                    {[2, 3, 4].map((n) => (
+                      <option key={n} value={n}>
+                        {n}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <Button
+                  size="sm"
+                  disabled={scheduling || planReserveCount === 0 || planDaysNeedingCards === 0}
+                  onClick={() => void handleMonthPlan()}
                 >
-                  {[2, 3, 4].map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </Select>
+                  {c.monthPlanBtn}
+                </Button>
               </div>
-              <Button
-                size="sm"
-                disabled={scheduling || libStats.unusedReserveCount === 0}
-                onClick={() => void handleAutoSchedule()}
-              >
-                {c.schedAutoBtn}
-              </Button>
+              <p className="text-[11px] text-muted">{c.autoTopupHint}</p>
             </CardContent>
           </Card>
 
@@ -784,6 +867,43 @@ export function CoachAcademyClient({
       {/* TAB 2: CONTENT LIBRARY */}
       {tab === "library" && (
         <div className="space-y-3">
+          {/* Topic coverage: thinnest topics first so gaps are obvious. */}
+          <div className="rounded-xl border border-border bg-surface p-2.5">
+            <p className="mb-1.5 text-[11px] font-semibold text-muted">
+              {c.coverageTitle}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {[...ACADEMY_TOPICS]
+                .sort(
+                  (aT, bT) =>
+                    (libStats.byTopic[aT]?.total ?? 0) -
+                      (libStats.byTopic[bT]?.total ?? 0) ||
+                    ACADEMY_TOPICS.indexOf(aT) - ACADEMY_TOPICS.indexOf(bT),
+                )
+                .map((t) => {
+                  const cov = libStats.byTopic[t] ?? { total: 0, used: 0 };
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setLibTopic(t)}
+                      className={cn(
+                        "rounded-lg px-2 py-1 text-[11px] font-medium transition-colors",
+                        libTopic === t
+                          ? "bg-accent text-accent-foreground"
+                          : "bg-foreground/5 text-muted hover:text-foreground",
+                      )}
+                    >
+                      {a.topics[t]} {cov.total}{" "}
+                      <span className="opacity-70">
+                        (✓{cov.used}/🆕{cov.total - cov.used})
+                      </span>
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-surface p-2.5">
             <div className="flex flex-wrap gap-1.5">
               {(

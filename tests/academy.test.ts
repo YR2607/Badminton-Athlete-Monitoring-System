@@ -14,6 +14,7 @@ import {
   redactAcademyItem,
   selectDailyLesson,
   selectMonthlyReviewQuestionIds,
+  uniqueItemCodes,
 } from "@/lib/academy";
 import type {
   AcademyItem,
@@ -94,7 +95,7 @@ describe("Academy — answer grading", () => {
 });
 
 describe("Academy — daily lesson assignment", () => {
-  it("prioritizes calendar-scheduled items for today and caps daily set at 6 cards without backlog penalties", () => {
+  it("returns the whole published pool when fewer than 6 items exist (scheduled-today first)", () => {
     const items: AcademyItem[] = [
       mkItem({ id: "f1", code: "f1", item_type: "fact", topic: "history_facts" }),
       mkItem({ id: "t1", code: "t1", item_type: "tactical", topic: "singles_tactics" }),
@@ -119,6 +120,35 @@ describe("Academy — daily lesson assignment", () => {
     expect(lesson.length).toBe(4);
     expect(lesson.some((i) => i.id === "sched-today")).toBe(true);
     expect(lesson.some((i) => i.id === "unpub")).toBe(false);
+  });
+
+  it("does not auto-pick cards reserved for a future date, but serves them on their date", () => {
+    const items: AcademyItem[] = [
+      mkItem({ id: "f1", code: "f1", item_type: "fact", topic: "history_facts" }),
+      mkItem({ id: "q1", code: "q1", item_type: "rules", topic: "rules" }),
+      mkItem({
+        id: "future",
+        code: "future",
+        item_type: "tactical",
+        topic: "singles_tactics",
+        scheduled_date: "2026-10-29",
+      }),
+    ];
+
+    const todayLesson = selectDailyLesson(items, [], {
+      athleteId: "ath-1",
+      today: "2026-10-28",
+      level: "beginner",
+    });
+    expect(todayLesson.some((i) => i.id === "future")).toBe(false);
+    expect(todayLesson.length).toBe(2);
+
+    const tomorrowLesson = selectDailyLesson(items, [], {
+      athleteId: "ath-1",
+      today: "2026-10-29",
+      level: "beginner",
+    });
+    expect(tomorrowLesson.some((i) => i.id === "future")).toBe(true);
   });
 });
 
@@ -282,6 +312,25 @@ describe("Academy — AI prompt builder & batch JSON validator", () => {
     const parsed = parseAiAcademyPayload(fenced);
     expect(parsed.ok).toBe(true);
 
+    // Anti-duplication list is grouped by topic, and new opts emit their lines.
+    const richPrompt = buildAiPromptForCoach({
+      mode: "daily_pack",
+      topic: "all",
+      difficulty: "beginner",
+      count: 10,
+      existingTitles: [
+        { topic: "rules", title: "Высота сетки" },
+        { topic: "rules", title: "Подача ниже 1.15м" },
+        { topic: "technique", title: "Хват ракетки" },
+      ],
+      underCoveredTopics: ["psychology", "conditioning"],
+      codePrefix: "m202611_",
+    });
+    expect(richPrompt).toContain("- rules: Высота сетки | Подача ниже 1.15м");
+    expect(richPrompt).toContain("- technique: Хват ракетки");
+    expect(richPrompt).toContain("Prefer these under-covered topics: psychology, conditioning");
+    expect(richPrompt).toContain('MUST start with "m202611_"');
+
     const bad = parseAiAcademyPayload(
       JSON.stringify({
         items: [
@@ -299,6 +348,23 @@ describe("Academy — AI prompt builder & batch JSON validator", () => {
       }),
     );
     expect(bad.ok).toBe(false);
+  });
+});
+
+describe("uniqueItemCodes — collision-safe import code remapping", () => {
+  it("leaves non-colliding codes unchanged", () => {
+    expect(uniqueItemCodes(["a", "b"], new Set(["x"]))).toEqual(["a", "b"]);
+  });
+
+  it("appends _r on collision, then _r2/_r3 until free", () => {
+    expect(uniqueItemCodes(["a"], new Set(["a"]))).toEqual(["a_r"]);
+    expect(uniqueItemCodes(["a"], new Set(["a", "a_r"]))).toEqual(["a_r2"]);
+    expect(uniqueItemCodes(["a"], new Set(["a", "a_r", "a_r2"]))).toEqual(["a_r3"]);
+  });
+
+  it("dedupes collisions inside the incoming batch itself", () => {
+    expect(uniqueItemCodes(["a", "a"], new Set())).toEqual(["a", "a_r"]);
+    expect(uniqueItemCodes(["a", "a"], new Set(["a"]))).toEqual(["a_r", "a_r2"]);
   });
 });
 
@@ -344,6 +410,8 @@ describe("computeLibraryItemStats & selectMonthlyReviewQuestionIds", () => {
       mkItem({ id: "q-month", item_type: "tactical" }),
       mkItem({ id: "q-sched", item_type: "rules", scheduled_date: "2026-10-12" }),
       mkItem({ id: "q-reserve", item_type: "single_choice" }),
+      mkItem({ id: "q-future", item_type: "rules", scheduled_date: "2026-11-05" }),
+      mkItem({ id: "draft-1", item_type: "rules", published: false }),
       mkItem({ id: "f-1", item_type: "fact", options: [], correct_option_ids: [] }),
     ];
     const responses = [
@@ -362,11 +430,16 @@ describe("computeLibraryItemStats & selectMonthlyReviewQuestionIds", () => {
     ];
 
     const stats = computeLibraryItemStats(items, responses, "2026-10-30");
-    expect(stats.totalItems).toBe(4);
-    expect(stats.quizItems).toBe(3);
+    expect(stats.totalItems).toBe(6);
+    expect(stats.quizItems).toBe(5);
     expect(stats.factItems).toBe(1);
     expect(stats.usedThisMonthCount).toBe(2); // q-month + q-sched
-    expect(stats.unusedReserveCount).toBe(2); // q-reserve + f-1
+    expect(stats.unusedReserveCount).toBe(3); // q-reserve + q-future + f-1
+    expect(stats.draftsCount).toBe(1); // draft-1
+    expect(stats.scheduledFutureCount).toBe(1); // q-future
+    // All items default to topic "rules": 6 total; ever-used = q-month + q-sched.
+    expect(stats.byTopic.rules.total).toBe(6);
+    expect(stats.byTopic.rules.used).toBe(2);
     expect(stats.byItemId["q-month"].answeredByCount).toBe(2);
     expect(stats.byItemId["q-month"].accuracyPct).toBe(50);
 

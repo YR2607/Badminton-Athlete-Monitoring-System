@@ -13,6 +13,7 @@ import {
   parseAiAcademyPayload,
   redactAcademyItem,
   selectMonthlyReviewQuestionIds,
+  uniqueItemCodes,
 } from "@/lib/academy";
 import type {
   AcademyItem,
@@ -319,7 +320,14 @@ export async function importAiAcademyBatch(input: {
   rawJson: string;
   scheduleStartDate?: string | null;
   targetGroupId?: string | null;
-}): Promise<{ ok?: boolean; error?: string; importedCount?: number; testCreated?: boolean }> {
+}): Promise<{
+  ok?: boolean;
+  error?: string;
+  importedCount?: number;
+  testCreated?: boolean;
+  renamedCount?: number;
+  renamedCodes?: string[];
+}> {
   const profile = await getCurrentProfile();
   if (!profile || (profile.role !== "coach" && profile.role !== "admin")) {
     return { error: "forbidden" };
@@ -335,8 +343,22 @@ export async function importAiAcademyBatch(input: {
       : null;
   const groupId = input.targetGroupId || null;
 
+  // Safety net: an AI pack reusing an existing "code" must not silently
+  // overwrite the old card (its stats/schedule stay attached). Colliding
+  // codes are remapped to `code_r`, `code_r2`, … and inserted as NEW items.
+  const incomingCodes = parsed.data.items.map((it) => it.code);
+  const { data: existingRows } = await admin
+    .from("academy_items")
+    .select("code")
+    .in("code", incomingCodes);
+  const existingCodes = new Set(
+    ((existingRows as { code: string }[] | null) ?? []).map((r) => r.code),
+  );
+  const remappedCodes = uniqueItemCodes(incomingCodes, existingCodes);
+  const renamedCodes = remappedCodes.filter((c, i) => c !== incomingCodes[i]);
+
   const rows = parsed.data.items.map((it, idx) => ({
-    code: it.code,
+    code: remappedCodes[idx],
     item_type: it.item_type,
     topic: it.topic,
     difficulty: it.difficulty,
@@ -357,7 +379,7 @@ export async function importAiAcademyBatch(input: {
 
   const { data: insertedItems, error } = await admin
     .from("academy_items")
-    .upsert(rows, { onConflict: "code" })
+    .insert(rows)
     .select("id, item_type, topic");
 
   if (error) return { error: error.message };
@@ -396,10 +418,17 @@ export async function importAiAcademyBatch(input: {
   await audit("academy.ai_import", "academy_items", profile.id, {
     count: createdList.length,
     testCreated,
+    renamedCount: renamedCodes.length,
   });
   revalidatePath("/coach/academy");
   revalidatePath("/athlete/academy");
-  return { ok: true, importedCount: createdList.length, testCreated };
+  return {
+    ok: true,
+    importedCount: createdList.length,
+    testCreated,
+    renamedCount: renamedCodes.length,
+    renamedCodes: renamedCodes.slice(0, 5),
+  };
 }
 
 export async function toggleAcademyItemPublished(input: {
@@ -435,52 +464,97 @@ export async function deleteAcademyItem(id: string): Promise<{ ok?: boolean; err
 }
 
 /**
- * Auto-schedules unscheduled (reserve) published cards across the coming days:
- * `perDay` cards per date starting from `startDate`. Lets a coach fill a whole
- * month of lessons in one click.
+ * Month planner: distributes unscheduled (reserve) published cards across the
+ * days of a given month ("YYYY-MM"). Each day may hold up to `perDay` cards in
+ * TOTAL, counting cards already pinned to that date; days before today are
+ * skipped and the earliest non-full day is filled first. Reserve cards are
+ * consumed in `created_at` order.
  */
-export async function autoScheduleAcademyMonth(input: {
-  startDate: string;
+export async function autoScheduleMonth(input: {
+  month: string;
   perDay: number;
-}): Promise<{ ok?: boolean; error?: string; scheduledCount?: number; days?: number }> {
+}): Promise<{
+  ok?: boolean;
+  error?: string;
+  scheduledCount?: number;
+  daysUsed?: number;
+  month?: string;
+}> {
   const profile = await getCurrentProfile();
   if (!profile || (profile.role !== "coach" && profile.role !== "admin")) {
     return { error: "forbidden" };
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.startDate)) return { error: "validation" };
-  const perDay = Math.min(4, Math.max(1, Math.round(input.perDay || 3)));
+  if (!/^\d{4}-\d{2}$/.test(input.month)) return { error: "validation" };
+  const perDay = Math.min(6, Math.max(1, Math.round(input.perDay || 2)));
+
+  const today = todayInTz(profile.timezone);
+  const [y, m] = input.month.split("-").map(Number);
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const firstDay = `${input.month}-01`;
+  const lastDay = `${input.month}-${String(daysInMonth).padStart(2, "0")}`;
 
   const admin = createAdminClient();
-  const { data: rawItems } = await admin
-    .from("academy_items")
-    .select("id")
-    .eq("published", true)
-    .is("scheduled_date", null)
-    .order("created_at", { ascending: true });
-  const ids = ((rawItems as { id: string }[] | null) ?? []).map((i) => i.id);
-  if (ids.length === 0) return { ok: true, scheduledCount: 0, days: 0 };
-
-  const updates = ids.map((id, idx) =>
+  const [{ data: scheduledRows }, { data: reserveRows }] = await Promise.all([
     admin
       .from("academy_items")
-      .update({ scheduled_date: addDays(input.startDate, Math.floor(idx / perDay)) })
-      .eq("id", id),
+      .select("id, scheduled_date")
+      .gte("scheduled_date", firstDay)
+      .lte("scheduled_date", lastDay),
+    admin
+      .from("academy_items")
+      .select("id")
+      .eq("published", true)
+      .is("scheduled_date", null)
+      .order("created_at", { ascending: true }),
+  ]);
+
+  // Cards already pinned inside this month occupy part of each day's quota.
+  const perDayCount = new Map<string, number>();
+  for (const row of (scheduledRows as { id: string; scheduled_date: string }[] | null) ?? []) {
+    perDayCount.set(
+      row.scheduled_date,
+      (perDayCount.get(row.scheduled_date) ?? 0) + 1,
+    );
+  }
+
+  const reserveIds = ((reserveRows as { id: string }[] | null) ?? []).map((r) => r.id);
+  if (reserveIds.length === 0) {
+    return { ok: true, scheduledCount: 0, daysUsed: 0, month: input.month };
+  }
+
+  const assignments = new Map<string, string[]>();
+  let idx = 0;
+  for (let d = 1; d <= daysInMonth && idx < reserveIds.length; d++) {
+    const date = `${input.month}-${String(d).padStart(2, "0")}`;
+    if (date < today) continue; // never schedule into the past
+    const already = perDayCount.get(date) ?? 0;
+    const free = perDay - already;
+    if (free <= 0) continue;
+    const ids = reserveIds.slice(idx, idx + free);
+    idx += ids.length;
+    if (ids.length > 0) assignments.set(date, ids);
+  }
+
+  const updates = [...assignments.entries()].map(([date, ids]) =>
+    admin.from("academy_items").update({ scheduled_date: date }).in("id", ids),
   );
   const results = await Promise.all(updates);
   const failed = results.find((r) => r.error);
   if (failed?.error) return { error: failed.error.message };
 
-  await audit("academy.auto_schedule", "academy_items", profile.id, {
-    count: ids.length,
+  await audit("academy.auto_schedule_month", "academy_items", profile.id, {
+    month: input.month,
     perDay,
-    startDate: input.startDate,
+    scheduledCount: idx,
+    daysUsed: assignments.size,
   });
   revalidatePath("/coach/academy");
   revalidatePath("/athlete/academy");
   return {
     ok: true,
-    scheduledCount: ids.length,
-    days: Math.ceil(ids.length / perDay),
+    scheduledCount: idx,
+    daysUsed: assignments.size,
+    month: input.month,
   };
 }
 

@@ -205,6 +205,12 @@ export function selectDailyLesson(
   }
   if (picked.length >= DAILY_SIZE) return picked.slice(0, DAILY_SIZE);
 
+  // Items reserved for a future date must not leak into today's auto-pick —
+  // they stay "fresh" until their scheduled day arrives.
+  const autoPick = eligible.filter(
+    (it) => !it.scheduled_date || it.scheduled_date <= opts.today,
+  );
+
   // Prefer unanswered items matching athlete's level, then other levels, then recycle.
   const rankPool = (pool: AcademyItem[]) => {
     const unansweredSameLevel = pool.filter(
@@ -231,7 +237,7 @@ export function selectDailyLesson(
 
   // Slot 1: interesting fact
   if (!picked.some((p) => p.item_type === "fact")) {
-    add(rankPool(eligible.filter((i) => i.item_type === "fact")));
+    add(rankPool(autoPick.filter((i) => i.item_type === "fact")));
   }
   // Slots 2-3: up to 2 tactical / visual_tactical / find_mistake cards.
   const tacticalTypes: AcademyItemType[] = ["visual_tactical", "tactical", "find_mistake"];
@@ -239,14 +245,14 @@ export function selectDailyLesson(
     picked.length < DAILY_SIZE &&
     picked.filter((p) => tacticalTypes.includes(p.item_type)).length < 2
   ) {
-    const next = rankPool(eligible.filter((i) => tacticalTypes.includes(i.item_type)));
+    const next = rankPool(autoPick.filter((i) => tacticalTypes.includes(i.item_type)));
     if (!next) break;
     add(next);
   }
   // Remaining slots: knowledge questions (rules / technique / recovery /
   // psychology / choice) — fresh topics preferred via rankPool.
   while (picked.length < DAILY_SIZE) {
-    const next = rankPool(eligible.filter((i) => i.item_type !== "fact"));
+    const next = rankPool(autoPick.filter((i) => i.item_type !== "fact"));
     if (!next) break;
     add(next);
   }
@@ -647,18 +653,28 @@ export function parseAiAcademyPayload(
   return { ok: true, data: res.data };
 }
 
+/** An existing library entry for the AI prompt's do-not-duplicate list. */
+export type ExistingTitleEntry = string | { topic: string; title: string };
+
 /** Builds a ready-to-copy prompt for ChatGPT / Claude / Gemini so coaches can generate verified tasks in 10s. */
 export function buildAiPromptForCoach(opts: {
   mode: "daily_pack" | "monthly_test" | "visual_tactics";
   topic: AcademyTopic | "all";
   difficulty: AcademyLevel;
   count: number;
-  existingTitles?: readonly string[];
+  existingTitles?: readonly ExistingTitleEntry[];
+  underCoveredTopics?: readonly string[];
+  codePrefix?: string;
 }): string {
   const topicNote =
     opts.topic === "all"
       ? "Mix across topics: rules, technique, singles_tactics, doubles_tactics, game_iq, footwork, conditioning, recovery_prevention, psychology, history_facts."
       : `Focus on topic: "${opts.topic}".`;
+
+  const underCoveredNote =
+    opts.underCoveredTopics && opts.underCoveredTopics.length > 0
+      ? `\nPrefer these under-covered topics: ${opts.underCoveredTopics.join(", ")} (our library is thin on them).`
+      : "";
 
   const modeNote =
     opts.mode === "monthly_test"
@@ -688,19 +704,37 @@ COURT GEOMETRY — MUST BE REALISTIC BADMINTON POSITIONS:
       ? `\nThis pack covers a WHOLE MONTH of daily lessons (~${opts.count} cards). Structure it as a 4-week progression: week 1 = fundamentals & confidence-builders, weeks 2–3 = varied technique/tactics/rules, week 4 = integration & review questions. Vary the topic day to day (never 2 identical topics back to back); aim for ~1/3 "fact" items, the rest question types.\n`
       : "";
 
-  const avoidNote =
-    opts.existingTitles && opts.existingTitles.length > 0
-      ? `\nDO NOT repeat or closely duplicate these questions that are ALREADY in our database:\n${opts.existingTitles
-          .slice(0, 40)
-          .map((t) => `- ${t}`)
-          .join("\n")}\n`
-      : "";
+  // Cap the anti-duplication list at ~220 titles, grouped by topic so the
+  // prompt stays compact ("- topic: t1 | t2 | t3") instead of 220 bullets.
+  const MAX_EXISTING_TITLES = 220;
+  const avoidNote = (() => {
+    const entries = (opts.existingTitles ?? []).slice(0, MAX_EXISTING_TITLES);
+    if (entries.length === 0) return "";
+    const byTopic = new Map<string, string[]>();
+    for (const e of entries) {
+      const topic = typeof e === "string" ? "other" : e.topic;
+      const title = typeof e === "string" ? e : e.title;
+      if (!title) continue;
+      const list = byTopic.get(topic) ?? [];
+      list.push(title);
+      byTopic.set(topic, list);
+    }
+    const lines = [...byTopic.entries()].map(
+      ([topic, titles]) => `- ${topic}: ${titles.join(" | ")}`,
+    );
+    if (lines.length === 0) return "";
+    return `\nDO NOT repeat or closely duplicate these questions that are ALREADY in our database:\n${lines.join("\n")}\n`;
+  })();
+
+  const codePrefixRule = opts.codePrefix
+    ? `\n4. Every item "code" MUST start with "${opts.codePrefix}" (e.g. "${opts.codePrefix}net_kill_01") so this batch never collides with existing codes.`
+    : "";
 
   return `You are a BWF-certified badminton coach and sports scientist creating educational tasks for youth badminton players (ages 10–17) in RallyMonitor Academy.
 
 ${modeNote}${monthPlanNote}
 Difficulty level: "${opts.difficulty}".
-${topicNote}${avoidNote}
+${topicNote}${underCoveredNote}${avoidNote}
 
 STRICT RULES:
 1. Use ONLY verified BWF Laws of Badminton, BWF Coach Education tactics, and peer-reviewed youth sports science. Never invent rules or dubious facts.
@@ -756,7 +790,7 @@ STRICT RULES:
   }`
       : ""
   }
-}`;
+}${codePrefixRule}`;
 }
 
 /** Days of the current month that already have ≥1 completed daily-lesson
@@ -802,6 +836,30 @@ export function testWindowStatus(
   return { status: "open", daysUntil: 0 };
 }
 
+/**
+ * Remaps imported item codes that already exist in the DB so an AI batch can
+ * never silently overwrite an existing card: `code` → `code_r`, then `code_r2`,
+ * `code_r3`, … until free. Also dedupes collisions inside the batch itself.
+ */
+export function uniqueItemCodes(
+  codes: readonly string[],
+  existing: ReadonlySet<string>,
+): string[] {
+  const taken = new Set(existing);
+  return codes.map((code) => {
+    let candidate = code;
+    if (taken.has(candidate)) {
+      let i = 0;
+      do {
+        i++;
+        candidate = i === 1 ? `${code}_r` : `${code}_r${i}`;
+      } while (taken.has(candidate));
+    }
+    taken.add(candidate);
+    return candidate;
+  });
+}
+
 export interface LibraryItemUsage {
   itemId: string;
   /** Distinct athletes who answered this card (ever). */
@@ -824,6 +882,12 @@ export interface LibrarySummaryStats {
   usedThisMonthCount: number;
   usedEverCount: number;
   unusedReserveCount: number;
+  /** Unpublished drafts (published = false). */
+  draftsCount: number;
+  /** Published cards pinned to a future scheduled_date. */
+  scheduledFutureCount: number;
+  /** Per-topic coverage: total items & how many were ever shown/answered. */
+  byTopic: Record<string, { total: number; used: number }>;
   byItemId: Record<string, LibraryItemUsage>;
 }
 
@@ -850,9 +914,13 @@ export function computeLibraryItemStats(
   }
 
   const byItemId: Record<string, LibraryItemUsage> = {};
+  const byTopic: Record<string, { total: number; used: number }> = {};
+  for (const t of ACADEMY_TOPICS) byTopic[t] = { total: 0, used: 0 };
   let usedThisMonthCount = 0;
   let usedEverCount = 0;
   let unusedReserveCount = 0;
+  let draftsCount = 0;
+  let scheduledFutureCount = 0;
 
   for (const it of items) {
     const list = respsByItem.get(it.id) ?? [];
@@ -878,6 +946,14 @@ export function computeLibraryItemStats(
     if (usedThisMonth) usedThisMonthCount++;
     if (everUsed) usedEverCount++;
     else if (it.published) unusedReserveCount++;
+    if (!it.published) draftsCount++;
+    if (it.published && it.scheduled_date && it.scheduled_date > today) {
+      scheduledFutureCount++;
+    }
+    const topicBucket = byTopic[it.topic] ?? { total: 0, used: 0 };
+    topicBucket.total++;
+    if (everUsed) topicBucket.used++;
+    byTopic[it.topic] = topicBucket;
 
     byItemId[it.id] = {
       itemId: it.id,
@@ -897,6 +973,9 @@ export function computeLibraryItemStats(
     usedThisMonthCount,
     usedEverCount,
     unusedReserveCount,
+    draftsCount,
+    scheduledFutureCount,
+    byTopic,
     byItemId,
   };
 }
