@@ -142,7 +142,7 @@ export function AttendanceClient({
                       )}
                     </p>
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex w-full gap-1 sm:w-auto">
                     {BTNS.map((b) => (
                       <button
                         key={b.key}
@@ -157,7 +157,7 @@ export function AttendanceClient({
                               : d.tipExcused
                         }
                         className={cn(
-                          "rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                          "inline-flex flex-1 items-center justify-center whitespace-nowrap rounded-lg border px-2 py-1.5 text-xs font-medium transition-colors sm:flex-none sm:px-2.5",
                           effective === b.key
                             ? b.active
                             : "border-border bg-surface text-muted hover:text-foreground",
