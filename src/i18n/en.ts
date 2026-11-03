@@ -66,6 +66,15 @@ const en: Dictionary = {
     updatePassword: "Update password",
     passwordUpdated: "Password updated",
   },
+  setPassword: {
+    title: "Set your own password",
+    text: "This is your first sign-in — you can't continue without changing the password.",
+    newPassword: "New password",
+    confirmPassword: "Repeat password",
+    btn: "Save & sign in",
+    errShort: "Password must be at least 10 characters",
+    errMismatch: "Passwords do not match",
+  },
   nav: {
     home: "Home",
     history: "History",

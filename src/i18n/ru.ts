@@ -67,6 +67,15 @@ const ru = {
     updatePassword: "Обновить пароль",
     passwordUpdated: "Пароль обновлён",
   },
+  setPassword: {
+    title: "Придумай свой пароль",
+    text: "Это первый вход — без смены пароля продолжить нельзя.",
+    newPassword: "Новый пароль",
+    confirmPassword: "Повтори пароль",
+    btn: "Сохранить и войти",
+    errShort: "Пароль должен быть минимум 10 символов",
+    errMismatch: "Пароли не совпадают",
+  },
   nav: {
     home: "Главная",
     history: "История",

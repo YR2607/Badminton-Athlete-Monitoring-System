@@ -43,6 +43,14 @@ export async function requireRole(roles: AppRole | AppRole[]): Promise<Profile> 
   const allowed = Array.isArray(roles) ? roles : [roles];
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
+  // Forced first-login password change: app_metadata lives in the JWT, so
+  // this reads locally with no DB round-trip. /set-password itself doesn't
+  // call requireRole — no redirect loop.
+  const supabase = await createClient();
+  const { data: claimsData } = await supabase.auth.getClaims();
+  if (claimsData?.claims?.app_metadata?.must_change_password === true) {
+    redirect("/set-password");
+  }
   if (!allowed.includes(profile.role)) redirect(homeForRole(profile.role));
   return profile;
 }

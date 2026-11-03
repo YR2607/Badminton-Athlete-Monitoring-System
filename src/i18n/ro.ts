@@ -66,6 +66,15 @@ const ro: Dictionary = {
     updatePassword: "Actualizează parola",
     passwordUpdated: "Parola a fost actualizată",
   },
+  setPassword: {
+    title: "Alege-ți propria parolă",
+    text: "Aceasta este prima autentificare — nu poți continua fără a schimba parola.",
+    newPassword: "Parolă nouă",
+    confirmPassword: "Repetă parola",
+    btn: "Salvează și intră",
+    errShort: "Parola trebuie să aibă cel puțin 10 caractere",
+    errMismatch: "Parolele nu coincid",
+  },
   nav: {
     home: "Acasă",
     history: "Istoric",

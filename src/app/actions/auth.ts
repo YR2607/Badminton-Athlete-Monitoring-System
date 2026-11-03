@@ -125,6 +125,8 @@ export async function adminCreateUser(input: {
     email,
     password: parsed.data.password,
     email_confirm: true,
+    // First login forces a password change (flag lives in the JWT).
+    app_metadata: { must_change_password: true },
     user_metadata: {
       display_name: parsed.data.display_name,
       role: parsed.data.role,
@@ -185,7 +187,15 @@ export async function adminResetUserPassword(
   if (!target) return { error: "not_found" };
 
   const password = generatePassword();
-  const { error } = await admin.auth.admin.updateUserById(target.user_id, { password });
+  // Handed-out temporary passwords must be changed at next login too.
+  const { data: targetUser } = await admin.auth.admin.getUserById(target.user_id);
+  const { error } = await admin.auth.admin.updateUserById(target.user_id, {
+    password,
+    app_metadata: {
+      ...(targetUser?.user?.app_metadata ?? {}),
+      must_change_password: true,
+    },
+  });
   if (error) return { error: error.message };
 
   await admin.from("audit_logs").insert({
@@ -348,5 +358,46 @@ export async function adminDeleteUser(
     metadata: { role: target.role },
   });
   revalidatePath("/admin/users");
+  return { ok: true };
+}
+
+/**
+ * Forced first-login password change. Only callable while the JWT still
+ * carries app_metadata.must_change_password; clears the flag afterwards.
+ */
+export async function completePasswordChange(input: {
+  password: string;
+}): Promise<{ ok?: boolean; error?: string }> {
+  const password = input?.password ?? "";
+  if (password.length < 10 || password.length > 128) return { error: "validation" };
+
+  const supabase = await createClient();
+  const userId = await getVerifiedUserId(supabase);
+  if (!userId) return { error: "unauthenticated" };
+
+  const { data: claimsData } = await supabase.auth.getClaims();
+  if (claimsData?.claims?.app_metadata?.must_change_password !== true) {
+    return { error: "forbidden" };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return { error: error.message };
+
+  const admin = createAdminClient();
+  const { data: u } = await admin.auth.admin.getUserById(userId);
+  await admin.auth.admin.updateUserById(userId, {
+    app_metadata: {
+      ...(u?.user?.app_metadata ?? {}),
+      must_change_password: false,
+    },
+  });
+
+  await admin.from("audit_logs").insert({
+    actor_profile_id: null,
+    action: "auth.password_changed",
+    target_type: "auth.user",
+    target_id: userId,
+    metadata: {},
+  });
   return { ok: true };
 }
