@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { CreateUserForm } from "./create-user-form";
+import { BulkCreateForm } from "./bulk-create-form";
 import { UserTable } from "./user-table";
 import type { Athlete, Profile } from "@/lib/types";
 
@@ -28,6 +29,7 @@ export default async function AdminUsersPage() {
     <div className="space-y-6">
       <h1 className="text-xl font-bold">{dict.admin.users}</h1>
       <CreateUserForm dict={dict} groups={(groups as { id: string; name: string }[]) ?? []} />
+      <BulkCreateForm dict={dict} groups={(groups as { id: string; name: string }[]) ?? []} />
       <UserTable
         dict={dict}
         selfId={me.id}

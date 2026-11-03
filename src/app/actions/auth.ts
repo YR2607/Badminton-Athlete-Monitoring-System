@@ -401,3 +401,133 @@ export async function completePasswordChange(input: {
   });
   return { ok: true };
 }
+
+export interface BulkCreateResult {
+  name: string;
+  login: string;
+  password: string;
+  error?: string;
+}
+
+/**
+ * Bulk athlete account creation: paste names (one per line, optional
+ * ", YYYY" birth year) → codes ATH-NN continue the existing sequence, every
+ * account gets a generated password + forced first-login password change.
+ */
+export async function adminBulkCreateAthletes(input: {
+  names: string[];
+  group_id?: string;
+  preferred_language?: string;
+  timezone?: string;
+}): Promise<{ ok?: boolean; error?: string; results?: BulkCreateResult[] }> {
+  const supabase = await createClient();
+  const userId = await getVerifiedUserId(supabase);
+  if (!userId) return { error: "unauthenticated" };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .eq("user_id", userId)
+    .single();
+  if (me?.role !== "admin") return { error: "forbidden" };
+
+  const lines = (input.names ?? [])
+    .map((n) => n.trim())
+    .filter(Boolean)
+    .slice(0, 50);
+  if (lines.length === 0) return { error: "validation" };
+
+  const lang = ["ru", "en", "ro"].includes(input.preferred_language ?? "")
+    ? input.preferred_language!
+    : "ru";
+  const timezone =
+    input.timezone && isValidTimeZone(input.timezone)
+      ? input.timezone
+      : "Europe/Chisinau";
+  const groupId = input.group_id && /^[0-9a-f-]{36}$/i.test(input.group_id)
+    ? input.group_id
+    : null;
+
+  const admin = createAdminClient();
+  const { data: codeRows } = await admin.from("athletes").select("athlete_code");
+  const usedCodes = new Set(
+    ((codeRows as { athlete_code: string }[] | null) ?? []).map((r) =>
+      r.athlete_code.toLowerCase(),
+    ),
+  );
+  let nextNum = ((codeRows as { athlete_code: string }[] | null) ?? []).reduce(
+    (max, r) => {
+      const m = /^ath-?(\d+)$/i.exec(r.athlete_code.trim());
+      return m ? Math.max(max, Number(m[1])) : max;
+    },
+    0,
+  );
+  const takeCode = () => {
+    let code: string;
+    do {
+      nextNum += 1;
+      code = `ATH-${String(nextNum).padStart(2, "0")}`;
+    } while (usedCodes.has(code.toLowerCase()));
+    usedCodes.add(code.toLowerCase());
+    return code;
+  };
+
+  const results: BulkCreateResult[] = [];
+  for (const line of lines) {
+    // "Name" or "Name, 2012"
+    const parts = line.split(/[;,]/).map((p) => p.trim());
+    const name = parts[0];
+    const birthYear = /^\d{4}$/.test(parts[1] ?? "")
+      ? Number(parts[1])
+      : undefined;
+    if (!name || name.length > 120) {
+      results.push({ name: name || "—", login: "", password: "", error: "name" });
+      continue;
+    }
+    const code = takeCode();
+    const password = generatePassword();
+    const { data, error } = await admin.auth.admin.createUser({
+      email: loginToEmail(code),
+      password,
+      email_confirm: true,
+      app_metadata: { must_change_password: true },
+      user_metadata: {
+        display_name: name,
+        role: "athlete",
+        preferred_language: lang,
+        timezone,
+        athlete_code: code,
+        birth_year: birthYear,
+      },
+    });
+    if (error) {
+      results.push({ name, login: code, password: "", error: error.message });
+      continue;
+    }
+    if (groupId) {
+      const { data: prof } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("user_id", data.user.id)
+        .single();
+      const { data: athlete } = prof
+        ? await admin.from("athletes").select("id").eq("profile_id", prof.id).single()
+        : { data: null };
+      if (athlete) {
+        await admin
+          .from("group_memberships")
+          .insert({ athlete_id: athlete.id, group_id: groupId });
+      }
+    }
+    results.push({ name, login: code, password });
+  }
+
+  const created = results.filter((r) => !r.error).length;
+  await admin.from("audit_logs").insert({
+    actor_profile_id: me.id,
+    action: "user.bulk_create",
+    target_type: "auth.user",
+    target_id: null,
+    metadata: { total: lines.length, created, group_id: groupId },
+  });
+  return { ok: true, results };
+}
