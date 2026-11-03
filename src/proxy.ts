@@ -3,7 +3,16 @@ import { NextResponse, type NextRequest } from "next/server";
 
 // /api/cron does its own Bearer-token auth — exempting it from the session
 // redirect so schedulers (Vercel Cron, GitHub Actions) can actually reach it.
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/api/health", "/api/cron"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/auth/callback",
+  "/api/health",
+  "/api/cron",
+  // Static PWA assets — Chrome fetches them without a session for the
+  // install prompt and service-worker registration.
+  "/manifest.webmanifest",
+  "/sw.js",
+];
 
 /**
  * Next.js "proxy" (formerly middleware): refreshes the Supabase session cookie
