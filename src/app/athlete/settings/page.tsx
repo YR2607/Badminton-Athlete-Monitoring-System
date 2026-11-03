@@ -31,6 +31,7 @@ export default async function SettingsPage() {
         dict={dict}
         profile={profile}
         racketHand={athlete?.racket_hand ?? "right"}
+        birthDate={athlete?.birth_date ?? null}
       />
       <AthleteCardForm
         dict={dict}

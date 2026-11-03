@@ -989,6 +989,7 @@ const en: Dictionary = {
       ankle: "Ankle / foot",
     },
     racketHand: "Dominant racket hand",
+    birthDate: "Date of birth",
     rightHand: "Right-handed",
     leftHand: "Left-handed",
     dominantSideWarn: "★ Dominant side (racket arm / lunge leg)",

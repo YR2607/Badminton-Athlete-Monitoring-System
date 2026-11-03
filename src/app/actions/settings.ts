@@ -14,6 +14,7 @@ export async function updateOwnSettings(input: {
   preferred_language?: string;
   timezone?: string;
   racket_hand?: string;
+  birth_date?: string;
 }): Promise<ActionResult> {
   const profile = await getCurrentProfile();
   if (!profile) return { error: "unauthenticated" };
@@ -33,11 +34,20 @@ export async function updateOwnSettings(input: {
     const { error } = await supabase.from("profiles").update(patch).eq("id", profile.id);
     if (error) return { error: error.message };
   }
+  const athletePatch: Record<string, string | null> = {};
   if (input.racket_hand && ["right", "left"].includes(input.racket_hand)) {
+    athletePatch.racket_hand = input.racket_hand;
+  }
+  if (input.birth_date !== undefined) {
+    athletePatch.birth_date = /^\d{4}-\d{2}-\d{2}$/.test(input.birth_date)
+      ? input.birth_date
+      : null;
+  }
+  if (Object.keys(athletePatch).length > 0) {
     const admin = createAdminClient();
     await admin
       .from("athletes")
-      .update({ racket_hand: input.racket_hand })
+      .update(athletePatch)
       .eq("profile_id", profile.id);
   }
   await audit("profile.update", "profiles", profile.id, { ...patch, racket_hand: input.racket_hand });

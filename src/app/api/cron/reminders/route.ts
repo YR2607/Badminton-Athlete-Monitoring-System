@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { localDate, localMinutesOfDay, localWeekday } from "@/lib/dates";
+import { addDays, localDate, localMinutesOfDay, localWeekday } from "@/lib/dates";
 import { flagEnabled } from "@/lib/flags";
 import { sendPushToProfile } from "@/lib/push";
 import type { PlanOverride } from "@/lib/load";
@@ -276,6 +276,51 @@ export async function GET(req: NextRequest) {
       if (ins?.length) {
         created += ins.length;
         pushed += await sendPushToProfile(admin, sp.id, { title, body, url: "/coach" });
+      }
+
+      // Birthday reminders: notify the coach 2 days and 1 day ahead.
+      for (const a of athleteRows) {
+        if (!a.birth_date) continue;
+        const [, mm, dd] = a.birth_date.split("-").map(Number);
+        for (const daysLeft of [2, 1]) {
+          const target = addDays(cToday, daysLeft);
+          const [, tm, td] = target.split("-").map(Number);
+          if (tm !== mm || td !== dd) continue;
+          const name = profById.get(a.profile_id)?.display_name ?? a.athlete_code;
+          const bTitle =
+            lang === "en" ? "🎂 Birthday coming up" : lang === "ro" ? "🎂 Zi de naștere în curând" : "🎂 День рождения скоро";
+          const when =
+            daysLeft === 1
+              ? lang === "en" ? "tomorrow" : lang === "ro" ? "mâine" : "завтра"
+              : lang === "en" ? "in 2 days" : lang === "ro" ? "peste 2 zile" : "через 2 дня";
+          const bBody =
+            lang === "en"
+              ? `${name} — ${when} (${dd}.${mm})`
+              : lang === "ro"
+                ? `${name} — ${when} (${dd}.${mm})`
+                : `${name} — ${when} (${dd}.${mm})`;
+          const { data: bIns } = await admin
+            .from("notifications")
+            .upsert(
+              {
+                profile_id: sp.id,
+                kind: "birthday_reminder",
+                title: bTitle,
+                body: bBody,
+                dedup_key: `bday:${a.id}:${sp.id}:${target}`,
+              },
+              { onConflict: "dedup_key", ignoreDuplicates: true },
+            )
+            .select("id");
+          if (bIns?.length) {
+            created += bIns.length;
+            pushed += await sendPushToProfile(admin, sp.id, {
+              title: bTitle,
+              body: bBody,
+              url: "/coach",
+            });
+          }
+        }
       }
     }
   }

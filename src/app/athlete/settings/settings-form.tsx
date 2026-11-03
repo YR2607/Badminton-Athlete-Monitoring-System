@@ -14,10 +14,12 @@ export function SettingsForm({
   dict,
   profile,
   racketHand = "right",
+  birthDate = null,
 }: {
   dict: Dictionary;
   profile: Profile;
   racketHand?: "right" | "left";
+  birthDate?: string | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -30,6 +32,7 @@ export function SettingsForm({
       display_name: String(fd.get("display_name") ?? ""),
       preferred_language: String(fd.get("preferred_language") ?? "ru"),
       racket_hand: String(fd.get("racket_hand") ?? "right"),
+      birth_date: String(fd.get("birth_date") ?? ""),
     });
     setBusy(false);
     if (res.ok) {
@@ -55,6 +58,15 @@ export function SettingsForm({
               <option value="ro">Română</option>
               <option value="en">English</option>
             </Select>
+          </div>
+          <div>
+            <Label>{dict.pro.birthDate}</Label>
+            <Input
+              name="birth_date"
+              type="date"
+              defaultValue={birthDate ?? ""}
+              max={new Date().toISOString().slice(0, 10)}
+            />
           </div>
           <div>
             <Label>{dict.pro.racketHand}</Label>

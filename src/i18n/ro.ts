@@ -989,6 +989,7 @@ const ro: Dictionary = {
       ankle: "Gleznă / laba piciorului",
     },
     racketHand: "Mâna dominantă (cu racheta)",
+    birthDate: "Data nașterii",
     rightHand: "Dreptaci (dreapta)",
     leftHand: "Stângaci (stânga)",
     dominantSideWarn: "★ Partea dominantă (mâna cu racheta / piciorul de fandare)",
