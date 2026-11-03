@@ -16,8 +16,25 @@ export async function createGroup(name: string, description?: string): Promise<A
   const me = await requireAdmin();
   if (!me) return { error: "forbidden" };
   const admin = createAdminClient();
-  const { error } = await admin.from("groups").insert({ name: name.trim(), description: description ?? null });
+  const { data: created, error } = await admin
+    .from("groups")
+    .insert({ name: name.trim(), description: description ?? null })
+    .select("id")
+    .single();
   if (error) return { error: error.message };
+
+  // Default week plan: Mon–Fri 17:00–19:00 (120 min), Sat–Sun 09:00–12:00
+  // (180 min), RPE 6 — coaches adjust it per date via plan overrides.
+  if (created) {
+    const g = (created as { id: string }).id;
+    await admin.from("training_schedules").insert(
+      Array.from({ length: 7 }, (_, wd) =>
+        wd >= 1 && wd <= 5
+          ? { group_id: g, weekday: wd, start_time: "17:00", planned_minutes: 120, planned_rpe: 6, active: true }
+          : { group_id: g, weekday: wd, start_time: "09:00", planned_minutes: 180, planned_rpe: 6, active: true },
+      ),
+    );
+  }
   await audit("group.create", "groups", null, { name });
   revalidatePath("/admin/groups");
   return { ok: true };
