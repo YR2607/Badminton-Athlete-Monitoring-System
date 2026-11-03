@@ -33,7 +33,11 @@ export default async function AthleteHome() {
   const supabase = await createClient();
   const tz = profile.timezone;
   const today = todayInTz(tz);
-  const since30 = addDays(today, -29);
+  // Personal stats count from the day the account was created — a new
+  // athlete should not see "empty history" predating them.
+  const startDay = localDate(new Date(profile.created_at), tz);
+  const clip = (d: string) => (d < startDay ? startDay : d);
+  const since30 = clip(addDays(today, -29));
 
   const [{ data: todayCheckin }, { data: postToday }, { data: sessionsRecent }, { data: snapshot }, { data: recent }, { data: memberships }] =
     await Promise.all([
@@ -96,7 +100,7 @@ export default async function AthleteHome() {
     (recent as MorningCheckin[]) ?? [],
     postEntries,
   );
-  const chart7 = series.filter((p) => p.date >= addDays(today, -6));
+  const chart7 = series.filter((p) => p.date >= clip(addDays(today, -6)));
   const cardEmpty = !athlete.preferred_discipline && !athlete.season_goal;
 
   // Dashboard data (behind flags; queries only run when enabled).
@@ -106,7 +110,7 @@ export default async function AthleteHome() {
   let snap30: ReadinessSnapshot[] = [];
   let dayLoads: ReturnType<typeof dailyLoads> = [];
   if (dashboardOn && (zscoreOn || srpeOn)) {
-    const since40 = addDays(today, -39);
+    const since40 = clip(addDays(today, -39));
     const [{ data: snaps }, { data: sessions }] = await Promise.all([
       supabase
         .from("readiness_snapshots")
@@ -165,8 +169,16 @@ export default async function AthleteHome() {
   }
 
   // 7-day personal passport (Metrifit-style summary for teen engagement).
-  const since7 = addDays(today, -6);
-  const prev7From = addDays(today, -13);
+  const since7 = clip(addDays(today, -6));
+  const prev7From = clip(addDays(today, -13));
+  // Passport denominator: for a fresh account count only the days it existed.
+  const daysAlive = Math.min(
+    7,
+    Math.floor(
+      (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${startDay}T00:00:00Z`)) /
+        86400000,
+    ) + 1,
+  );
   const checkins7 = recentList.filter((c) => c.checkin_date >= since7 && c.checkin_date <= today);
   const sleep7Vals = checkins7
     .map((c) => c.sleep_hours)
@@ -378,7 +390,9 @@ export default async function AthleteHome() {
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="rounded-lg border border-border/60 px-3 py-2">
                 <p className="text-xs text-muted">{d.weekPassportCheckins}</p>
-                <p className="mt-0.5 text-lg font-bold tabular-nums">{checkins7.length}/7</p>
+                <p className="mt-0.5 text-lg font-bold tabular-nums">
+                  {checkins7.length}/{daysAlive}
+                </p>
               </div>
               <div className="rounded-lg border border-border/60 px-3 py-2">
                 <p className="text-xs text-muted">{d.weekPassportSessions}</p>
