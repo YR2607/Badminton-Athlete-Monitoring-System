@@ -2,8 +2,9 @@ import { requireRole } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { createClient } from "@/lib/supabase/server";
 import { addDays, localDayUtcBounds, todayInTz } from "@/lib/dates";
-import { plannedForDate, type PlanOverride, type ScheduleInput } from "@/lib/load";
+import { plannedForDate, weekdayOf, type PlanOverride, type ScheduleInput } from "@/lib/load";
 import type { Athlete, Attendance, Group, Profile, TrainingSession } from "@/lib/types";
+import { WeekPlan } from "@/app/admin/groups/week-plan";
 import { AttendanceClient, type AttendanceRow } from "./attendance-client";
 
 export default async function AttendancePage({
@@ -58,17 +59,17 @@ export default async function AttendancePage({
     groupId
       ? supabase
           .from("training_schedules")
-          .select("weekday, planned_minutes, planned_rpe")
+          .select("weekday, planned_minutes, planned_rpe, start_time, group_id")
           .eq("group_id", groupId)
           .eq("active", true)
       : Promise.resolve({ data: [] }),
     groupId
       ? supabase
           .from("session_plan_overrides")
-          .select("plan_date, cancelled, start_time, planned_minutes, planned_rpe")
+          .select("plan_date, cancelled, start_time, planned_minutes, planned_rpe, group_id")
           .eq("group_id", groupId)
-          .gte("plan_date", addDays(date, -1))
-          .lte("plan_date", addDays(date, 1))
+          .gte("plan_date", date)
+          .lte("plan_date", addDays(date, 6))
       : Promise.resolve({ data: [] }),
     ids.length
       ? supabase
@@ -111,12 +112,50 @@ export default async function AttendancePage({
     status: markByAthlete.get(r.id) ?? null,
   }));
 
+  // Week plan is "filled" when every one of the 7 days has a decided state:
+  // a template session or an explicit override (incl. cancelled = rest).
+  const schedList = (schedules as ScheduleInput[]) ?? [];
+  const ovList = (overrides as (PlanOverride & { group_id: string })[]) ?? [];
+  const weekDates = Array.from({ length: 7 }, (_, i) => addDays(date, i));
+  const weekFilled = weekDates.every((d) => {
+    const tpl = schedList.some((s) => s.weekday === weekdayOf(d));
+    const ov = ovList.some((o) => o.plan_date === d);
+    return ov || tpl;
+  });
+  const currentGroup = groupList.find((g) => g.id === groupId) ?? null;
+
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-bold">{dict.attendance.title}</h1>
         <p className="text-sm text-muted">{dict.attendance.hint}</p>
       </div>
+      {currentGroup && (
+        <details
+          open={!weekFilled}
+          className="group rounded-xl border border-border bg-surface"
+        >
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-4">
+            <span className="text-base font-semibold">
+              🗓 {dict.admin.weekPlan}
+            </span>
+            <span className="text-xs text-muted">
+              {weekFilled ? "" : dict.admin.weekPlanOpenHint}
+            </span>
+          </summary>
+          <div className="px-2 pb-3 sm:px-4">
+            <WeekPlan
+              dict={dict}
+              groups={[currentGroup]}
+              schedules={schedList as unknown as import("@/lib/types").TrainingSchedule[]}
+              overrides={ovList}
+              today={date}
+              forCoach
+            />
+          </div>
+        </details>
+      )}
+
       <AttendanceClient
         dict={dict}
         groups={groupList}

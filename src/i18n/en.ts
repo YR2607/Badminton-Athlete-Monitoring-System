@@ -825,6 +825,7 @@ const en: Dictionary = {
     restDay: "Rest day",
     overrideBadge: "edited",
     resetDay: "Reset",
+    weekPlanOpenHint: "not all days filled",
     auditLog: "Audit log",
     action: "Action",
     actor: "Actor",

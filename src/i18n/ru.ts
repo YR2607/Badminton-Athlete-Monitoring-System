@@ -827,6 +827,7 @@ const ru = {
     restDay: "Выходной",
     overrideBadge: "изменено",
     resetDay: "Сброс",
+    weekPlanOpenHint: "не все дни заполнены",
     auditLog: "Журнал действий",
     action: "Действие",
     actor: "Кто",

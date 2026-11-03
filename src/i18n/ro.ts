@@ -825,6 +825,7 @@ const ro: Dictionary = {
     restDay: "Zi liberă",
     overrideBadge: "modificat",
     resetDay: "Resetează",
+    weekPlanOpenHint: "nu toate zilele sunt completate",
     auditLog: "Jurnal de acțiuni",
     action: "Acțiune",
     actor: "Cine",

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Dictionary } from "@/i18n";
 import { savePlanOverride, deletePlanOverride } from "@/app/actions/admin";
+import { coachSavePlanOverride, coachDeletePlanOverride } from "@/app/actions/coach";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/input";
@@ -27,14 +28,19 @@ export function WeekPlan({
   schedules,
   overrides,
   today,
+  forCoach = false,
 }: {
   dict: Dictionary;
   groups: Group[];
   schedules: TrainingSchedule[];
   overrides: OverrideRow[];
   today: string;
+  /** Coach version: same editor, coach-scoped actions, fixed single group. */
+  forCoach?: boolean;
 }) {
   const d = dict.admin;
+  const doSave = forCoach ? coachSavePlanOverride : savePlanOverride;
+  const doDelete = forCoach ? coachDeletePlanOverride : deletePlanOverride;
   const router = useRouter();
   const [groupId, setGroupId] = useState(groups[0]?.id ?? "");
   const [busy, setBusy] = useState(false);
@@ -82,8 +88,8 @@ export function WeekPlan({
         (e.minutes ? Number(e.minutes) : null) === tplOnly.planned_minutes &&
         (e.rpe ? Number(e.rpe) : null) === tplOnly.planned_rpe;
       const res = matchesTemplate && hasOverride
-        ? await deletePlanOverride(groupId, date)
-        : await savePlanOverride({
+        ? await doDelete(groupId, date)
+        : await doSave({
             group_id: groupId,
             plan_date: date,
             cancelled: !e.on,
@@ -105,7 +111,7 @@ export function WeekPlan({
 
   const reset = async (date: string) => {
     setBusy(true);
-    const res = await deletePlanOverride(groupId, date);
+    const res = await doDelete(groupId, date);
     setBusy(false);
     if (res.ok) {
       toast.success(dict.common.saved);
@@ -127,13 +133,15 @@ export function WeekPlan({
         <p className="text-sm text-muted">{d.weekPlanHint}</p>
       </CardHeader>
       <CardContent className="space-y-3">
-        <Select value={groupId} onChange={(e) => { setGroupId(e.target.value); setEdits({}); }}>
-          {groups.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.name}
-            </option>
-          ))}
-        </Select>
+        {groups.length > 1 && (
+          <Select value={groupId} onChange={(e) => { setGroupId(e.target.value); setEdits({}); }}>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </Select>
+        )}
 
         <div className="space-y-2">
           {dates.map((date) => {

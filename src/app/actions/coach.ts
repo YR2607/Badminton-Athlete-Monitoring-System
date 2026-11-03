@@ -628,3 +628,57 @@ export async function markGroupPresent(input: {
   revalidatePath("/coach/attendance");
   return { ok: true, count: ids.length };
 }
+
+/**
+ * Coach-facing per-date plan override — same write as the admin action but
+ * available to coaches, who plan their own trainings from /coach/attendance.
+ */
+export async function coachSavePlanOverride(input: {
+  group_id: string;
+  plan_date: string;
+  cancelled: boolean;
+  start_time?: string | null;
+  planned_minutes?: number | null;
+  planned_rpe?: number | null;
+}): Promise<ActionResult> {
+  const me = await requireCoach();
+  if (!me) return { error: "forbidden" };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.plan_date)) return { error: "validation" };
+  if (input.planned_minutes != null && (input.planned_minutes < 1 || input.planned_minutes > 600))
+    return { error: "validation" };
+  if (input.planned_rpe != null && (input.planned_rpe < 0 || input.planned_rpe > 10))
+    return { error: "validation" };
+  const admin = createAdminClient();
+  const { error } = await admin.from("session_plan_overrides").upsert(
+    {
+      group_id: input.group_id,
+      plan_date: input.plan_date,
+      cancelled: input.cancelled,
+      start_time: input.start_time ?? null,
+      planned_minutes: input.cancelled ? null : (input.planned_minutes ?? null),
+      planned_rpe: input.cancelled ? null : (input.planned_rpe ?? null),
+    },
+    { onConflict: "group_id,plan_date" },
+  );
+  if (error) return { error: error.message };
+  await audit("plan_override.upsert", "session_plan_overrides", null, input as Record<string, unknown>);
+  revalidatePath("/coach/attendance");
+  revalidatePath("/admin/groups");
+  return { ok: true };
+}
+
+/** Coach-facing removal of a per-date override — the weekly template applies again. */
+export async function coachDeletePlanOverride(groupId: string, planDate: string): Promise<ActionResult> {
+  const me = await requireCoach();
+  if (!me) return { error: "forbidden" };
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("session_plan_overrides")
+    .delete()
+    .eq("group_id", groupId)
+    .eq("plan_date", planDate);
+  if (error) return { error: error.message };
+  revalidatePath("/coach/attendance");
+  revalidatePath("/admin/groups");
+  return { ok: true };
+}
