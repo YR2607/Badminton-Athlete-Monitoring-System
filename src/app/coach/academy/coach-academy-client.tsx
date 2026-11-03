@@ -1156,29 +1156,90 @@ export function CoachAcademyClient({
               <CardTitle className="text-base">📊 {c.errorHotspotsTitle}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              {errorStats.map((st) => (
-                <div
-                  key={st.topic}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 px-3 py-2 text-xs"
-                >
-                  <span className="font-medium">{a.topics[st.topic]}</span>
-                  <span
-                    className={cn(
-                      "font-semibold tabular-nums",
-                      st.errorRatePct >= 40
-                        ? "text-danger"
-                        : st.errorRatePct >= 20
-                          ? "text-warn"
-                          : "text-ok",
-                    )}
+              {errorStats.map((st) => {
+                // Items of this topic that someone got wrong, most errors first.
+                const wrongItems = items
+                  .filter((it) => it.topic === st.topic)
+                  .map((it) => ({
+                    it,
+                    wrong: (responsesByItem.get(it.id) ?? []).filter(
+                      (r) => !r.is_correct,
+                    ),
+                  }))
+                  .filter((x) => x.wrong.length > 0)
+                  .sort((x, y) => y.wrong.length - x.wrong.length);
+                if (wrongItems.length === 0) {
+                  return (
+                    <div
+                      key={st.topic}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 px-3 py-2 text-xs"
+                    >
+                      <span className="font-medium">{a.topics[st.topic]}</span>
+                      <span className="font-semibold tabular-nums text-ok">
+                        {c.errorRateLabel
+                          .replace("{e}", String(st.errorRatePct))
+                          .replace("{w}", String(st.wrongAnswers))
+                          .replace("{t}", String(st.totalAnswers))}
+                      </span>
+                    </div>
+                  );
+                }
+                return (
+                  <details
+                    key={st.topic}
+                    className="rounded-xl border border-border/60 px-3 py-2 text-xs"
                   >
-                    {c.errorRateLabel
-                      .replace("{e}", String(st.errorRatePct))
-                      .replace("{w}", String(st.wrongAnswers))
-                      .replace("{t}", String(st.totalAnswers))}
-                  </span>
-                </div>
-              ))}
+                    <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium">{a.topics[st.topic]}</span>
+                      <span
+                        className={cn(
+                          "font-semibold tabular-nums",
+                          st.errorRatePct >= 40
+                            ? "text-danger"
+                            : st.errorRatePct >= 20
+                              ? "text-warn"
+                              : "text-ok",
+                        )}
+                      >
+                        {c.errorRateLabel
+                          .replace("{e}", String(st.errorRatePct))
+                          .replace("{w}", String(st.wrongAnswers))
+                          .replace("{t}", String(st.totalAnswers))}
+                      </span>
+                    </summary>
+                    <div className="mt-2 space-y-2 border-t border-border/40 pt-2">
+                      {wrongItems.map(({ it, wrong }) => (
+                        <details key={it.id} className="rounded-lg border border-border/40 p-2">
+                          <summary className="cursor-pointer list-none font-medium text-foreground">
+                            {localizeText(it.title, locale)}{" "}
+                            <span className="text-danger">❌{wrong.length}</span>
+                          </summary>
+                          <AnswerReview
+                            item={it}
+                            selected={[]}
+                            locale={locale}
+                            showQuestion
+                          />
+                          <ul className="mt-1.5 space-y-0.5 border-t border-border/40 pt-1.5 text-muted">
+                            {wrong.map((r) => (
+                              <li key={r.id}>
+                                <span className="text-danger">❌</span>{" "}
+                                {athleteNameById.get(r.athlete_id) ?? r.athlete_id}{" "}
+                                · {c.pickedTag}:{" "}
+                                {optLetters(it, r.selected_option_ids) || "—"}
+                                {" → "}
+                                {optLetters(it, it.correct_option_ids)}
+                                {" · "}
+                                {r.assigned_date}
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      ))}
+                    </div>
+                  </details>
+                );
+              })}
             </CardContent>
           </Card>
 
