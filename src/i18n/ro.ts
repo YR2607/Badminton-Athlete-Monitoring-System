@@ -587,6 +587,11 @@ const ro: Dictionary = {
     priorityAlertsTitle: "De verificat urgent",
   },
   athleteDetail: {
+    acadDetailsLink: "statistica grupei →",
+    acadAnswers: "Răspunsuri",
+    acadAccuracy: "Corecte",
+    acadThisMonth: "Luna aceasta",
+    acadTests: "Teste trecute",
     profile: "Profil",
     calendar: "Calendarul chestionarelor",
     latestAnswers: "Ultimele răspunsuri",

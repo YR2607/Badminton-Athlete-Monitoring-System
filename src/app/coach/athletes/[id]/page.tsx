@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { addDays, dateRange, localDate, type RangeKey } from "@/lib/dates";
@@ -63,6 +64,41 @@ export default async function AthleteDetailPage({
     to: sp.to,
   });
   if (!data) notFound();
+
+  // Academy progress for this athlete (one small fetch — coach sees the same
+  // numbers the kid sees on their own Academy page).
+  const admin0 = createAdminClient();
+  const [{ data: acadResps }, { data: acadAttempts }] = await Promise.all([
+    admin0
+      .from("academy_responses")
+      .select("is_correct, points_awarded, assigned_date")
+      .eq("athlete_id", id),
+    admin0
+      .from("academy_test_attempts")
+      .select("status")
+      .eq("athlete_id", id),
+  ]);
+  const acad = (() => {
+    const rs = (acadResps as { is_correct: boolean; points_awarded: number; assigned_date: string }[] | null) ?? [];
+    const monthPrefix = todayPrefix(rs);
+    const xp = rs.reduce((s, r) => s + (r.points_awarded ?? 0), 0);
+    const correct = rs.filter((r) => r.is_correct).length;
+    const atts = (acadAttempts as { status: string }[] | null) ?? [];
+    return rs.length === 0 && atts.length === 0
+      ? null
+      : {
+          xp,
+          answers: rs.length,
+          accuracyPct: rs.length ? Math.round((correct / rs.length) * 100) : null,
+          monthAnswers: monthPrefix,
+          testsDone: atts.filter((t) => t.status === "completed").length,
+        };
+    function todayPrefix(list: typeof rs) {
+      const month = (data?.today ?? new Date().toISOString().slice(0, 10)).slice(0, 7);
+      return list.filter((r) => r.assigned_date.startsWith(month)).length;
+    }
+  })();
+
   const {
     a,
     aProfile,
@@ -601,6 +637,42 @@ export default async function AthleteDetailPage({
         ))}
       </div>
       <p className="text-xs text-muted">{dict.stats.explainer}</p>
+
+      {acad && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base">🎓 {dict.academy.title}</CardTitle>
+            <Link
+              href="/coach/academy"
+              className="text-xs font-medium text-accent underline-offset-2 hover:underline"
+            >
+              {dd.acadDetailsLink}
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {[
+                { l: "XP", v: String(acad.xp) },
+                { l: dd.acadAnswers, v: String(acad.answers) },
+                {
+                  l: dd.acadAccuracy,
+                  v: acad.accuracyPct !== null ? `${acad.accuracyPct}%` : "—",
+                },
+                { l: dd.acadThisMonth, v: String(acad.monthAnswers) },
+                { l: dd.acadTests, v: String(acad.testsDone) },
+              ].map(({ l, v }) => (
+                <div
+                  key={l}
+                  className="rounded-lg border border-border/60 px-3 py-2"
+                >
+                  <p className="text-xs text-muted">{l}</p>
+                  <p className="mt-0.5 text-lg font-bold tabular-nums">{v}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {latestSnap && (
         <Card>

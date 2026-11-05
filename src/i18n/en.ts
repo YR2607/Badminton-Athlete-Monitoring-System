@@ -587,6 +587,11 @@ const en: Dictionary = {
     priorityAlertsTitle: "Needs attention now",
   },
   athleteDetail: {
+    acadDetailsLink: "group stats →",
+    acadAnswers: "Answers",
+    acadAccuracy: "Correct",
+    acadThisMonth: "This month",
+    acadTests: "Tests passed",
     profile: "Profile",
     calendar: "Check-in calendar",
     latestAnswers: "Latest answers",

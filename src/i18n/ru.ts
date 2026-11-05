@@ -589,6 +589,11 @@ const ru = {
     priorityAlertsTitle: "Срочно посмотреть",
   },
   athleteDetail: {
+    acadDetailsLink: "статистика группы →",
+    acadAnswers: "Ответов",
+    acadAccuracy: "Верно",
+    acadThisMonth: "За месяц",
+    acadTests: "Тестов сдано",
     profile: "Профиль",
     calendar: "Календарь анкет",
     latestAnswers: "Последние ответы",
