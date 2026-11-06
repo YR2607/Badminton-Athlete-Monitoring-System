@@ -19,11 +19,18 @@ export async function sendPushToProfile(
   const pub = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const priv = process.env.VAPID_PRIVATE_KEY;
   if (!pub || !priv) return 0;
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT ?? "mailto:coach@example.com",
-    pub,
-    priv,
-  );
+  try {
+    webpush.setVapidDetails(
+      process.env.VAPID_SUBJECT ?? "mailto:coach@example.com",
+      pub,
+      priv,
+    );
+  } catch (e) {
+    // Malformed VAPID env must not crash the caller (the reminders route
+    // 500'd mid-loop on production when the key was invalid).
+    console.error("push_vapid_config_invalid", (e as Error).message);
+    return 0;
+  }
 
   const { data: subs } = await admin
     .from("push_subscriptions")
