@@ -4,7 +4,7 @@ import { flagEnabled } from "@/lib/flags";
 import { addDays, localDate, localDayUtcBounds } from "@/lib/dates";
 import { sessionDateByIdMap } from "@/lib/checkins";
 import { isoWeekMonday } from "@/lib/ostrc";
-import type { PlanOverride, ScheduleInput, SessionInput } from "@/lib/load";
+import type { AttendanceMarks, PlanOverride, ScheduleInput, SessionInput } from "@/lib/load";
 import type {
   AlertRule,
   Athlete,
@@ -36,6 +36,8 @@ export interface EvalData {
   postByDate: Map<string, PostTrainingCheckin>;
   /** Sessions mapped to sRPE inputs on their athlete-local date. */
   sessionInputs: SessionInput[];
+  /** Attendance marks per local date — distinguishes absence from missing data. */
+  attendanceMarks: AttendanceMarks;
   schedules: ScheduleInput[];
   planOverrides: PlanOverride[];
   rules: AlertRule[];
@@ -70,7 +72,7 @@ export async function fetchEvalContext(
   // a UTC-midnight bound silently drops the first local hours of the window.
   const windowStart = localDayUtcBounds(from, timezone).start.toISOString();
 
-  const [{ data: checkins }, { data: post }, { data: rules }, { data: sessions }, { data: membership }, { data: flags }, { data: athleteRow }, { data: growthRows }, { data: illnessRows }, { data: ostrcWeek }] =
+  const [{ data: checkins }, { data: post }, { data: rules }, { data: attendanceRows }, { data: sessions }, { data: membership }, { data: flags }, { data: athleteRow }, { data: growthRows }, { data: illnessRows }, { data: ostrcWeek }] =
     await Promise.all([
       admin
         .from("morning_checkins")
@@ -84,6 +86,12 @@ export async function fetchEvalContext(
         .eq("athlete_id", athleteId)
         .gte("submitted_at", windowStart),
       admin.from("alert_rules").select("*").eq("enabled", true),
+      admin
+        .from("attendance")
+        .select("att_date, status")
+        .eq("athlete_id", athleteId)
+        .gte("att_date", from)
+        .lte("att_date", date),
       admin
         .from("training_sessions")
         .select("id, started_at, session_rpe, duration_minutes, group_id")
@@ -165,6 +173,13 @@ export async function fetchEvalContext(
     }),
   );
 
+  const present = new Set<string>();
+  const absent = new Set<string>();
+  for (const r of (attendanceRows as { att_date: string; status: string }[] | null) ?? []) {
+    (r.status === "present" ? present : absent).add(r.att_date);
+  }
+  const attendanceMarks: AttendanceMarks = { present, absent };
+
   const flagRows = (flags as FeatureFlag[] | null) ?? [];
   const groupIds = groupId ? [groupId] : [];
 
@@ -179,6 +194,7 @@ export async function fetchEvalContext(
     postEntries,
     postByDate,
     sessionInputs,
+    attendanceMarks,
     schedules: ((schedules as TrainingSchedule[] | null) ?? []) as ScheduleInput[],
     planOverrides: (planOverrides as PlanOverride[] | null) ?? [],
     rules: (rules as AlertRule[]) ?? [],

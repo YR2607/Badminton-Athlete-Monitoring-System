@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildSnapshot, personalNorm, toBaseline, rollingNorm, rollingItemNorms, itemZScores, zScore, SD_FLOOR_SCORE, ROLLING_WINDOW_DAYS, type PersonalNorm, type RollingNorm } from "@/lib/readiness";
 import { evaluateAlerts, type AlertCandidate } from "@/lib/alerts";
 import { ALERT_PUSH_TITLES } from "@/lib/alert-texts";
-import { dailyLoads, acwrEwma, type DayLoad } from "@/lib/load";
+import { dailyLoads, acwrEwma, loadCoverage, type DayLoad, type LoadCoverage } from "@/lib/load";
 import { evaluateRecommendations } from "@/lib/recommendations";
 import { decimalAge, growthVelocity, khamisRoche } from "@/lib/growth";
 import { flagEnabled } from "@/lib/flags";
@@ -19,6 +19,8 @@ export interface EvalMetrics {
   norm: PersonalNorm | null;
   /** Daily sRPE load series + plan over the fetch window. */
   loads: DayLoad[];
+  /** Share of days whose load is actually known — gates ACWR conclusions. */
+  coverage: LoadCoverage;
   zToday: number | null;
   itemBaselines: Record<string, unknown> | null;
   itemZ: Record<string, number | null> | null;
@@ -45,7 +47,9 @@ export function computeEvalMetrics(ctx: EvalData): EvalMetrics {
     ctx.sessionInputs,
     ctx.schedules,
     ctx.planOverrides,
+    ctx.attendanceMarks,
   );
+  const coverage = loadCoverage(loads);
 
   // ---- Phase 4: growth & maturation (%PAH band / velocity) ----
   let growthPct: number | null = null;
@@ -106,6 +110,7 @@ export function computeEvalMetrics(ctx: EvalData): EvalMetrics {
   return {
     norm,
     loads,
+    coverage,
     zToday,
     itemBaselines,
     itemZ,
@@ -188,9 +193,13 @@ export async function runRecommendations(
   const recsEnabled = flagEnabled(ctx.flagRows, "recommendations", ctx.groupIds);
   if (!recsEnabled) return;
   const acwr = acwrEwma(metrics.loads.map((d) => d.load));
+  // ACWR is only fed to recommendations when the underlying load coverage
+  // is trustworthy — otherwise missing data would masquerade as a low or
+  // high ratio and drive a confident but wrong suggestion.
+  const acwrReliable = metrics.coverage.reliable;
   const candidates2 = evaluateRecommendations({
     z: ctx.zscoreEnabled ? metrics.zToday : null,
-    acwr: ctx.loadEnabled ? (acwr?.ratio ?? null) : null,
+    acwr: ctx.loadEnabled && acwrReliable ? (acwr?.ratio ?? null) : null,
     itemZ: metrics.itemZ,
     acutePain: candidates.some((c) => c.rule_code === "acute_pain"),
     ostrcSubstantial: ctx.ostrcSubstantial,
