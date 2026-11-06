@@ -171,6 +171,7 @@ const ro: Dictionary = {
     waveRecoveries: "🟢 Descărcări: {r}",
     waveAvg: "Medie antrenament: {m} AU",
     waveLegend: "🔴 cerc — zi șoc (vârf de încărcătură) · 🟢 cerc — zi de descărcare · bare — zile obișnuite",
+    waveCoverage: "Medie peste max {n} din {total} sportivi · completitudinea datelor {pct}%",
   },
   recs: {
     title: "Recomandări de încărcătură",

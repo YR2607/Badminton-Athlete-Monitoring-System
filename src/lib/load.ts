@@ -22,13 +22,16 @@ export interface DayLoad {
   attendance: "present" | "absent" | "unknown";
   /**
    * What `load` actually means for the day:
-   * - "known":   recorded sessions all have rpe+minutes
-   * - "partial": sessions recorded but some lack rpe/minutes — real load unknown
-   * - "unknown": training plausibly happened (scheduled or attended) but
-   *              nothing usable was recorded — must NOT be treated as 0
-   * - "rest":    genuinely no club training (unscheduled, or marked absent)
+   * - "known":       recorded sessions all have rpe+minutes
+   * - "partial":     sessions recorded but some lack rpe/minutes — real load unknown
+   * - "unknown":     training plausibly happened (scheduled or attended) but
+   *                  nothing usable was recorded — must NOT be treated as 0
+   * - "rest":        CONFIRMED rest (attendance absent/excused, or the day's
+   *                  override cancelled the session)
+   * - "unscheduled": no plan, no record, no attendance mark — probably rest,
+   *                  but NOT confirmed; does not prove data completeness
    */
-  state: "known" | "partial" | "unknown" | "rest";
+  state: "known" | "partial" | "unknown" | "rest" | "unscheduled";
 }
 
 export interface SessionInput {
@@ -152,16 +155,17 @@ export function dailyLoads(
           ? "absent"
           : "unknown"
       : "unknown";
+    const cancelled = ovByDate.get(date)?.cancelled === true;
     const state: DayLoad["state"] =
       sessionsN > 0
         ? incomplete > 0
           ? "partial"
           : "known"
-        : att === "absent"
+        : att === "absent" || cancelled
           ? "rest"
           : att === "present" || plan.scheduled
             ? "unknown"
-            : "rest";
+            : "unscheduled";
     return {
       date,
       scheduled: plan.scheduled,
@@ -177,19 +181,41 @@ export function dailyLoads(
 }
 
 export interface LoadCoverage {
-  /** Days whose load value is trustworthy (known or genuine rest). */
+  /** Relevant days whose load is truly resolved (known or confirmed rest). */
   known: number;
+  /** Days where a load could exist: scheduled, sessions or an attendance mark. */
   total: number;
   pct: number;
-  /** Enough coverage to trust ACWR/monotony conclusions (>= 80% known). */
+  /** Quantified training days in the window. */
+  knownTrainingDays: number;
+  /** Enough coverage AND enough real training days to trust ACWR/monotony. */
   reliable: boolean;
 }
 
-/** Share of days in the window where load is actually known vs missing. */
+/**
+ * Share of relevant days where load is actually resolved.
+ *
+ * The denominator is only the days where a load could exist (scheduled,
+ * a session, or an attendance mark) — plain unscheduled days are excluded
+ * so a window full of assumed rest can't inflate coverage. Numerator adds
+ * only "known" and confirmed "rest" days: partial and unknown are gaps,
+ * never zeros. Reliability requires >=80% resolved AND >=3 quantified
+ * training days — otherwise ACWR reads a no-training window as a trend.
+ */
 export function loadCoverage(days: DayLoad[]): LoadCoverage {
-  const known = days.filter((d) => d.state === "known" || d.state === "rest").length;
-  const pct = days.length ? Math.round((known / days.length) * 100) : 0;
-  return { known, total: days.length, pct, reliable: pct >= 80 };
+  const relevant = days.filter(
+    (d) => d.scheduled || d.sessions > 0 || d.attendance !== "unknown",
+  );
+  const resolved = relevant.filter((d) => d.state === "known" || d.state === "rest");
+  const knownTrainingDays = days.filter((d) => d.state === "known").length;
+  const pct = relevant.length ? Math.round((resolved.length / relevant.length) * 100) : 100;
+  return {
+    known: resolved.length,
+    total: relevant.length,
+    pct,
+    knownTrainingDays,
+    reliable: pct >= 80 && knownTrainingDays >= 3,
+  };
 }
 
 /**

@@ -39,7 +39,15 @@ export function computeEvalMetrics(ctx: EvalData): EvalMetrics {
 
   // Unified personal norm: rolling 28-day preferred, initial 14-day
   // fallback for new athletes, null when data is insufficient.
-  const norm = personalNorm(series, date);
+  // Sick days are excluded from the norm when 'events' is on — same policy
+  // as the z-score norms below so UI, snapshot and alerts never disagree.
+  const illnessDates = new Set<string>();
+  if (ctx.eventsEnabled) {
+    for (const e of ctx.illnessRows) {
+      for (const d of dateRange(e.start_date, e.end_date)) illnessDates.add(d);
+    }
+  }
+  const norm = personalNorm(series, date, illnessDates);
 
   // Daily load series (sRPE x minutes) + plan from the group schedule.
   const loads = dailyLoads(

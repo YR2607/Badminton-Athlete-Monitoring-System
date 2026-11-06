@@ -242,7 +242,10 @@ export function LoadBarChart({
   if (data.length === 0) return null;
   const hasWave = data.some((d) => d.wave === "peak" || d.wave === "recovery");
   // Fact bar color: BWF wave tag takes visual priority when present; otherwise compare to plan.
+  // `state` distinguishes data quality: unknown days render hollow, partial
+  // days semi-transparent — a missing record must never look like a calm 0.
   const factColor = (d: SeriesPoint) => {
+    if (d.state === "unknown") return "var(--border)";
     const load = typeof d.load === "number" ? d.load : 0;
     const planned = typeof d.planned === "number" ? d.planned : null;
     if (load === 0) return "var(--chart-planned)";
@@ -252,6 +255,11 @@ export function LoadBarChart({
     if (load <= planned * 1.25) return "var(--ok)";
     if (load <= planned * 1.5) return "var(--warn)";
     return "var(--danger)";
+  };
+  const factOpacity = (d: SeriesPoint) => {
+    if (d.state === "unknown") return 0.35;
+    if (d.state === "partial") return 0.45;
+    return 1;
   };
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -290,7 +298,7 @@ export function LoadBarChart({
         ) : null}
         <Bar dataKey="load" name={label} radius={[3, 3, 0, 0]} isAnimationActive={false}>
           {data.map((d, i) => (
-            <Cell key={i} fill={factColor(d)} />
+            <Cell key={i} fill={factColor(d)} fillOpacity={factOpacity(d)} />
           ))}
           {hasWave ? (
             <LabelList

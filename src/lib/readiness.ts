@@ -260,8 +260,9 @@ export interface PersonalNorm {
 export function personalNorm(
   series: { date: string; score: number }[],
   today: string,
+  excludeDates?: ReadonlySet<string>,
 ): PersonalNorm | null {
-  const before = series.filter((d) => d.date < today);
+  const before = series.filter((d) => d.date < today && !excludeDates?.has(d.date));
   const from28 = addDays(today, -ROLLING_WINDOW_DAYS);
   const rolling = rollingNorm(
     before.filter((d) => d.date >= from28).map((d) => d.score),

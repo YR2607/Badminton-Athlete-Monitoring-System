@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { todayInTz, addDays, localDate } from "@/lib/dates";
+import { todayInTz, addDays, dateRange, localDate } from "@/lib/dates";
 import { plannedForDate, type PlanOverride } from "@/lib/load";
 import {
   dailyReadiness,
@@ -116,6 +116,7 @@ export async function coachDashboard(
     { data: sessions },
     { data: posts },
     { data: alerts },
+    { data: illnessRows },
   ] = await Promise.all([
     supabase.from("athletes").select("*").in("id", ids),
     supabase.from("group_memberships").select("*, group:groups(*)").in("athlete_id", ids).is("left_at", null),
@@ -124,6 +125,12 @@ export async function coachDashboard(
     supabase.from("training_sessions").select("*").in("athlete_id", ids).gte("started_at", `${since14}T00:00:00Z`),
     supabase.from("post_training_checkins").select("*").in("athlete_id", ids).gte("submitted_at", `${since14}T00:00:00Z`),
     supabase.from("alerts").select("*").in("athlete_id", ids).eq("status", "open"),
+    supabase
+      .from("calendar_events")
+      .select("athlete_id, start_date, end_date")
+      .in("athlete_id", ids)
+      .eq("kind", "illness")
+      .gte("end_date", since40),
   ]);
 
   const groupById = new Map(((groups as Group[]) ?? []).map((g) => [g.id, g]));
@@ -190,6 +197,14 @@ export async function coachDashboard(
     list.push(p);
     postsByAthlete.set(p.athlete_id, list);
   }
+  // Illness days per athlete — excluded from personal norms, same policy
+  // as evaluateAthleteDay, so dashboard and snapshot baselines agree.
+  const illnessByAthlete = new Map<string, Set<string>>();
+  for (const e of (illnessRows as { athlete_id: string; start_date: string; end_date: string }[] | null) ?? []) {
+    const set = illnessByAthlete.get(e.athlete_id) ?? new Set<string>();
+    for (const d of dateRange(e.start_date, e.end_date)) set.add(d);
+    illnessByAthlete.set(e.athlete_id, set);
+  }
   const alertsByAthlete = new Map<string, Alert[]>();
   for (const a of (alerts as Alert[] | null) ?? []) {
     const list = alertsByAthlete.get(a.athlete_id) ?? [];
@@ -222,7 +237,7 @@ export async function coachDashboard(
     const todayScore = series.find((s) => s.date === today)?.score ?? null;
     // Single documented personal norm — identical to evaluateAthleteDay:
     // rolling 28d preferred, initial 14d fallback, null when insufficient.
-    const norm = personalNorm(series, today);
+    const norm = personalNorm(series, today, illnessByAthlete.get(a.id));
     const baseline = toBaseline(norm);
     const observations = list.length;
     const readinessDelta =

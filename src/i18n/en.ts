@@ -171,6 +171,7 @@ const en: Dictionary = {
     waveRecoveries: "🟢 Deloads: {r}",
     waveAvg: "Avg session: {m} AU",
     waveLegend: "🔴 circle — shock day (load peak) · 🟢 circle — deload day · bars — regular days",
+    waveCoverage: "Average over max {n} of {total} athletes · data completeness {pct}%",
   },
   recs: {
     title: "Load recommendations",

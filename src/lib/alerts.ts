@@ -320,7 +320,10 @@ export function evaluateAlerts(ctx: EvalContext): AlertCandidate[] {
     }
 
     const monotonyRule = rule(ctx, "monotony_high");
-    if (monotonyRule && coverage.reliable) {
+    // Monotony is a 7-day metric — its reliability must be judged on the
+    // last 7 days' coverage specifically, not the whole window's.
+    const weekCoverage = loadCoverage(loads.slice(-7));
+    if (monotonyRule && weekCoverage.reliable) {
       const week = loads.slice(-7).map((d) => d.load);
       const m = monotony(week);
       if (m !== null && m > num(monotonyRule.params.threshold, 2.0)) {

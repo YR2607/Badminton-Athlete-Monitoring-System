@@ -129,9 +129,19 @@ export default async function CoachDashboard({
     const avg = vals.length
       ? Math.round(vals.reduce((x, y) => x + y, 0) / vals.length)
       : 0;
-    return { date: dt, load: avg };
+    return { date: dt, load: avg, n: vals.length };
   });
   const wave14 = analyzeLoadWave(wave14Days);
+  // Sample size behind the group average — an avg over 3 of 20 athletes
+  // must not read as "the group".
+  const waveAthletes = rows.length;
+  const waveCoveragePct =
+    waveAthletes > 0
+      ? Math.round(
+          (wave14Days.reduce((a, d) => a + d.n, 0) / (waveAthletes * wave14Days.length)) * 100,
+        )
+      : 0;
+  const waveMaxN = Math.max(0, ...wave14Days.map((d) => d.n));
 
   const filled = rows.filter((r) => r.todayCheckin).length;
   const openAlerts = rows.flatMap((r) => r.openAlerts);
@@ -502,6 +512,16 @@ export default async function CoachDashboard({
                   label={dict.dashboard.fact}
                 />
                 <p className="text-[11px] text-muted">{dict.dashboard.waveLegend}</p>
+                <p
+                  className={`text-[11px] ${
+                    waveCoveragePct < 60 ? "font-medium text-warn" : "text-muted"
+                  }`}
+                >
+                  {dict.dashboard.waveCoverage
+                    .replace("{n}", String(waveMaxN))
+                    .replace("{total}", String(waveAthletes))
+                    .replace("{pct}", String(waveCoveragePct))}
+                </p>
                 {wave14.status !== "insufficient" && (
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
                     <span
