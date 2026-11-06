@@ -10,6 +10,7 @@ import {
   type PersonalNorm,
 } from "@/lib/readiness";
 import { dayStatuses, sessionDateByIdMap, sessionLocalDates } from "@/lib/checkins";
+import { belowNormFlag, classifyAthlete, type PriorityResult } from "@/lib/priority";
 import {
   acuteMorningFlags,
   acutePostFlags,
@@ -48,6 +49,8 @@ export interface CoachAthleteRow {
   baseline: Baseline | null;
   /** Norm meta for UI: which window produced it and how many days back it. */
   norm: PersonalNorm | null;
+  /** Mutually-exclusive dashboard category + reason (classifyAthlete). */
+  priority: PriorityResult;
   /** Days with check-in data in the 40-day baseline window. */
   observations: number;
   /** todayScore − baseline.avg; null unless both exist. */
@@ -302,13 +305,28 @@ export async function coachDashboard(
           !aSessionDates.has(yesterday);
     const pendingPostCount = pendingPostCheckins(aSessions, aPosts, now).length;
 
+    const hasDeclineAlert = openAlerts.some((al) => DECLINE_RULES.has(al.rule_code));
     const status = athleteStatus({
       hasPrioritySignal: acuteSignal,
-      hasDeclineAlert: openAlerts.some((al) => DECLINE_RULES.has(al.rule_code)),
+      hasDeclineAlert,
       todayCheckin: todayC,
       todayScore,
       baseline,
       observations,
+    });
+    const belowNorm = belowNormFlag(todayScore, baseline);
+    const hasPain = recentPain || openAlerts.some((al) => al.severity === "priority");
+    const priority = classifyAthlete({
+      status,
+      acuteSignal,
+      hasDeclineAlert,
+      belowNorm,
+      hasTodayCheckin: todayC !== null,
+      pendingPostCount,
+      lastCheckinAgeDays,
+      normDays: norm?.days ?? 0,
+      scheduledMissedYesterday,
+      hasPain,
     });
 
     return {
@@ -330,7 +348,8 @@ export async function coachDashboard(
       lastCheckinAgeDays,
       openAlerts,
       acuteSignal,
-      hasPain: recentPain || openAlerts.some((al) => al.severity === "priority"),
+      hasPain,
+      priority,
       sessionsToday,
       scheduledMissedYesterday,
       pendingPostCount,

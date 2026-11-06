@@ -150,28 +150,46 @@ export default async function CoachDashboard({
     ),
   );
 
-  // Feature 1 — Pre-session briefing buckets.
+  // Feature 1 — Pre-session priority list: every athlete lands in exactly
+  // one mutually-exclusive category (classifyAthlete in coach-data).
   const nameOf = (r: (typeof rows)[number]) => r.profile?.display_name ?? r.athlete.athlete_code;
-  const briefCheck = sorted.filter(
-    (r) =>
-      r.status === "needs_check" ||
-      r.acuteSignal ||
-      (r.todayCheckin && r.todayCheckin.pain_status !== "none") ||
-      (r.todayScore !== null && r.todayScore < 55),
-  );
-  const checkIds = new Set(briefCheck.map((r) => r.athlete.id));
-  const briefReduce = sorted.filter(
-    (r) =>
-      !checkIds.has(r.athlete.id) &&
-      (r.status === "declining" ||
-        (r.readinessDelta !== null && r.readinessDelta <= -8) ||
-        (r.todayScore !== null && r.todayScore < 68)),
-  );
-  const reduceIds = new Set(briefReduce.map((r) => r.athlete.id));
-  const briefAsk = sorted.filter((r) => !r.todayCheckin && !checkIds.has(r.athlete.id));
-  const briefReady = sorted.filter(
-    (r) => r.todayCheckin && !checkIds.has(r.athlete.id) && !reduceIds.has(r.athlete.id),
-  );
+  const briefCheck = sorted.filter((r) => r.priority.category === "check");
+  const briefReduce = sorted.filter((r) => r.priority.category === "review");
+  const briefAsk = sorted.filter((r) => r.priority.category === "missing");
+  const briefReady = sorted.filter((r) => r.priority.category === "none");
+
+  const reasonText = (r: (typeof rows)[number]): string => {
+    switch (r.priority.reason) {
+      case "acute_flags": return d.reasonAcute;
+      case "priority_alert": return d.reasonPriorityAlert;
+      case "decline_alert": return d.reasonDecline;
+      case "below_norm": return d.reasonBelowNorm;
+      case "pain_reported": return d.reasonPain;
+      case "no_checkin_today": return d.reasonNoCheckin;
+      case "stale_checkin": return r.lastCheckinAgeDays !== null
+        ? `${d.reasonStale} · ${r.lastCheckinAgeDays} ${d.daysAgo}`
+        : d.reasonStale;
+      case "pending_post": return d.reasonPendingPost;
+      case "norm_not_formed": return d.reasonNoNorm;
+      case "missed_session": return d.reasonMissed;
+      default: return "";
+    }
+  };
+  const actionText = (r: (typeof rows)[number]): string => {
+    switch (r.priority.reason) {
+      case "acute_flags":
+      case "priority_alert": return d.actionCheck;
+      case "decline_alert":
+      case "below_norm":
+      case "pain_reported": return d.actionAsk;
+      case "no_checkin_today":
+      case "stale_checkin": return d.actionFill;
+      case "pending_post": return d.actionRemind;
+      case "norm_not_formed": return d.actionWait;
+      case "missed_session": return d.actionVerify;
+      default: return "";
+    }
+  };
 
   // Group pain map entries (last 7 days).
   const groupPainEntries: GroupPainEntry[] = sorted.flatMap((r) =>
@@ -303,17 +321,27 @@ export default async function CoachDashboard({
                   {briefCheck.length === 0 ? (
                     <span className="text-xs text-muted">{d.briefingNone}</span>
                   ) : (
-                    briefCheck.map((r) => (
-                      <Link
-                        key={r.athlete.id}
-                        href={`/coach/athletes/${r.athlete.id}`}
-                        className="rounded-lg border border-danger/40 bg-surface px-2 py-1 text-xs font-medium hover:bg-danger/10"
-                      >
-                        {nameOf(r)}
-                        {r.todayScore !== null ? ` · ${Math.round(r.todayScore)}` : ""}
-                        {r.todayCheckin?.pain_location ? ` · ${r.todayCheckin.pain_location}` : ""}
-                      </Link>
-                    ))
+                    <ul className="w-full space-y-1.5">
+                      {briefCheck.map((r) => (
+                        <li key={r.athlete.id}>
+                          <Link
+                            href={`/coach/athletes/${r.athlete.id}`}
+                            className="block rounded-lg border border-danger/40 bg-surface px-2 py-1.5 text-xs hover:bg-danger/10"
+                          >
+                            <span className="flex items-center justify-between gap-2 font-medium">
+                              <span className="truncate">{nameOf(r)}</span>
+                              {r.todayScore !== null && (
+                                <span className="tabular-nums text-muted">{Math.round(r.todayScore)}</span>
+                              )}
+                            </span>
+                            <span className="mt-0.5 block truncate text-[11px] text-danger">
+                              {reasonText(r)}{r.todayCheckin?.pain_location ? ` · ${r.todayCheckin.pain_location}` : ""}
+                            </span>
+                            <span className="block truncate text-[11px] text-muted">→ {actionText(r)}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
               </div>
@@ -326,17 +354,32 @@ export default async function CoachDashboard({
                   {briefReduce.length === 0 ? (
                     <span className="text-xs text-muted">{d.briefingNone}</span>
                   ) : (
-                    briefReduce.map((r) => (
-                      <Link
-                        key={r.athlete.id}
-                        href={`/coach/athletes/${r.athlete.id}`}
-                        className="rounded-lg border border-warn/40 bg-surface px-2 py-1 text-xs font-medium hover:bg-warn/10"
-                      >
-                        {nameOf(r)}
-                        {r.todayScore !== null ? ` · ${Math.round(r.todayScore)}` : ""}
-                        {r.readinessDelta !== null ? ` (${r.readinessDelta > 0 ? `+${r.readinessDelta}` : r.readinessDelta})` : ""}
-                      </Link>
-                    ))
+                    <ul className="w-full space-y-1.5">
+                      {briefReduce.map((r) => (
+                        <li key={r.athlete.id}>
+                          <Link
+                            href={`/coach/athletes/${r.athlete.id}`}
+                            className="block rounded-lg border border-warn/40 bg-surface px-2 py-1.5 text-xs hover:bg-warn/10"
+                          >
+                            <span className="flex items-center justify-between gap-2 font-medium">
+                              <span className="truncate">{nameOf(r)}</span>
+                              {r.todayScore !== null && (
+                                <span className="tabular-nums text-muted">
+                                  {Math.round(r.todayScore)}
+                                  {r.readinessDelta !== null && r.readinessDelta !== 0 && (
+                                    <span className={r.readinessDelta < 0 ? "text-warn" : "text-ok"}>
+                                      {" "}({r.readinessDelta > 0 ? "+" : ""}{r.readinessDelta})
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                            </span>
+                            <span className="mt-0.5 block truncate text-[11px] text-warn">{reasonText(r)}</span>
+                            <span className="block truncate text-[11px] text-muted">→ {actionText(r)}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
               </div>
@@ -349,15 +392,20 @@ export default async function CoachDashboard({
                   {briefAsk.length === 0 ? (
                     <span className="text-xs text-muted">{d.briefingNone}</span>
                   ) : (
-                    briefAsk.map((r) => (
-                      <Link
-                        key={r.athlete.id}
-                        href={`/coach/athletes/${r.athlete.id}`}
-                        className="rounded-lg border border-border bg-surface px-2 py-1 text-xs font-medium hover:bg-foreground/5"
-                      >
-                        {nameOf(r)}
-                      </Link>
-                    ))
+                    <ul className="w-full space-y-1.5">
+                      {briefAsk.map((r) => (
+                        <li key={r.athlete.id}>
+                          <Link
+                            href={`/coach/athletes/${r.athlete.id}`}
+                            className="block rounded-lg border border-border bg-surface px-2 py-1.5 text-xs hover:bg-foreground/5"
+                          >
+                            <span className="block truncate font-medium">{nameOf(r)}</span>
+                            <span className="mt-0.5 block truncate text-[11px] text-muted">{reasonText(r)}</span>
+                            <span className="block truncate text-[11px] text-muted">→ {actionText(r)}</span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
               </div>
@@ -370,16 +418,18 @@ export default async function CoachDashboard({
                   {briefReady.length === 0 ? (
                     <span className="text-xs text-muted">{d.briefingNone}</span>
                   ) : (
-                    briefReady.map((r) => (
-                      <Link
-                        key={r.athlete.id}
-                        href={`/coach/athletes/${r.athlete.id}`}
-                        className="rounded-lg border border-ok/30 bg-surface px-2 py-1 text-xs font-medium hover:bg-ok/10"
-                      >
-                        {nameOf(r)}
-                        {r.todayScore !== null ? ` · ${Math.round(r.todayScore)}` : ""}
-                      </Link>
-                    ))
+                    <div className="flex flex-wrap gap-1.5">
+                      {briefReady.map((r) => (
+                        <Link
+                          key={r.athlete.id}
+                          href={`/coach/athletes/${r.athlete.id}`}
+                          className="rounded-lg border border-ok/30 bg-surface px-2 py-1 text-xs font-medium hover:bg-ok/10"
+                        >
+                          {nameOf(r)}
+                          {r.todayScore !== null ? ` · ${Math.round(r.todayScore)}` : ""}
+                        </Link>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
