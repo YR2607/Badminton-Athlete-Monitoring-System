@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
+import { dailyReadiness, postsByLocalDate } from "@/lib/readiness";
 import { flagEnabled } from "@/lib/flags";
 import { addDays, localDate, localDayUtcBounds } from "@/lib/dates";
 import { sessionDateByIdMap } from "@/lib/checkins";
@@ -50,7 +50,7 @@ export interface EvalData {
   growthEnabled: boolean;
   eventsEnabled: boolean;
   ostrcSubstantial: boolean;
-  /** Daily condition series over the window, ascending by date. */
+  /** Morning wellness series over the window, ascending by date. */
   series: { date: string; score: number }[];
 }
 
@@ -153,7 +153,9 @@ export async function fetchEvalContext(
   const postEntries = postsByLocalDate(postsAll, timezone, sessionDateById);
   const postByDate = new Map(postEntries.map((e) => [e.date, e.post]));
 
-  const series = dailyConditionSeries(checkinRows, postEntries);
+  // Readiness series is morning-only: evening answers are a separate
+  // signal (postEntries/postByDate) and never enter baselines or scores.
+  const series = dailyReadiness(checkinRows);
 
   const sessionInputs: SessionInput[] = ((sessions as TrainingSession[] | null) ?? []).map(
     (s) => ({

@@ -48,7 +48,7 @@ const en: Dictionary = {
     close: "Close",
     details: "Details",
     period: "Period",
-    readinessHint: "Readiness 0–100: 70% morning check-in (sleep, fatigue, stress, mood) + 30% post-training (feeling, leg/arm fatigue)",
+    readinessHint: "Subjective wellness index 0–100 from the morning check-in (sleep, recovery, fatigue, soreness, stress, mood). Not a competition-readiness estimate and not a medical clearance. The post-training check-in is a separate signal.",
   },
   auth: {
     signIn: "Sign in",
@@ -461,7 +461,7 @@ const en: Dictionary = {
     readinessBody:
       "Daily score from the morning check-in. Each 1–10 answer maps to 0–1 (reversed for the 'bad' scales), then weighted:",
     readinessEvening:
-      "When a post-training check-in exists for the same day, the day score = 70% morning + 30% evening wellness (overall feeling, leg and arm fatigue — equal shares). Without it — morning only.",
+      "The post-training check-in is a separate 'training response' score (overall feeling, leg and arm fatigue — equal shares). It never enters the readiness score or the personal norm.",
     compName: "Component",
     compWeight: "Weight",
     compDir: "Direction",
@@ -913,11 +913,11 @@ const en: Dictionary = {
     of100: "of 100",
     medianHint: "typical value",
     explainer:
-      "The day score comes from the check-ins: 70% morning (sleep, recovery, fatigue, soreness, stress, mood) + 30% evening (post-training wellness). Avg readiness is the mean of those daily scores — higher = better.",
+      "The day score is the morning wellness index (sleep, recovery, fatigue, soreness, stress, mood). The evening check-in is scored separately. Avg readiness is the mean of those morning scores — higher = better.",
   },
   day: {
     title: "Day",
-    dayScore: "Day score",
+    dayScore: "Morning wellness",
     morningShort: "morning",
     eveningShort: "evening",
     morningCheckin: "Morning check-in",

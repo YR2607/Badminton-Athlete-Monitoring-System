@@ -1,5 +1,5 @@
 import type { Alert, MorningCheckin, PostTrainingCheckin, TrainingSession } from "@/lib/types";
-import { dailyConditionSeries } from "@/lib/readiness";
+import { dailyReadiness } from "@/lib/readiness";
 import { dayStatuses } from "@/lib/checkins";
 import { localDate } from "@/lib/dates";
 
@@ -79,7 +79,7 @@ export function athleteStats(
     hadSession: d.hadSession,
   }));
 
-  const scores = dailyConditionSeries(checkins, posts);
+  const scores = dailyReadiness(checkins);
 
   // Fill rate counts BOTH questionnaires: morning every day, evening on
   // days a session was recorded — a 100% rate requires both.

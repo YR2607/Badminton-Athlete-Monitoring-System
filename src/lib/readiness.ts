@@ -124,15 +124,18 @@ export interface SnapshotBuild {
  * Build a snapshot for a check-in. `history` = earlier daily readiness values
  * (oldest first) used for the baseline. Missing days are simply absent —
  * gaps are never substituted with zeros.
+ *
+ * The stored score is the MORNING wellness index only — post-training
+ * check-ins are a separate signal (postWellnessScore) and must not leak
+ * into the readiness baseline or the stored readiness_score.
  */
 export function buildSnapshot(
   checkin: Parameters<typeof normalizeCheckin>[0],
   history: number[],
   baselineVersion = 1,
-  post?: Parameters<typeof postWellnessScore>[0] | null,
 ): SnapshotBuild {
   const normalized = normalizeCheckin(checkin);
-  const score = conditionScore(checkin, post);
+  const score = morningWellnessScore(checkin);
   const baseline = computeBaseline(history, baselineVersion);
 
   const flags: string[] = [];
@@ -189,7 +192,16 @@ export function postWellnessScore(
  * 70% morning + 30% evening. Without an evening check-in it is the morning
  * score unchanged.
  */
-export const MORNING_WEIGHT = 0.7;
+/**
+ * Morning wellness index (0..100) — THE readiness score. It reflects only
+ * the morning questionnaire and is the single value used for baselines,
+ * snapshots and "today" displays. Post-training answers never enter it.
+ */
+export function morningWellnessScore(
+  checkin: Parameters<typeof normalizeCheckin>[0],
+): number {
+  return readinessScore(normalizeCheckin(checkin));
+}
 
 // ---- Phase 2: rolling personal norms (z-score) ----
 //
@@ -262,15 +274,10 @@ export function itemZScores(
   return out;
 }
 
-export function conditionScore(
-  checkin: Parameters<typeof normalizeCheckin>[0],
-  post?: Parameters<typeof postWellnessScore>[0] | null,
-): number {
-  const morning = readinessScore(normalizeCheckin(checkin));
-  if (!post) return morning;
-  const blended = morning * MORNING_WEIGHT + postWellnessScore(post) * (1 - MORNING_WEIGHT);
-  return Math.round(blended * 100) / 100;
-}
+// NOTE: morning wellness and post-training response are deliberately kept
+// as two separate scores — a previous 70/30 "condition" blend made the same
+// named day score depend on different inputs depending on whether an
+// evening questionnaire existed. Don't reintroduce it into readiness.
 
 /**
  * Bucket post-training check-ins by local date; latest submission per day
@@ -295,17 +302,14 @@ export function postsByLocalDate<T extends { submitted_at: string; training_sess
 }
 
 /**
- * Daily condition series: like dailyReadiness but each day also folds in the
- * post-training check-in dated to the same local day. `posts` maps a local
- * date to that day's check-in (latest wins if there are several).
+ * Post-training response series: one postWellnessScore per local day that
+ * has an evening check-in — kept strictly separate from dailyReadiness.
  */
-export function dailyConditionSeries(
-  checkins: MorningCheckin[],
+export function dailyPostResponseSeries(
   posts: { date: string; post: Parameters<typeof postWellnessScore>[0] }[],
 ): { date: string; score: number }[] {
-  const postByDate = new Map(posts.map((p) => [p.date, p.post]));
-  return checkins
+  return posts
     .slice()
-    .sort((a, b) => a.checkin_date.localeCompare(b.checkin_date))
-    .map((c) => ({ date: c.checkin_date, score: conditionScore(c, postByDate.get(c.checkin_date)) }));
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((p) => ({ date: p.date, score: postWellnessScore(p.post) }));
 }

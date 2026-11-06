@@ -129,7 +129,7 @@ export async function writeSnapshot(
   metrics: EvalMetrics,
 ): Promise<boolean> {
   if (!ctx.todayCheckin) return false;
-  const snap = buildSnapshot(ctx.todayCheckin, metrics.history, 1, ctx.postByDate.get(ctx.date));
+  const snap = buildSnapshot(ctx.todayCheckin, metrics.history, 1);
   await admin.from("readiness_snapshots").upsert(
     {
       athlete_id: ctx.athleteId,

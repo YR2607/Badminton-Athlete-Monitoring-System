@@ -48,7 +48,7 @@ const ro: Dictionary = {
     close: "Închide",
     details: "Detalii",
     period: "Perioadă",
-    readinessHint: "Pregătirea 0–100: 70% chestionar de dimineață (somn, oboseală, stres, dispoziție) + 30% post-antrenament (stare, oboseală picioare/brațe)",
+    readinessHint: "Index subiectiv de stare 0–100 din chestionarul de dimineață (somn, recuperare, oboseală, dureri musculare, stres, dispoziție). Nu este o estimare a pregătirii de competiție și nici un aviz medical. Chestionarul de seară este un indicator separat.",
   },
   auth: {
     signIn: "Autentificare",
@@ -461,7 +461,7 @@ const ro: Dictionary = {
     readinessBody:
       "Scorul zilei din chestionarul de dimineață. Fiecare răspuns 1–10 se transformă în 0–1 (inversat pentru scalele «rele»), apoi se ponderează:",
     readinessEvening:
-      "Dacă în aceeași zi există chestionar post-antrenament, scorul zilei = 70% dimineața + 30% stare de seară (senzație generală, oboseală picioare și brațe — părți egale). Fără chestionar de seară — doar dimineața.",
+      "Chestionarul post-antrenament este un scor separat de «reacție la antrenament» (senzație generală, oboseală picioare și brațe — părți egale). Nu intră în scorul de pregătire și nu schimbă norma personală.",
     compName: "Componentă",
     compWeight: "Pondere",
     compDir: "Direcție",
@@ -913,11 +913,11 @@ const ro: Dictionary = {
     of100: "din 100",
     medianHint: "valoare tipică",
     explainer:
-      "Scorul zilei se calculează din chestionare: 70% cel de dimineață (somn, recuperare, oboseală, dureri musculare, stres, dispoziție) + 30% cel de seară (starea după antrenament). Pregătirea medie este media acestor scoruri — mai mare = mai bine.",
+      "Scorul zilei este starea de dimineață din chestionar (somn, recuperare, oboseală, dureri musculare, stres, dispoziție). Chestionarul de seară se calculează separat. Pregătirea medie este media scorurilor de dimineață — mai mare = mai bine.",
   },
   day: {
     title: "Zi",
-    dayScore: "Scorul zilei",
+    dayScore: "Starea de dimineață",
     morningShort: "dimineață",
     eveningShort: "seară",
     morningCheckin: "Chestionar de dimineață",

@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { addDays, dateRange, localDate, type RangeKey } from "@/lib/dates";
-import { conditionScore, dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
+import { dailyReadiness, morningWellnessScore, postsByLocalDate } from "@/lib/readiness";
 import { dayStatuses, sessionDateByIdMap } from "@/lib/checkins";
 import { ageInDays, pendingPostCheckins } from "@/lib/athlete-status";
 import { avatarPublicUrl, getAvatarPreset } from "@/lib/avatars";
@@ -156,10 +156,7 @@ export default async function AthleteDetailPage({
     tz,
     sessionDateById,
   );
-  const series = dailyConditionSeries(
-    ck.filter((c) => c.checkin_date <= range.to),
-    rangePostEntries,
-  );
+  const series = dailyReadiness(ck.filter((c) => c.checkin_date <= range.to));
   const inRangeSeries = series.filter((p) => p.date >= range.from);
 
   const wellbeing = inRange.map((c) => ({
@@ -194,9 +191,7 @@ export default async function AthleteDetailPage({
   const tCheckin = (todayCheckin as MorningCheckin | null) ?? null;
   const recentSs = (recentSessions as TrainingSession[]) ?? [];
   const recentPs = (recentPosts as PostTrainingCheckin[]) ?? [];
-  const recentSessionDateById = sessionDateByIdMap(recentSs, tz);
-  const todayPost = postsByLocalDate(recentPs, tz, recentSessionDateById).find((e) => e.date === today)?.post ?? null;
-  const todayScore = tCheckin ? conditionScore(tCheckin, todayPost) : null;
+  const todayScore = tCheckin ? morningWellnessScore(tCheckin) : null;
   const lastTodayCheckin =
     [((checkins as MorningCheckin[]) ?? [])].flat()
       .filter((c) => c.checkin_date <= today)

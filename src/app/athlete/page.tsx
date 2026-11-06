@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentAthlete, getCurrentProfile, homeForRole } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { addDays, localDate, todayInTz } from "@/lib/dates";
-import { dailyConditionSeries, postsByLocalDate, bandForScore } from "@/lib/readiness";
+import { dailyReadiness, postsByLocalDate, bandForScore } from "@/lib/readiness";
 import { dayStatuses, sessionDateByIdMap } from "@/lib/checkins";
 import { bandAdviceKey } from "@/lib/alerts";
 import { isFlagEnabled } from "@/lib/flags";
@@ -96,10 +96,7 @@ export default async function AthleteHome() {
           ? d.readinessModerate
           : d.readinessLow;
 
-  const series = dailyConditionSeries(
-    (recent as MorningCheckin[]) ?? [],
-    postEntries,
-  );
+  const series = dailyReadiness((recent as MorningCheckin[]) ?? []);
   const chart7 = series.filter((p) => p.date >= clip(addDays(today, -6)));
   const cardEmpty = !athlete.preferred_discipline && !athlete.season_goal;
 

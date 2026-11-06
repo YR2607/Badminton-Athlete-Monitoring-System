@@ -3,7 +3,7 @@ import { todayInTz, addDays, localDate } from "@/lib/dates";
 import { plannedForDate, type PlanOverride } from "@/lib/load";
 import {
   computeBaseline,
-  dailyConditionSeries,
+  dailyReadiness,
   postsByLocalDate,
   type Baseline,
 } from "@/lib/readiness";
@@ -206,7 +206,10 @@ export async function coachDashboard(
     const postEntries = postsByLocalDate(aPosts, athleteTz, aSessionDateById);
     const postByDate = new Map(postEntries.map((e) => [e.date, e.post]));
     const aSessionDates = sessionLocalDates(aSessions, athleteTz);
-    const series = dailyConditionSeries(list, postEntries);
+    // Morning-only readiness series — evening responses stay a separate
+    // signal (postByDate/acutePostFlags/pendingPost) and never enter the
+    // baseline or the "today" score.
+    const series = dailyReadiness(list);
 
     const todayC = list.find((c) => c.checkin_date === today) ?? null;
     const todayScore = series.find((s) => s.date === today)?.score ?? null;

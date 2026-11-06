@@ -6,11 +6,10 @@ import {
   confidenceFor,
   buildSnapshot,
   dailyReadiness,
-  dailyConditionSeries,
+  dailyPostResponseSeries,
+  morningWellnessScore,
   postsByLocalDate,
   postWellnessScore,
-  conditionScore,
-  MORNING_WEIGHT,
   bandForScore,
   MIN_BASELINE_OBSERVATIONS,
   rollingNorm,
@@ -158,31 +157,48 @@ describe("postWellnessScore", () => {
   });
 });
 
-describe("conditionScore", () => {
-  it("equals the morning score when no post check-in exists", () => {
-    const c = mkCheckin();
-    expect(conditionScore(c, null)).toBe(conditionScore(c));
-  });
-
-  it("blends 70/30 morning/evening", () => {
-    const morning = mkCheckin({
+describe("morning/post separation", () => {
+  it("morningWellnessScore depends only on the morning check-in", () => {
+    const c = mkCheckin({
       sleep_score: 10, recovery_score: 10, fatigue_score: 1,
       muscle_soreness_score: 1, stress_score: 1, mood_score: 10,
-    }); // morning = 100
-    const post = mkPost({ overall_feeling: 1, leg_fatigue: 10, arm_shoulder_fatigue: 10 }); // evening = 0
-    expect(conditionScore(morning, post)).toBe(100 * MORNING_WEIGHT);
+    });
+    expect(morningWellnessScore(c)).toBe(100);
+    expect(morningWellnessScore(c)).toBe(readinessScore(normalizeCheckin(c)));
+  });
+
+  it("buildSnapshot stores the morning score — post data cannot be passed in", () => {
+    const c = mkCheckin({
+      sleep_score: 10, recovery_score: 10, fatigue_score: 1,
+      muscle_soreness_score: 1, stress_score: 1, mood_score: 10,
+    });
+    const snap = buildSnapshot(c, []);
+    expect(snap.readiness_score).toBe(100);
+  });
+
+  it("dailyReadiness is unaffected by evening check-ins", () => {
+    const morning = [
+      mkCheckin({ checkin_date: "2026-10-20" }),
+      mkCheckin({ checkin_date: "2026-10-21" }),
+    ];
+    const series = dailyReadiness(morning);
+    expect(series).toHaveLength(2);
+    expect(series.map((s) => s.score)).toEqual([
+      morningWellnessScore(morning[0]),
+      morningWellnessScore(morning[1]),
+    ]);
   });
 });
 
-describe("dailyConditionSeries", () => {
-  it("blends only the days that have a post check-in", () => {
-    const series = dailyConditionSeries(
-      [mkCheckin({ checkin_date: "2026-10-20" }), mkCheckin({ checkin_date: "2026-10-21" })],
-      [{ date: "2026-10-20", post: mkPost() }],
-    );
-    expect(series).toHaveLength(2);
-    expect(series[0].score).not.toBe(series[1].score);
-    expect(series[1].score).toBe(conditionScore(mkCheckin({ checkin_date: "2026-10-21" })));
+describe("dailyPostResponseSeries", () => {
+  it("keeps post-training response as its own dated series", () => {
+    const series = dailyPostResponseSeries([
+      { date: "2026-10-21", post: mkPost({ overall_feeling: 10, leg_fatigue: 1, arm_shoulder_fatigue: 1 }) },
+      { date: "2026-10-20", post: mkPost() },
+    ]);
+    expect(series.map((s) => s.date)).toEqual(["2026-10-20", "2026-10-21"]);
+    expect(series[1].score).toBe(100);
+    expect(series[0].score).toBe(postWellnessScore(mkPost()));
   });
 });
 
