@@ -19,37 +19,44 @@ if (!url || !key) {
   console.error("Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SECRET_KEY");
   process.exit(1);
 }
-const write = process.argv.includes("--write");
-const sb = createClient(url, key, { auth: { persistSession: false } });
+async function main() {
+  const write = process.argv.includes("--write");
+  const sb = createClient(url, key, { auth: { persistSession: false } });
 
-const { data: athletes, error } = await sb.from("athletes").select("id");
-if (error) throw error;
+  const { data: athletes, error } = await sb.from("athletes").select("id");
+  if (error) throw error;
 
-let rows = 0;
-for (const a of athletes ?? []) {
-  const { data: checkins } = await sb
-    .from("morning_checkins")
-    .select("*")
-    .eq("athlete_id", a.id)
-    .order("checkin_date", { ascending: true });
-  const snaps = recomputeSnapshots(checkins ?? []);
-  if (!write) {
+  let rows = 0;
+  for (const a of athletes ?? []) {
+    const { data: checkins } = await sb
+      .from("morning_checkins")
+      .select("*")
+      .eq("athlete_id", a.id)
+      .order("checkin_date", { ascending: true });
+    const snaps = recomputeSnapshots(checkins ?? []);
+    if (!write) {
+      rows += snaps.length;
+      console.log(`${a.id}: ${snaps.length} snapshots would be recomputed`);
+      continue;
+    }
+    if (snaps.length === 0) continue;
+    const { error: upErr } = await sb.from("readiness_snapshots").upsert(
+      snaps.map((s) => ({
+        athlete_id: a.id,
+        snapshot_date: s.snapshot_date,
+        calculated_at: new Date().toISOString(),
+        ...s.body,
+      })),
+      { onConflict: "athlete_id,snapshot_date" },
+    );
+    if (upErr) throw upErr;
     rows += snaps.length;
-    console.log(`${a.id}: ${snaps.length} snapshots would be recomputed`);
-    continue;
+    console.log(`${a.id}: ${snaps.length} snapshots upserted`);
   }
-  if (snaps.length === 0) continue;
-  const { error: upErr } = await sb.from("readiness_snapshots").upsert(
-    snaps.map((s) => ({
-      athlete_id: a.id,
-      snapshot_date: s.snapshot_date,
-      calculated_at: new Date().toISOString(),
-      ...s.body,
-    })),
-    { onConflict: "athlete_id,snapshot_date" },
-  );
-  if (upErr) throw upErr;
-  rows += snaps.length;
-  console.log(`${a.id}: ${snaps.length} snapshots upserted`);
+  console.log(write ? `Done — ${rows} snapshots upserted.` : `Dry run — ${rows} snapshots would change.`);
 }
-console.log(write ? `Done — ${rows} snapshots upserted.` : `Dry run — ${rows} snapshots would change.`);
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
