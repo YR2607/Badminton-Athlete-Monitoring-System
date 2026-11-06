@@ -972,6 +972,7 @@ const ru = {
     pickAthlete: "Спортсмен",
     allGroups: "Все группы",
     completion: "Заполнение анкет",
+    coverageLine: "В расчёте: {withData} из {total} спортсменов · полнота данных {pct}%",
     filled: "заполнено",
     missed: "пропуск",
     painDay: "боль",

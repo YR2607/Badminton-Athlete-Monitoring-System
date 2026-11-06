@@ -970,6 +970,7 @@ const ro: Dictionary = {
     pickAthlete: "Sportiv",
     allGroups: "Toate grupele",
     completion: "Completarea chestionarelor",
+    coverageLine: "În calcul: {withData} din {total} sportivi · completitudinea datelor {pct}%",
     filled: "completat",
     missed: "lipsă",
     painDay: "durere",

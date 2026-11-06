@@ -36,6 +36,8 @@ export interface AthletePeriodStats {
 
 export interface PeriodSummary {
   athletes: number;
+  /** Athletes with at least one filled check-in in the period. */
+  athletesWithData: number;
   checkinsFilled: number;
   checkinsExpected: number;
   fillRate: number; // 0..100
@@ -112,6 +114,7 @@ export function periodSummary(stats: AthletePeriodStats[]): PeriodSummary {
   const expected = stats.reduce((a, s) => a + s.expected, 0);
   return {
     athletes: stats.length,
+    athletesWithData: stats.filter((s) => s.filled > 0).length,
     checkinsFilled: filled,
     checkinsExpected: expected,
     fillRate: expected ? Math.round((filled / expected) * 100) : 0,

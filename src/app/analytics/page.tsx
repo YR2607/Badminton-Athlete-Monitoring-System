@@ -335,6 +335,19 @@ export default async function AnalyticsPage({
               </Card>
             ))}
           </div>
+          {/* Sample size — averages mean little without it */}
+          <p
+            className={`text-xs ${
+              summary.athletes > 0 && summary.athletesWithData / summary.athletes < 0.6
+                ? "font-medium text-warn"
+                : "text-muted"
+            }`}
+          >
+            {d.coverageLine
+              .replace("{withData}", String(summary.athletesWithData))
+              .replace("{total}", String(summary.athletes))
+              .replace("{pct}", String(summary.fillRate))}
+          </p>
 
           {/* Fill matrix: athlete × day */}
           {!single && days.length <= 31 && (

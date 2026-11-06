@@ -29,14 +29,16 @@ export function navGroups(role: AppRole, d: Dictionary): { primary: NavItem[]; o
     };
   }
   if (role === "coach") {
+    // Primary = daily decisions (today's priorities, attendance, weekly
+    // analytics); everything else lives in "More".
     return {
       primary: [
-        { href: "/coach", label: d.nav.athletes },
+        { href: "/coach", label: d.nav.home },
         { href: "/coach/attendance", label: d.nav.attendance },
-        { href: "/coach/academy", label: d.nav.academy },
         { href: "/analytics", label: d.analytics.title },
       ],
       overflow: [
+        { href: "/coach/academy", label: d.nav.academy },
         { href: "/coach/tests", label: d.nav.tests },
         { href: "/coach/alerts", label: d.nav.alerts },
         { href: "/coach/guide", label: d.nav.guide },

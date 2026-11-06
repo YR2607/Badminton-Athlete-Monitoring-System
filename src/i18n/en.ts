@@ -970,6 +970,7 @@ const en: Dictionary = {
     pickAthlete: "Athlete",
     allGroups: "All groups",
     completion: "Check-in completion",
+    coverageLine: "In the stats: {withData} of {total} athletes · data completeness {pct}%",
     filled: "filled",
     missed: "missed",
     painDay: "pain",
