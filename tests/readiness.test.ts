@@ -6,11 +6,11 @@ import {
   confidenceFor,
   buildSnapshot,
   dailyReadiness,
-  dailyConditionSeries,
+  dailyPostResponseSeries,
+  morningWellnessScore,
+  personalNorm,
   postsByLocalDate,
   postWellnessScore,
-  conditionScore,
-  MORNING_WEIGHT,
   bandForScore,
   MIN_BASELINE_OBSERVATIONS,
   rollingNorm,
@@ -100,21 +100,21 @@ describe("confidenceFor", () => {
 });
 
 describe("buildSnapshot", () => {
-  it("flags scores far below baseline", () => {
-    const history = Array(10).fill(80);
+  it("flags scores far below the personal norm", () => {
+    const norm = { kind: "rolling" as const, avg: 80, sd: 3, days: 12, windowDays: 28 };
     const bad = mkCheckin({ sleep_score: 1, recovery_score: 1, fatigue_score: 10, muscle_soreness_score: 10, stress_score: 10, mood_score: 1 });
-    const snap = buildSnapshot(bad, history);
+    const snap = buildSnapshot(bad, norm);
     expect(snap.explanation.flags).toContain("below_personal_baseline");
     expect(snap.readiness_score).toBe(0);
   });
 
   it("does not flag normal variation", () => {
-    const history = [70, 72, 68, 71, 69, 73, 70, 72];
+    const norm = { kind: "initial" as const, avg: 71, sd: 3, days: 8, windowDays: 14 };
     const ok = mkCheckin({
       sleep_score: 8, recovery_score: 8, fatigue_score: 3,
       muscle_soreness_score: 2, stress_score: 3, mood_score: 8,
     });
-    const snap = buildSnapshot(ok, history);
+    const snap = buildSnapshot(ok, norm);
     expect(snap.explanation.flags).not.toContain("below_personal_baseline");
     expect(snap.confidence).toBe("sufficient");
   });
@@ -158,31 +158,87 @@ describe("postWellnessScore", () => {
   });
 });
 
-describe("conditionScore", () => {
-  it("equals the morning score when no post check-in exists", () => {
-    const c = mkCheckin();
-    expect(conditionScore(c, null)).toBe(conditionScore(c));
-  });
-
-  it("blends 70/30 morning/evening", () => {
-    const morning = mkCheckin({
+describe("morning/post separation", () => {
+  it("morningWellnessScore depends only on the morning check-in", () => {
+    const c = mkCheckin({
       sleep_score: 10, recovery_score: 10, fatigue_score: 1,
       muscle_soreness_score: 1, stress_score: 1, mood_score: 10,
-    }); // morning = 100
-    const post = mkPost({ overall_feeling: 1, leg_fatigue: 10, arm_shoulder_fatigue: 10 }); // evening = 0
-    expect(conditionScore(morning, post)).toBe(100 * MORNING_WEIGHT);
+    });
+    expect(morningWellnessScore(c)).toBe(100);
+    expect(morningWellnessScore(c)).toBe(readinessScore(normalizeCheckin(c)));
+  });
+
+  it("buildSnapshot stores the morning score — post data cannot be passed in", () => {
+    const c = mkCheckin({
+      sleep_score: 10, recovery_score: 10, fatigue_score: 1,
+      muscle_soreness_score: 1, stress_score: 1, mood_score: 10,
+    });
+    const snap = buildSnapshot(c, null);
+    expect(snap.readiness_score).toBe(100);
+  });
+
+  it("dailyReadiness is unaffected by evening check-ins", () => {
+    const morning = [
+      mkCheckin({ checkin_date: "2026-10-20" }),
+      mkCheckin({ checkin_date: "2026-10-21" }),
+    ];
+    const series = dailyReadiness(morning);
+    expect(series).toHaveLength(2);
+    expect(series.map((s) => s.score)).toEqual([
+      morningWellnessScore(morning[0]),
+      morningWellnessScore(morning[1]),
+    ]);
   });
 });
 
-describe("dailyConditionSeries", () => {
-  it("blends only the days that have a post check-in", () => {
-    const series = dailyConditionSeries(
-      [mkCheckin({ checkin_date: "2026-10-20" }), mkCheckin({ checkin_date: "2026-10-21" })],
-      [{ date: "2026-10-20", post: mkPost() }],
-    );
-    expect(series).toHaveLength(2);
-    expect(series[0].score).not.toBe(series[1].score);
-    expect(series[1].score).toBe(conditionScore(mkCheckin({ checkin_date: "2026-10-21" })));
+describe("dailyPostResponseSeries", () => {
+  it("keeps post-training response as its own dated series", () => {
+    const series = dailyPostResponseSeries([
+      { date: "2026-10-21", post: mkPost({ overall_feeling: 10, leg_fatigue: 1, arm_shoulder_fatigue: 1 }) },
+      { date: "2026-10-20", post: mkPost() },
+    ]);
+    expect(series.map((s) => s.date)).toEqual(["2026-10-20", "2026-10-21"]);
+    expect(series[1].score).toBe(100);
+    expect(series[0].score).toBe(postWellnessScore(mkPost()));
+  });
+});
+
+describe("personalNorm — unified personal norm", () => {
+  const mkSeries = (days: number, endDate: string, score = 70) =>
+    Array.from({ length: days }, (_, i) => {
+      const d = new Date(`${endDate}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() - (days - i));
+      return { date: d.toISOString().slice(0, 10), score };
+    });
+
+  it("prefers the rolling 28-day norm when enough recent days exist", () => {
+    const series = mkSeries(40, "2026-10-31").map((d, i) => ({ ...d, score: 60 + (i % 5) }));
+    const norm = personalNorm(series, "2026-11-01");
+    expect(norm!.kind).toBe("rolling");
+    expect(norm!.windowDays).toBe(28);
+    expect(norm!.days).toBeGreaterThanOrEqual(10);
+  });
+
+  it("falls back to the initial baseline for a new athlete", () => {
+    const series = mkSeries(9, "2026-10-29");
+    const norm = personalNorm(series, "2026-10-30");
+    expect(norm!.kind).toBe("initial");
+    expect(norm!.windowDays).toBe(14);
+    expect(norm!.days).toBe(9);
+  });
+
+  it("returns null when data is insufficient for any norm", () => {
+    expect(personalNorm(mkSeries(5, "2026-10-29"), "2026-10-30")).toBeNull();
+    expect(personalNorm([], "2026-10-30")).toBeNull();
+  });
+
+  it("excludes today from the norm window", () => {
+    const series = [
+      ...mkSeries(10, "2026-10-29", 70),
+      { date: "2026-10-30", score: 10 },
+    ];
+    const norm = personalNorm(series, "2026-10-30");
+    expect(norm!.avg).toBe(70); // today's 10 must not drag the norm down
   });
 });
 

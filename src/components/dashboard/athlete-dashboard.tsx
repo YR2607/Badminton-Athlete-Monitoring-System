@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart, LoadBarChart } from "@/components/charts/series-chart";
-import { acwrSeries, analyzeLoadWave, type DayLoad } from "@/lib/load";
+import { acwrSeries, analyzeLoadWave, loadCoverage, type DayLoad } from "@/lib/load";
 import { MORNING_ITEM_KEYS, type MorningItemKey } from "@/lib/readiness";
 import type { Dictionary } from "@/i18n";
 import type { CalendarEvent, ReadinessSnapshot } from "@/lib/types";
@@ -41,10 +41,13 @@ export function AthleteDashboard({
   });
 
   const load14 = loads.slice(-14);
+  // Wave classification only trusts quantified days — partial/unknown are
+  // gaps, not zeros.
   const wave14 = analyzeLoadWave(
-    load14.map((x) => ({ date: x.date, load: x.hasData ? x.load : 0 })),
+    load14.map((x) => ({ date: x.date, load: x.state === "known" ? x.load : 0 })),
   );
-  const acwrPts = acwrSeries(loads.map((d) => d.load));
+  const coverage = loadCoverage(loads);
+  const acwrPts = coverage.reliable ? acwrSeries(loads.map((d) => d.load)) : [];
   const acwrChart = loads
     .map((d, i) => ({ date: d.date, acwr: acwrPts[i] }))
     .filter((p) => p.acwr !== null);
@@ -148,9 +151,10 @@ export function AthleteDashboard({
                   <LoadBarChart
                     data={load14.map((x) => ({
                       date: x.date.slice(5),
-                      load: x.hasData ? x.load : 0,
+                      load: x.load,
                       planned: x.planned,
                       wave: wave14.tags.get(x.date) ?? null,
+                      state: x.state,
                     }))}
                     label={d.fact}
                     plannedLabel={d.plan}

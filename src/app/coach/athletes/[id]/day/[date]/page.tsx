@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CheckinEditor, PostCheckinEditor } from "./coach-edit";
 import {
-  conditionScore,
   normalizeCheckin,
   postWellnessScore,
   readinessScore,
@@ -179,8 +178,9 @@ export default async function AthleteDayPage({
   const latestPost = posts.length
     ? posts.reduce((a, b) => (a.submitted_at >= b.submitted_at ? a : b))
     : null;
+  // Morning wellness and post-training response are two separate scores —
+  // the headline shows the morning index, the evening one stays a sub-line.
   const morningScore = c ? readinessScore(normalizeCheckin(c)) : null;
-  const dayScore = c ? conditionScore(c, latestPost) : null;
   const eveningScore = latestPost ? postWellnessScore(latestPost) : null;
   const deltaVsBaseline =
     ((snapshot as { explanation?: { delta_vs_baseline?: number | null } } | null)?.explanation
@@ -198,14 +198,13 @@ export default async function AthleteDayPage({
         </h1>
       </div>
 
-      {dayScore !== null && (
+      {morningScore !== null && (
         <Card>
           <CardContent className="flex items-center justify-between gap-3 py-4">
             <div className="min-w-0">
               <p className="text-sm text-muted">{d.dayScore}</p>
               <p className="mt-0.5 text-xs text-muted">
-                {d.morningShort} {Math.round(morningScore!)}
-                {eveningScore !== null && ` · ${d.eveningShort} ${Math.round(eveningScore)}`}
+                {eveningScore !== null && `${d.eveningShort} ${Math.round(eveningScore)}`}
               </p>
             </div>
             <div className="shrink-0 text-right">
@@ -213,10 +212,10 @@ export default async function AthleteDayPage({
                 title={dict.common.readinessHint}
                 className={cn(
                   "text-2xl font-bold tabular-nums leading-none",
-                  dayScore >= 70 ? "text-ok" : dayScore >= 45 ? "text-warn" : "text-danger",
+                  morningScore >= 70 ? "text-ok" : morningScore >= 45 ? "text-warn" : "text-danger",
                 )}
               >
-                {Math.round(dayScore)}
+                {Math.round(morningScore)}
               </p>
               {deltaVsBaseline !== null && (
                 <p className="mt-1 text-[11px] text-muted">

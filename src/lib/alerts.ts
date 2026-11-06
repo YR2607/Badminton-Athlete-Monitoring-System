@@ -5,7 +5,7 @@ import type {
   PostTrainingCheckin,
 } from "@/lib/types";
 import type { Baseline, RollingNorm } from "@/lib/readiness";
-import { acwrEwma, monotony, planOverrunStreak, type DayLoad } from "@/lib/load";
+import { acwrEwma, loadCoverage, monotony, planOverrunStreak, type DayLoad } from "@/lib/load";
 import { addDays, localDate } from "@/lib/dates";
 
 /**
@@ -296,7 +296,10 @@ export function evaluateAlerts(ctx: EvalContext): AlertCandidate[] {
 
     const acwrHigh = rule(ctx, "acwr_high");
     const acwrLow = rule(ctx, "acwr_low");
-    if (acwrHigh || acwrLow) {
+    // ACWR alerts only fire when load data coverage is trustworthy —
+    // days with missing load records must not silently count as zeros.
+    const coverage = loadCoverage(loads);
+    if ((acwrHigh || acwrLow) && coverage.reliable) {
       const minDaysHigh = num(acwrHigh?.params.min_days, 21);
       const minDaysLow = num(acwrLow?.params.min_days, 28);
       const acwr = acwrEwma(loadSeries, Math.min(minDaysHigh, minDaysLow));
@@ -317,7 +320,10 @@ export function evaluateAlerts(ctx: EvalContext): AlertCandidate[] {
     }
 
     const monotonyRule = rule(ctx, "monotony_high");
-    if (monotonyRule) {
+    // Monotony is a 7-day metric — its reliability must be judged on the
+    // last 7 days' coverage specifically, not the whole window's.
+    const weekCoverage = loadCoverage(loads.slice(-7));
+    if (monotonyRule && weekCoverage.reliable) {
       const week = loads.slice(-7).map((d) => d.load);
       const m = monotony(week);
       if (m !== null && m > num(monotonyRule.params.threshold, 2.0)) {

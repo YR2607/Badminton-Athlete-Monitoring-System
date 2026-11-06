@@ -1,13 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { todayInTz, addDays, localDate } from "@/lib/dates";
+import { todayInTz, addDays, dateRange, localDate } from "@/lib/dates";
 import { plannedForDate, type PlanOverride } from "@/lib/load";
 import {
-  computeBaseline,
-  dailyConditionSeries,
+  dailyReadiness,
+  personalNorm,
   postsByLocalDate,
+  toBaseline,
   type Baseline,
+  type PersonalNorm,
 } from "@/lib/readiness";
 import { dayStatuses, sessionDateByIdMap, sessionLocalDates } from "@/lib/checkins";
+import { belowNormFlag, classifyAthlete, type PriorityResult } from "@/lib/priority";
 import {
   acuteMorningFlags,
   acutePostFlags,
@@ -44,6 +47,10 @@ export interface CoachAthleteRow {
   todayScore: number | null;
   /** Personal norm via the single documented algorithm; null until MIN obs. */
   baseline: Baseline | null;
+  /** Norm meta for UI: which window produced it and how many days back it. */
+  norm: PersonalNorm | null;
+  /** Mutually-exclusive dashboard category + reason (classifyAthlete). */
+  priority: PriorityResult;
   /** Days with check-in data in the 40-day baseline window. */
   observations: number;
   /** todayScore − baseline.avg; null unless both exist. */
@@ -109,6 +116,7 @@ export async function coachDashboard(
     { data: sessions },
     { data: posts },
     { data: alerts },
+    { data: illnessRows },
   ] = await Promise.all([
     supabase.from("athletes").select("*").in("id", ids),
     supabase.from("group_memberships").select("*, group:groups(*)").in("athlete_id", ids).is("left_at", null),
@@ -117,6 +125,12 @@ export async function coachDashboard(
     supabase.from("training_sessions").select("*").in("athlete_id", ids).gte("started_at", `${since14}T00:00:00Z`),
     supabase.from("post_training_checkins").select("*").in("athlete_id", ids).gte("submitted_at", `${since14}T00:00:00Z`),
     supabase.from("alerts").select("*").in("athlete_id", ids).eq("status", "open"),
+    supabase
+      .from("calendar_events")
+      .select("athlete_id, start_date, end_date")
+      .in("athlete_id", ids)
+      .eq("kind", "illness")
+      .gte("end_date", since40),
   ]);
 
   const groupById = new Map(((groups as Group[]) ?? []).map((g) => [g.id, g]));
@@ -183,6 +197,14 @@ export async function coachDashboard(
     list.push(p);
     postsByAthlete.set(p.athlete_id, list);
   }
+  // Illness days per athlete — excluded from personal norms, same policy
+  // as evaluateAthleteDay, so dashboard and snapshot baselines agree.
+  const illnessByAthlete = new Map<string, Set<string>>();
+  for (const e of (illnessRows as { athlete_id: string; start_date: string; end_date: string }[] | null) ?? []) {
+    const set = illnessByAthlete.get(e.athlete_id) ?? new Set<string>();
+    for (const d of dateRange(e.start_date, e.end_date)) set.add(d);
+    illnessByAthlete.set(e.athlete_id, set);
+  }
   const alertsByAthlete = new Map<string, Alert[]>();
   for (const a of (alerts as Alert[] | null) ?? []) {
     const list = alertsByAthlete.get(a.athlete_id) ?? [];
@@ -206,13 +228,17 @@ export async function coachDashboard(
     const postEntries = postsByLocalDate(aPosts, athleteTz, aSessionDateById);
     const postByDate = new Map(postEntries.map((e) => [e.date, e.post]));
     const aSessionDates = sessionLocalDates(aSessions, athleteTz);
-    const series = dailyConditionSeries(list, postEntries);
+    // Morning-only readiness series — evening responses stay a separate
+    // signal (postByDate/acutePostFlags/pendingPost) and never enter the
+    // baseline or the "today" score.
+    const series = dailyReadiness(list);
 
     const todayC = list.find((c) => c.checkin_date === today) ?? null;
     const todayScore = series.find((s) => s.date === today)?.score ?? null;
-    // Single documented baseline algorithm: earliest ≤14 days with data,
-    // requires MIN_BASELINE_OBSERVATIONS — identical to evaluateAthleteDay.
-    const baseline = computeBaseline(series.slice(0, 14).map((d) => d.score));
+    // Single documented personal norm — identical to evaluateAthleteDay:
+    // rolling 28d preferred, initial 14d fallback, null when insufficient.
+    const norm = personalNorm(series, today, illnessByAthlete.get(a.id));
+    const baseline = toBaseline(norm);
     const observations = list.length;
     const readinessDelta =
       todayScore !== null && baseline !== null
@@ -294,13 +320,28 @@ export async function coachDashboard(
           !aSessionDates.has(yesterday);
     const pendingPostCount = pendingPostCheckins(aSessions, aPosts, now).length;
 
+    const hasDeclineAlert = openAlerts.some((al) => DECLINE_RULES.has(al.rule_code));
     const status = athleteStatus({
       hasPrioritySignal: acuteSignal,
-      hasDeclineAlert: openAlerts.some((al) => DECLINE_RULES.has(al.rule_code)),
+      hasDeclineAlert,
       todayCheckin: todayC,
       todayScore,
       baseline,
       observations,
+    });
+    const belowNorm = belowNormFlag(todayScore, baseline);
+    const hasPain = recentPain || openAlerts.some((al) => al.severity === "priority");
+    const priority = classifyAthlete({
+      status,
+      acuteSignal,
+      hasDeclineAlert,
+      belowNorm,
+      hasTodayCheckin: todayC !== null,
+      pendingPostCount,
+      lastCheckinAgeDays,
+      normDays: norm?.days ?? 0,
+      scheduledMissedYesterday,
+      hasPain,
     });
 
     return {
@@ -314,6 +355,7 @@ export async function coachDashboard(
       todayCheckin: todayC,
       todayScore,
       baseline,
+      norm,
       observations,
       readinessDelta,
       lastCheckinDate: lastC?.checkin_date ?? null,
@@ -321,7 +363,8 @@ export async function coachDashboard(
       lastCheckinAgeDays,
       openAlerts,
       acuteSignal,
-      hasPain: recentPain || openAlerts.some((al) => al.severity === "priority"),
+      hasPain,
+      priority,
       sessionsToday,
       scheduledMissedYesterday,
       pendingPostCount,

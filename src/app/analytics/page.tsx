@@ -5,7 +5,7 @@ import { getDictionary } from "@/i18n";
 import { addDays, dateRange, localDate, localDayUtcBounds, resolveRange, todayInTz, type RangeKey } from "@/lib/dates";
 import { athleteStats, periodSummary, delta, type AthletePeriodStats } from "@/lib/analytics";
 import { sessionDateByIdMap } from "@/lib/checkins";
-import { dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
+import { dailyReadiness, postsByLocalDate } from "@/lib/readiness";
 import { analyzeLoadWave } from "@/lib/load";
 import { getFeatureFlags, flagEnabled } from "@/lib/flags";
 import { CompareChart, type CompareAthlete } from "@/app/coach/compare";
@@ -187,7 +187,7 @@ export default async function AnalyticsPage({
       .sort((x, y) => x.checkin_date.localeCompare(y.checkin_date));
     series14ByAthlete.set(
       a.id,
-      dailyConditionSeries(list, postsOf(a)).filter((s) => s.date >= since14),
+      dailyReadiness(list).filter((s) => s.date >= since14),
     );
   }
   const hasFlagged = sortedScoped.some((a) => {
@@ -335,6 +335,19 @@ export default async function AnalyticsPage({
               </Card>
             ))}
           </div>
+          {/* Sample size — averages mean little without it */}
+          <p
+            className={`text-xs ${
+              summary.athletes > 0 && summary.athletesWithData / summary.athletes < 0.6
+                ? "font-medium text-warn"
+                : "text-muted"
+            }`}
+          >
+            {d.coverageLine
+              .replace("{withData}", String(summary.athletesWithData))
+              .replace("{total}", String(summary.athletes))
+              .replace("{pct}", String(summary.fillRate))}
+          </p>
 
           {/* Fill matrix: athlete × day */}
           {!single && days.length <= 31 && (

@@ -101,7 +101,9 @@ export async function getAthleteDetail(
   athleteId: string,
   ctx: AthleteDetailCtx,
 ): Promise<AthleteDetailData | null> {
-  // Stage 1: RLS — returns null unless this athlete is assigned to the coach.
+  // Stage 1: RLS — staff roles (coach/admin) can read any athlete in this
+  // single-club deployment (can_access_athlete → is_coach(), migration 0008);
+  // null means the row doesn't exist or the caller isn't staff.
   const { data: athlete } = await supabase
     .from("athletes")
     .select("*")

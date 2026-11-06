@@ -1,8 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildSnapshot, computeBaseline, rollingNorm, rollingItemNorms, itemZScores, zScore, SD_FLOOR_SCORE, ROLLING_WINDOW_DAYS, type Baseline, type RollingNorm } from "@/lib/readiness";
+import { buildSnapshot, personalNorm, toBaseline, rollingNorm, rollingItemNorms, itemZScores, zScore, SD_FLOOR_SCORE, ROLLING_WINDOW_DAYS, type PersonalNorm, type RollingNorm } from "@/lib/readiness";
 import { evaluateAlerts, type AlertCandidate } from "@/lib/alerts";
 import { ALERT_PUSH_TITLES } from "@/lib/alert-texts";
-import { dailyLoads, acwrEwma, type DayLoad } from "@/lib/load";
+import { dailyLoads, acwrEwma, loadCoverage, type DayLoad, type LoadCoverage } from "@/lib/load";
 import { evaluateRecommendations } from "@/lib/recommendations";
 import { decimalAge, growthVelocity, khamisRoche } from "@/lib/growth";
 import { flagEnabled } from "@/lib/flags";
@@ -15,11 +15,12 @@ import { fetchEvalContext, type EvalData } from "@/lib/evaluate-context";
  * evaluateAthleteDay. No I/O.
  */
 export interface EvalMetrics {
-  /** Scores of all series days strictly before `date` (baseline history). */
-  history: number[];
-  baseline: Baseline | null;
+  /** Unified personal norm used for every "vs the athlete's own history" comparison. */
+  norm: PersonalNorm | null;
   /** Daily sRPE load series + plan over the fetch window. */
   loads: DayLoad[];
+  /** Share of days whose load is actually known — gates ACWR conclusions. */
+  coverage: LoadCoverage;
   zToday: number | null;
   itemBaselines: Record<string, unknown> | null;
   itemZ: Record<string, number | null> | null;
@@ -36,11 +37,17 @@ export interface EvalMetrics {
 export function computeEvalMetrics(ctx: EvalData): EvalMetrics {
   const { date, from, series, checkins, todayCheckin } = ctx;
 
-  // Baseline: earliest window of daily scores (first 14 days with data).
-  const history = series.filter((d) => d.date < date).map((d) => d.score);
-  const baseline = computeBaseline(
-    series.slice(0, 14).map((d) => d.score),
-  );
+  // Unified personal norm: rolling 28-day preferred, initial 14-day
+  // fallback for new athletes, null when data is insufficient.
+  // Sick days are excluded from the norm when 'events' is on — same policy
+  // as the z-score norms below so UI, snapshot and alerts never disagree.
+  const illnessDates = new Set<string>();
+  if (ctx.eventsEnabled) {
+    for (const e of ctx.illnessRows) {
+      for (const d of dateRange(e.start_date, e.end_date)) illnessDates.add(d);
+    }
+  }
+  const norm = personalNorm(series, date, illnessDates);
 
   // Daily load series (sRPE x minutes) + plan from the group schedule.
   const loads = dailyLoads(
@@ -48,7 +55,9 @@ export function computeEvalMetrics(ctx: EvalData): EvalMetrics {
     ctx.sessionInputs,
     ctx.schedules,
     ctx.planOverrides,
+    ctx.attendanceMarks,
   );
+  const coverage = loadCoverage(loads);
 
   // ---- Phase 4: growth & maturation (%PAH band / velocity) ----
   let growthPct: number | null = null;
@@ -107,9 +116,9 @@ export function computeEvalMetrics(ctx: EvalData): EvalMetrics {
   }
 
   return {
-    history,
-    baseline,
+    norm,
     loads,
+    coverage,
     zToday,
     itemBaselines,
     itemZ,
@@ -129,7 +138,7 @@ export async function writeSnapshot(
   metrics: EvalMetrics,
 ): Promise<boolean> {
   if (!ctx.todayCheckin) return false;
-  const snap = buildSnapshot(ctx.todayCheckin, metrics.history, 1, ctx.postByDate.get(ctx.date));
+  const snap = buildSnapshot(ctx.todayCheckin, metrics.norm);
   await admin.from("readiness_snapshots").upsert(
     {
       athlete_id: ctx.athleteId,
@@ -164,7 +173,7 @@ export function evaluateAlertCandidates(
       (c) => c.checkin_date >= addDays(ctx.date, -14),
     ),
     dailyReadiness: ctx.series,
-    baseline: metrics.baseline,
+    baseline: toBaseline(metrics.norm),
     postCheckins: ctx.postsAll,
     rules: ctx.rules,
     loads: metrics.loads,
@@ -192,9 +201,13 @@ export async function runRecommendations(
   const recsEnabled = flagEnabled(ctx.flagRows, "recommendations", ctx.groupIds);
   if (!recsEnabled) return;
   const acwr = acwrEwma(metrics.loads.map((d) => d.load));
+  // ACWR is only fed to recommendations when the underlying load coverage
+  // is trustworthy — otherwise missing data would masquerade as a low or
+  // high ratio and drive a confident but wrong suggestion.
+  const acwrReliable = metrics.coverage.reliable;
   const candidates2 = evaluateRecommendations({
     z: ctx.zscoreEnabled ? metrics.zToday : null,
-    acwr: ctx.loadEnabled ? (acwr?.ratio ?? null) : null,
+    acwr: ctx.loadEnabled && acwrReliable ? (acwr?.ratio ?? null) : null,
     itemZ: metrics.itemZ,
     acutePain: candidates.some((c) => c.rule_code === "acute_pain"),
     ostrcSubstantial: ctx.ostrcSubstantial,

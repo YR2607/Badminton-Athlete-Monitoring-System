@@ -4,6 +4,7 @@ import {
   analyzeLoadWave,
   dailyLoads,
   ewma,
+  loadCoverage,
   monotony,
   planOverrunStreak,
   strain,
@@ -143,6 +144,111 @@ describe("monotony / strain", () => {
   });
 });
 
+describe("dailyLoads — missing data is not a zero", () => {
+  const schedules = [{ weekday: 1, planned_minutes: 90, planned_rpe: 5 }];
+
+  it("recorded session without rpe/minutes is 'partial', never zero", () => {
+    const out = dailyLoads(["2026-10-26"], [
+      { date: "2026-10-26", rpe: null, minutes: null },
+    ], schedules);
+    expect(out[0].state).toBe("partial");
+    expect(out[0].sessions).toBe(1);
+    expect(out[0].incomplete).toBe(1);
+    expect(out[0].load).toBe(0); // quantified part only — state carries the truth
+  });
+
+  it("scheduled day with no record is 'unknown', not rest", () => {
+    const out = dailyLoads(["2026-10-26"], [], schedules);
+    expect(out[0].state).toBe("unknown");
+  });
+
+  it("unscheduled day with no record is 'unscheduled' (assumed rest, unconfirmed)", () => {
+    const out = dailyLoads(["2026-10-25"], [], schedules);
+    expect(out[0].state).toBe("unscheduled");
+  });
+
+  it("cancelled override is a confirmed 'rest'", () => {
+    const out = dailyLoads(["2026-10-26"], [], schedules, [
+      { plan_date: "2026-10-26", cancelled: true, planned_minutes: null, planned_rpe: null },
+    ]);
+    expect(out[0].state).toBe("rest");
+  });
+
+  it("attendance 'absent' on a scheduled day means rest", () => {
+    const out = dailyLoads(["2026-10-26"], [], schedules, [], {
+      present: new Set(),
+      absent: new Set(["2026-10-26"]),
+    });
+    expect(out[0].state).toBe("rest");
+    expect(out[0].attendance).toBe("absent");
+  });
+
+  it("attendance 'present' on a scheduled day without records is 'unknown'", () => {
+    const out = dailyLoads(["2026-10-26"], [], schedules, [], {
+      present: new Set(["2026-10-26"]),
+      absent: new Set(),
+    });
+    expect(out[0].state).toBe("unknown");
+  });
+
+  it("quantified session is 'known'", () => {
+    const out = dailyLoads(["2026-10-26"], [
+      { date: "2026-10-26", rpe: 6, minutes: 90 },
+    ], schedules);
+    expect(out[0].state).toBe("known");
+    expect(out[0].hasData).toBe(true);
+  });
+});
+
+describe("loadCoverage", () => {
+  const day = (
+    state: "known" | "partial" | "unknown" | "rest" | "unscheduled",
+    scheduled = true,
+  ) => ({
+    date: "2026-10-20",
+    scheduled,
+    load: 0,
+    hasData: false,
+    planned: null,
+    sessions: 0,
+    incomplete: 0,
+    attendance: "unknown" as const,
+    state,
+  });
+
+  it("counts only known/confirmed-rest days among relevant ones", () => {
+    const cov = loadCoverage([day("known"), day("rest"), day("partial"), day("unknown")]);
+    expect(cov).toMatchObject({ known: 2, total: 4, pct: 50, reliable: false });
+  });
+
+  it("is reliable at >= 80% resolved with >= 3 training days", () => {
+    const cov = loadCoverage([
+      day("known"), day("known"), day("known"), day("rest"), day("unknown"),
+    ]);
+    expect(cov.pct).toBe(80);
+    expect(cov.reliable).toBe(true);
+  });
+
+  it("audit case: 5 unknown training days among rests is never reliable", () => {
+    // 40 days: 5 scheduled-but-unrecorded, the rest plain unscheduled days —
+    // assumed rest must not inflate coverage into a confident ACWR.
+    const days = [
+      ...Array.from({ length: 5 }, () => day("unknown")),
+      ...Array.from({ length: 35 }, () => day("unscheduled", false)),
+    ];
+    const cov = loadCoverage(days);
+    expect(cov.reliable).toBe(false);
+    expect(cov.knownTrainingDays).toBe(0);
+  });
+
+  it("unscheduled days are excluded from the denominator entirely", () => {
+    const cov = loadCoverage([day("known"), day("unscheduled", false), day("unscheduled", false)]);
+    expect(cov.total).toBe(1); // only the relevant day counts
+    expect(cov.pct).toBe(100);
+    expect(cov.reliable).toBe(false); // but <3 training days → still unreliable
+  });
+});
+
 describe("planOverrunStreak", () => {
   const mk = (over: boolean[]): ReturnType<typeof dailyLoads>[number][] =>
     over.map((o, i) => ({
@@ -151,6 +257,10 @@ describe("planOverrunStreak", () => {
       hasData: true,
       load: o ? 600 : 400,
       planned: 400,
+      sessions: 1,
+      incomplete: 0,
+      attendance: "unknown" as const,
+      state: "known" as const,
     }));
 
   it("counts consecutive overrun days from the end", () => {

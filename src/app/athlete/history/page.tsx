@@ -3,8 +3,7 @@ import { getCurrentAthlete, getCurrentProfile, homeForRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { getDictionary } from "@/i18n";
 import { addDays, localDate, todayInTz } from "@/lib/dates";
-import { dailyConditionSeries, postsByLocalDate } from "@/lib/readiness";
-import { sessionDateByIdMap } from "@/lib/checkins";
+import { dailyReadiness } from "@/lib/readiness";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart } from "@/components/charts/series-chart";
@@ -40,7 +39,7 @@ export default async function HistoryPage({
   const days = [7, 14, 30, 90].includes(Number(sp.days)) ? Number(sp.days) : 30;
   const from = addDays(today, -(days - 1));
 
-  const [{ data: checkins }, { data: sessions }, { data: postCheckins }] = await Promise.all([
+  const [{ data: checkins }, { data: sessions }] = await Promise.all([
     supabase
       .from("morning_checkins")
       .select("*")
@@ -53,11 +52,6 @@ export default async function HistoryPage({
       .eq("athlete_id", athlete.id)
       .gte("started_at", `${from}T00:00:00Z`)
       .order("started_at", { ascending: true }),
-    supabase
-      .from("post_training_checkins")
-      .select("*")
-      .eq("athlete_id", athlete.id)
-      .gte("submitted_at", `${from}T00:00:00Z`),
   ]);
 
   const ck = (checkins as MorningCheckin[]) ?? [];
@@ -76,11 +70,7 @@ export default async function HistoryPage({
     </tr>
   );
 
-  const sessionDateById = sessionDateByIdMap((sessions as TrainingSession[]) ?? [], tz);
-  const readinessSeries = dailyConditionSeries(
-    ck,
-    postsByLocalDate((postCheckins as PostTrainingCheckin[]) ?? [], tz, sessionDateById),
-  );
+  const readinessSeries = dailyReadiness(ck);
   const wellbeingSeries = ck.map((c) => ({
     date: c.checkin_date,
     sleep: c.sleep_score,

@@ -1,5 +1,5 @@
 import type { Alert, MorningCheckin, PostTrainingCheckin, TrainingSession } from "@/lib/types";
-import { dailyConditionSeries } from "@/lib/readiness";
+import { dailyReadiness } from "@/lib/readiness";
 import { dayStatuses } from "@/lib/checkins";
 import { localDate } from "@/lib/dates";
 
@@ -36,6 +36,8 @@ export interface AthletePeriodStats {
 
 export interface PeriodSummary {
   athletes: number;
+  /** Athletes with at least one filled check-in in the period. */
+  athletesWithData: number;
   checkinsFilled: number;
   checkinsExpected: number;
   fillRate: number; // 0..100
@@ -79,7 +81,7 @@ export function athleteStats(
     hadSession: d.hadSession,
   }));
 
-  const scores = dailyConditionSeries(checkins, posts);
+  const scores = dailyReadiness(checkins);
 
   // Fill rate counts BOTH questionnaires: morning every day, evening on
   // days a session was recorded — a 100% rate requires both.
@@ -112,6 +114,7 @@ export function periodSummary(stats: AthletePeriodStats[]): PeriodSummary {
   const expected = stats.reduce((a, s) => a + s.expected, 0);
   return {
     athletes: stats.length,
+    athletesWithData: stats.filter((s) => s.filled > 0).length,
     checkinsFilled: filled,
     checkinsExpected: expected,
     fillRate: expected ? Math.round((filled / expected) * 100) : 0,
