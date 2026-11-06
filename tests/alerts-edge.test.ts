@@ -167,14 +167,15 @@ describe("repeated_fatigue", () => {
 });
 
 describe("snapshot confidence", () => {
-  it("is insufficient while the baseline cannot be computed (7 prior days)", () => {
-    const snap = buildSnapshot(mkCheckin(TODAY), Array(7).fill(75));
+  it("is insufficient while no personal norm exists", () => {
+    const snap = buildSnapshot(mkCheckin(TODAY), null);
     expect(snap.baseline_avg).toBeNull();
     expect(snap.confidence).toBe("insufficient");
   });
 
-  it("becomes sufficient once 8 prior days exist", () => {
-    const snap = buildSnapshot(mkCheckin(TODAY), Array(8).fill(75));
+  it("becomes sufficient once a personal norm exists", () => {
+    const norm = { kind: "initial" as const, avg: 75, sd: 3, days: 8, windowDays: 14 };
+    const snap = buildSnapshot(mkCheckin(TODAY), norm);
     expect(snap.baseline_avg).not.toBeNull();
     expect(snap.confidence).toBe("sufficient");
   });

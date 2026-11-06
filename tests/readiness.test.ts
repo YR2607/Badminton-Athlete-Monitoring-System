@@ -8,6 +8,7 @@ import {
   dailyReadiness,
   dailyPostResponseSeries,
   morningWellnessScore,
+  personalNorm,
   postsByLocalDate,
   postWellnessScore,
   bandForScore,
@@ -99,21 +100,21 @@ describe("confidenceFor", () => {
 });
 
 describe("buildSnapshot", () => {
-  it("flags scores far below baseline", () => {
-    const history = Array(10).fill(80);
+  it("flags scores far below the personal norm", () => {
+    const norm = { kind: "rolling" as const, avg: 80, sd: 3, days: 12, windowDays: 28 };
     const bad = mkCheckin({ sleep_score: 1, recovery_score: 1, fatigue_score: 10, muscle_soreness_score: 10, stress_score: 10, mood_score: 1 });
-    const snap = buildSnapshot(bad, history);
+    const snap = buildSnapshot(bad, norm);
     expect(snap.explanation.flags).toContain("below_personal_baseline");
     expect(snap.readiness_score).toBe(0);
   });
 
   it("does not flag normal variation", () => {
-    const history = [70, 72, 68, 71, 69, 73, 70, 72];
+    const norm = { kind: "initial" as const, avg: 71, sd: 3, days: 8, windowDays: 14 };
     const ok = mkCheckin({
       sleep_score: 8, recovery_score: 8, fatigue_score: 3,
       muscle_soreness_score: 2, stress_score: 3, mood_score: 8,
     });
-    const snap = buildSnapshot(ok, history);
+    const snap = buildSnapshot(ok, norm);
     expect(snap.explanation.flags).not.toContain("below_personal_baseline");
     expect(snap.confidence).toBe("sufficient");
   });
@@ -172,7 +173,7 @@ describe("morning/post separation", () => {
       sleep_score: 10, recovery_score: 10, fatigue_score: 1,
       muscle_soreness_score: 1, stress_score: 1, mood_score: 10,
     });
-    const snap = buildSnapshot(c, []);
+    const snap = buildSnapshot(c, null);
     expect(snap.readiness_score).toBe(100);
   });
 
@@ -199,6 +200,45 @@ describe("dailyPostResponseSeries", () => {
     expect(series.map((s) => s.date)).toEqual(["2026-10-20", "2026-10-21"]);
     expect(series[1].score).toBe(100);
     expect(series[0].score).toBe(postWellnessScore(mkPost()));
+  });
+});
+
+describe("personalNorm — unified personal norm", () => {
+  const mkSeries = (days: number, endDate: string, score = 70) =>
+    Array.from({ length: days }, (_, i) => {
+      const d = new Date(`${endDate}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() - (days - i));
+      return { date: d.toISOString().slice(0, 10), score };
+    });
+
+  it("prefers the rolling 28-day norm when enough recent days exist", () => {
+    const series = mkSeries(40, "2026-10-31").map((d, i) => ({ ...d, score: 60 + (i % 5) }));
+    const norm = personalNorm(series, "2026-11-01");
+    expect(norm!.kind).toBe("rolling");
+    expect(norm!.windowDays).toBe(28);
+    expect(norm!.days).toBeGreaterThanOrEqual(10);
+  });
+
+  it("falls back to the initial baseline for a new athlete", () => {
+    const series = mkSeries(9, "2026-10-29");
+    const norm = personalNorm(series, "2026-10-30");
+    expect(norm!.kind).toBe("initial");
+    expect(norm!.windowDays).toBe(14);
+    expect(norm!.days).toBe(9);
+  });
+
+  it("returns null when data is insufficient for any norm", () => {
+    expect(personalNorm(mkSeries(5, "2026-10-29"), "2026-10-30")).toBeNull();
+    expect(personalNorm([], "2026-10-30")).toBeNull();
+  });
+
+  it("excludes today from the norm window", () => {
+    const series = [
+      ...mkSeries(10, "2026-10-29", 70),
+      { date: "2026-10-30", score: 10 },
+    ];
+    const norm = personalNorm(series, "2026-10-30");
+    expect(norm!.avg).toBe(70); // today's 10 must not drag the norm down
   });
 });
 

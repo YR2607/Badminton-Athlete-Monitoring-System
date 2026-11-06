@@ -1,4 +1,4 @@
-import { localDate } from "@/lib/dates";
+import { addDays, localDate } from "@/lib/dates";
 import type {
   ConfidenceLevel,
   MorningCheckin,
@@ -121,9 +121,9 @@ export interface SnapshotBuild {
 }
 
 /**
- * Build a snapshot for a check-in. `history` = earlier daily readiness values
- * (oldest first) used for the baseline. Missing days are simply absent —
- * gaps are never substituted with zeros.
+ * Build a snapshot for a check-in. `norm` = the athlete's personal norm
+ * (personalNorm — rolling preferred, initial fallback, null when data is
+ * insufficient); deviations are always judged against it.
  *
  * The stored score is the MORNING wellness index only — post-training
  * check-ins are a separate signal (postWellnessScore) and must not leak
@@ -131,20 +131,18 @@ export interface SnapshotBuild {
  */
 export function buildSnapshot(
   checkin: Parameters<typeof normalizeCheckin>[0],
-  history: number[],
-  baselineVersion = 1,
+  norm: PersonalNorm | null,
 ): SnapshotBuild {
   const normalized = normalizeCheckin(checkin);
   const score = morningWellnessScore(checkin);
-  const baseline = computeBaseline(history, baselineVersion);
 
   const flags: string[] = [];
   let delta: number | null = null;
-  if (baseline) {
-    delta = Math.round((score - baseline.avg) * 100) / 100;
+  if (norm) {
+    delta = Math.round((score - norm.avg) * 100) / 100;
     const below =
-      (baseline.sd > 0 && score < baseline.avg - FLAG_Z * baseline.sd) ||
-      score <= baseline.avg - 15; // absolute drop even when sd == 0
+      (norm.sd > 0 && score < norm.avg - FLAG_Z * norm.sd) ||
+      score <= norm.avg - 15; // absolute drop even when sd == 0
     if (below) flags.push("below_personal_baseline");
   }
 
@@ -156,13 +154,13 @@ export function buildSnapshot(
   return {
     readiness_score: score,
     normalized_scores: normalized,
-    baseline_avg: baseline?.avg ?? null,
-    baseline_sd: baseline?.sd ?? null,
-    baseline_version: baseline?.version ?? baselineVersion,
-    input_data_count: history.length + 1,
-    // Confidence tracks whether a personal baseline could be computed —
+    baseline_avg: norm?.avg ?? null,
+    baseline_sd: norm?.sd ?? null,
+    baseline_version: norm ? (norm.kind === "rolling" ? 2 : 1) : 1,
+    input_data_count: (norm?.days ?? 0) + 1,
+    // Confidence tracks whether a personal norm could be computed —
     // it must not report "sufficient" while baseline_avg is still null.
-    confidence: confidenceFor(baseline ? baseline.count : 0),
+    confidence: confidenceFor(norm ? norm.days : 0),
     explanation: { band: bandForScore(score), flags, delta_vs_baseline: delta },
   };
 }
@@ -238,6 +236,62 @@ export function zScore(value: number, norm: RollingNorm | null): number | null {
 
 function round2n(v: number): number {
   return Math.round(v * 100) / 100;
+}
+
+// ---- Unified personal norm ----
+//
+// THE single way to compare "today" to the athlete's own history.
+// Prefer the rolling 28-day norm (needs ROLLING_MIN_DAYS observations);
+// fall back to the initial 14-day baseline (MIN_BASELINE_OBSERVATIONS)
+// while the athlete is new; otherwise there is no norm and callers must
+// show "insufficient data" instead of comparing to an arbitrary value.
+// `today` is always excluded from the window.
+export interface PersonalNorm {
+  kind: "rolling" | "initial";
+  avg: number;
+  /** SD floored at SD_FLOOR_SCORE so tiny variances don't explode z-scores. */
+  sd: number;
+  /** Observations used to compute the norm. */
+  days: number;
+  /** Length of the comparison window in calendar days (28 or 14). */
+  windowDays: number;
+}
+
+export function personalNorm(
+  series: { date: string; score: number }[],
+  today: string,
+): PersonalNorm | null {
+  const before = series.filter((d) => d.date < today);
+  const from28 = addDays(today, -ROLLING_WINDOW_DAYS);
+  const rolling = rollingNorm(
+    before.filter((d) => d.date >= from28).map((d) => d.score),
+    SD_FLOOR_SCORE,
+  );
+  if (rolling) {
+    return { kind: "rolling", avg: rolling.avg, sd: rolling.sd, days: rolling.days, windowDays: ROLLING_WINDOW_DAYS };
+  }
+  const initial = computeBaseline(
+    before.slice(0, BASELINE_WINDOW_DAYS).map((d) => d.score),
+  );
+  if (!initial) return null;
+  return {
+    kind: "initial",
+    avg: initial.avg,
+    sd: Math.max(initial.sd, SD_FLOOR_SCORE),
+    days: initial.count,
+    windowDays: BASELINE_WINDOW_DAYS,
+  };
+}
+
+/** Adapt a PersonalNorm to the legacy Baseline shape used by alerts/status. */
+export function toBaseline(norm: PersonalNorm | null): Baseline | null {
+  if (!norm) return null;
+  return {
+    avg: norm.avg,
+    sd: norm.sd,
+    count: norm.days,
+    version: norm.kind === "rolling" ? 2 : 1,
+  };
 }
 
 export const MORNING_ITEM_KEYS = [

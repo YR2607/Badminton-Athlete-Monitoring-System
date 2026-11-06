@@ -2,10 +2,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { todayInTz, addDays, localDate } from "@/lib/dates";
 import { plannedForDate, type PlanOverride } from "@/lib/load";
 import {
-  computeBaseline,
   dailyReadiness,
+  personalNorm,
   postsByLocalDate,
+  toBaseline,
   type Baseline,
+  type PersonalNorm,
 } from "@/lib/readiness";
 import { dayStatuses, sessionDateByIdMap, sessionLocalDates } from "@/lib/checkins";
 import {
@@ -44,6 +46,8 @@ export interface CoachAthleteRow {
   todayScore: number | null;
   /** Personal norm via the single documented algorithm; null until MIN obs. */
   baseline: Baseline | null;
+  /** Norm meta for UI: which window produced it and how many days back it. */
+  norm: PersonalNorm | null;
   /** Days with check-in data in the 40-day baseline window. */
   observations: number;
   /** todayScore − baseline.avg; null unless both exist. */
@@ -213,9 +217,10 @@ export async function coachDashboard(
 
     const todayC = list.find((c) => c.checkin_date === today) ?? null;
     const todayScore = series.find((s) => s.date === today)?.score ?? null;
-    // Single documented baseline algorithm: earliest ≤14 days with data,
-    // requires MIN_BASELINE_OBSERVATIONS — identical to evaluateAthleteDay.
-    const baseline = computeBaseline(series.slice(0, 14).map((d) => d.score));
+    // Single documented personal norm — identical to evaluateAthleteDay:
+    // rolling 28d preferred, initial 14d fallback, null when insufficient.
+    const norm = personalNorm(series, today);
+    const baseline = toBaseline(norm);
     const observations = list.length;
     const readinessDelta =
       todayScore !== null && baseline !== null
@@ -317,6 +322,7 @@ export async function coachDashboard(
       todayCheckin: todayC,
       todayScore,
       baseline,
+      norm,
       observations,
       readinessDelta,
       lastCheckinDate: lastC?.checkin_date ?? null,

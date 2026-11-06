@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { buildSnapshot, computeBaseline, rollingNorm, rollingItemNorms, itemZScores, zScore, SD_FLOOR_SCORE, ROLLING_WINDOW_DAYS, type Baseline, type RollingNorm } from "@/lib/readiness";
+import { buildSnapshot, personalNorm, toBaseline, rollingNorm, rollingItemNorms, itemZScores, zScore, SD_FLOOR_SCORE, ROLLING_WINDOW_DAYS, type PersonalNorm, type RollingNorm } from "@/lib/readiness";
 import { evaluateAlerts, type AlertCandidate } from "@/lib/alerts";
 import { ALERT_PUSH_TITLES } from "@/lib/alert-texts";
 import { dailyLoads, acwrEwma, type DayLoad } from "@/lib/load";
@@ -15,9 +15,8 @@ import { fetchEvalContext, type EvalData } from "@/lib/evaluate-context";
  * evaluateAthleteDay. No I/O.
  */
 export interface EvalMetrics {
-  /** Scores of all series days strictly before `date` (baseline history). */
-  history: number[];
-  baseline: Baseline | null;
+  /** Unified personal norm used for every "vs the athlete's own history" comparison. */
+  norm: PersonalNorm | null;
   /** Daily sRPE load series + plan over the fetch window. */
   loads: DayLoad[];
   zToday: number | null;
@@ -36,11 +35,9 @@ export interface EvalMetrics {
 export function computeEvalMetrics(ctx: EvalData): EvalMetrics {
   const { date, from, series, checkins, todayCheckin } = ctx;
 
-  // Baseline: earliest window of daily scores (first 14 days with data).
-  const history = series.filter((d) => d.date < date).map((d) => d.score);
-  const baseline = computeBaseline(
-    series.slice(0, 14).map((d) => d.score),
-  );
+  // Unified personal norm: rolling 28-day preferred, initial 14-day
+  // fallback for new athletes, null when data is insufficient.
+  const norm = personalNorm(series, date);
 
   // Daily load series (sRPE x minutes) + plan from the group schedule.
   const loads = dailyLoads(
@@ -107,8 +104,7 @@ export function computeEvalMetrics(ctx: EvalData): EvalMetrics {
   }
 
   return {
-    history,
-    baseline,
+    norm,
     loads,
     zToday,
     itemBaselines,
@@ -129,7 +125,7 @@ export async function writeSnapshot(
   metrics: EvalMetrics,
 ): Promise<boolean> {
   if (!ctx.todayCheckin) return false;
-  const snap = buildSnapshot(ctx.todayCheckin, metrics.history, 1);
+  const snap = buildSnapshot(ctx.todayCheckin, metrics.norm);
   await admin.from("readiness_snapshots").upsert(
     {
       athlete_id: ctx.athleteId,
@@ -164,7 +160,7 @@ export function evaluateAlertCandidates(
       (c) => c.checkin_date >= addDays(ctx.date, -14),
     ),
     dailyReadiness: ctx.series,
-    baseline: metrics.baseline,
+    baseline: toBaseline(metrics.norm),
     postCheckins: ctx.postsAll,
     rules: ctx.rules,
     loads: metrics.loads,
