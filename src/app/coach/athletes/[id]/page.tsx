@@ -46,13 +46,14 @@ export default async function AthleteDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ range?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ tab?: string; range?: string; from?: string; to?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
   const me = (await getCurrentProfile())!;
   const dict = getDictionary(me.preferred_language);
   const dd = dict.athleteDetail;
+  const tab = sp.tab === "load" || sp.tab === "dev" ? sp.tab : "today";
   const supabase = await createClient();
 
   // RLS: null unless this athlete is assigned to the coach.
@@ -384,7 +385,24 @@ export default async function AthleteDetailPage({
         </Card>
       )}
 
+      {/* Three decision-oriented sections: today / load & recovery / development */}
+      <div className="flex flex-wrap gap-1">
+        {(["today", "load", "dev"] as const).map((k) => (
+          <a
+            key={k}
+            href={`/coach/athletes/${a.id}?tab=${k}`}
+            className={cn(
+              "rounded-lg px-3 py-1.5 text-sm font-medium",
+              tab === k ? "bg-accent text-accent-foreground" : "bg-foreground/5",
+            )}
+          >
+            {k === "today" ? dd.tabToday : k === "load" ? dd.tabLoad : dd.tabDev}
+          </a>
+        ))}
+      </div>
+
       {/* Today block — independent of the selected period below */}
+      {tab === "today" && (
       <Card>
         <CardHeader>
           <CardTitle>{dd.today.title} · {today}</CardTitle>
@@ -515,8 +533,9 @@ export default async function AthleteDetailPage({
           </div>
         </CardContent>
       </Card>
+      )}
 
-      {dashboardOn && (srpeOn || zscoreOn) && (
+      {dashboardOn && (srpeOn || zscoreOn) && tab === "load" && (
         <AthleteDashboard
           dict={dict}
           snapshots={dashSnaps}
@@ -527,9 +546,9 @@ export default async function AthleteDetailPage({
         />
       )}
 
-      {recsOn && <RecList recs={recs} dict={dict} />}
+      {recsOn && tab === "today" && <RecList recs={recs} dict={dict} />}
 
-      {eventsOn && (
+      {eventsOn && tab === "today" && (
         <EventsPanel
           dict={dict}
           events={eventRows}
@@ -539,7 +558,7 @@ export default async function AthleteDetailPage({
         />
       )}
 
-      {ostrcOn && (
+      {ostrcOn && tab === "load" && (
         <Card>
           <CardHeader>
             <CardTitle>{dict.ostrc.historyTitle}</CardTitle>
@@ -559,7 +578,7 @@ export default async function AthleteDetailPage({
         </Card>
       )}
 
-      {testsOn && fieldTests.length > 0 && (
+      {testsOn && fieldTests.length > 0 && tab === "dev" && (
         <>
           <FieldTestRadar
             dict={dict}
@@ -579,7 +598,7 @@ export default async function AthleteDetailPage({
         </>
       )}
 
-      {growthOn && (
+      {growthOn && tab === "dev" && (
         <GrowthPanel
           dict={dict}
           athlete={a}
@@ -591,6 +610,7 @@ export default async function AthleteDetailPage({
         />
       )}
 
+      {tab === "load" && (
       <div className="flex flex-wrap gap-1">
           {rangeKeys.map((k) => (
             <a
@@ -605,7 +625,10 @@ export default async function AthleteDetailPage({
             </a>
           ))}
       </div>
+      )}
 
+      {tab === "load" && (
+      <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
         {[
           { label: dict.stats.avg, v: stat.avg, sub: dict.stats.of100, tone: true },
@@ -632,8 +655,10 @@ export default async function AthleteDetailPage({
         ))}
       </div>
       <p className="text-xs text-muted">{dict.stats.explainer}</p>
+      </>
+      )}
 
-      {acad && (
+      {acad && tab === "dev" && (
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-base">🎓 {dict.academy.title}</CardTitle>
@@ -669,7 +694,7 @@ export default async function AthleteDetailPage({
         </Card>
       )}
 
-      {latestSnap && (
+      {latestSnap && tab === "load" && (
         <Card>
           <CardContent className="flex flex-wrap items-center gap-4 pt-4">
             <div title={dict.coach.tipBaseline}>
@@ -697,6 +722,7 @@ export default async function AthleteDetailPage({
         </Card>
       )}
 
+      {tab === "today" && (
       <Card>
         <CardHeader>
           <CardTitle>{dd.calendar}</CardTitle>
@@ -762,7 +788,9 @@ export default async function AthleteDetailPage({
           </div>
         </CardContent>
       </Card>
+      )}
 
+      {tab === "load" && (
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -804,9 +832,13 @@ export default async function AthleteDetailPage({
           </CardContent>
         </Card>
       </div>
+      )}
 
+      {tab === "today" && (
       <AlertList alerts={(alerts as Alert[]) ?? []} dict={dict} />
+      )}
 
+      {tab === "load" && (
       <Card>
         <CardHeader>
           <CardTitle>{dd.painHistory}</CardTitle>
@@ -835,14 +867,17 @@ export default async function AthleteDetailPage({
           )}
         </CardContent>
       </Card>
+      )}
 
+      {tab === "dev" && (
       <CoachNotes
         athleteId={a.id}
         notes={(notes as CoachNote[]) ?? []}
         dict={dict}
       />
+      )}
 
-      {(consents ?? []).length > 0 && (
+      {(consents ?? []).length > 0 && tab === "dev" && (
         <Card>
           <CardHeader>
             <CardTitle>{dd.consent}</CardTitle>

@@ -603,6 +603,9 @@ const en: Dictionary = {
     priorityAlertsTitle: "Needs attention now",
   },
   athleteDetail: {
+    tabToday: "Today",
+    tabLoad: "Load & recovery",
+    tabDev: "Development",
     acadDetailsLink: "group stats →",
     acadAnswers: "Answers",
     acadAccuracy: "Correct",

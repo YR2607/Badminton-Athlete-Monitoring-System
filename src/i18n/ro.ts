@@ -603,6 +603,9 @@ const ro: Dictionary = {
     priorityAlertsTitle: "De verificat urgent",
   },
   athleteDetail: {
+    tabToday: "Astăzi",
+    tabLoad: "Sarcină și recuperare",
+    tabDev: "Dezvoltare",
     acadDetailsLink: "statistica grupei →",
     acadAnswers: "Răspunsuri",
     acadAccuracy: "Corecte",

@@ -605,6 +605,9 @@ const ru = {
     priorityAlertsTitle: "Срочно посмотреть",
   },
   athleteDetail: {
+    tabToday: "Сегодня",
+    tabLoad: "Нагрузка и восстановление",
+    tabDev: "Развитие",
     acadDetailsLink: "статистика группы →",
     acadAnswers: "Ответов",
     acadAccuracy: "Верно",
