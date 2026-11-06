@@ -21,7 +21,7 @@ if (!url || !key) {
 }
 async function main() {
   const write = process.argv.includes("--write");
-  const sb = createClient(url, key, { auth: { persistSession: false } });
+  const sb = createClient(url as string, key as string, { auth: { persistSession: false } });
 
   const { data: athletes, error } = await sb.from("athletes").select("id");
   if (error) throw error;
