@@ -162,7 +162,7 @@ const en: Dictionary = {
     fact: "actual",
     plan: "planned",
     acwrTitle: "Workload ratio (ACWR)",
-    acwrHint: "How fast load grows vs your usual. Optimal is 0.8–1.3; above 1.5 is too sharp.",
+    acwrHint: "How fast load grows vs your usual. A guide zone is 0.8–1.3; above 1.5 is a sharp rise. It's a check signal, not an injury forecast.",
     acwrForming: "Not enough data yet — at least 21 days of training needed",
     waveTitle: "BWF load wave (peaks 🔴 & deload 🟢)",
     waveGood: "Good load wave: peak days alternate with recovery windows",
@@ -193,9 +193,9 @@ const en: Dictionary = {
     decRejected: "rejected",
     texts: {
       plan_ok: "Plan unchanged — condition and load are within norm.",
-      reduce_load: "Reduce volume/intensity for 2–3 days, no jump work.",
+      reduce_load: "Discuss recovery with the athlete and adjust the plan if needed (volume/intensity, jump work).",
       talk: "Keep the load — talk to the athlete (stress/mood dipped).",
-      increase_load: "Gradually add load — the athlete is detraining.",
+      increase_load: "Check the actual training exposure and why load is low (missed sessions, illness, break) — don't add load automatically.",
       rest_medical: "Remove load on the painful area, refer to doctor/physio.",
       growth_spurt: "Growth spurt — limit jump work, watch landing technique.",
     },
@@ -749,7 +749,7 @@ const en: Dictionary = {
       },
       acwr_low: {
         name: "Under-loading (ACWR)",
-        desc: "Load is well below usual — the athlete is losing form. Informational.",
+        desc: "Load is well below usual — check the actual exposure and its causes. Informational.",
       },
       monotony_high: {
         name: "No easy days",

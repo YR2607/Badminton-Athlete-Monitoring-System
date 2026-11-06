@@ -162,7 +162,7 @@ const ro: Dictionary = {
     fact: "real",
     plan: "plan",
     acwrTitle: "Raportul de încărcătură (ACWR)",
-    acwrHint: "Cât de repede crește încărcătura față de cea obișnuită. Optim 0.8–1.3; peste 1.5 e prea brusc.",
+    acwrHint: "Cât de repede crește încărcătura față de cea obișnuită. Zonă orientativă 0.8–1.3; peste 1.5 e o creștere bruscă. E un semnal de verificare, nu o predicție de accidentare.",
     acwrForming: "Date insuficiente — sunt necesare cel puțin 21 de zile de antrenament",
     waveTitle: "Valul de încărcătură BWF (vârfuri 🔴 și descărcare 🟢)",
     waveGood: "Val bun de încărcătură: zilele de vârf alternează cu descărcarea",
@@ -193,9 +193,9 @@ const ro: Dictionary = {
     decRejected: "respins",
     texts: {
       plan_ok: "Planul rămâne — starea și încărcătura sunt în normă.",
-      reduce_load: "Reduceți volumul/intensitatea 2–3 zile, fără sărituri.",
+      reduce_load: "Discutați recuperarea cu sportivul și ajustați planul dacă e necesar (volum/intensitate, sărituri).",
       talk: "Nu schimbați încărcătura — discutați cu sportivul (stres/dispoziție scăzute).",
-      increase_load: "Puteți adăuga treptat încărcătură — sportivul e subîncărcat.",
+      increase_load: "Verificați expunerea reală la antrenament și cauzele încărcăturii mici (absențe, boală, pauză) — nu adăugați automat încărcătură.",
       rest_medical: "Eliminați încărcătura pe zona dureroasă, trimiteți la medic/kinetoterapeut.",
       growth_spurt: "Puiet de creștere — limitați săriturile, controlați tehnica de aterizare.",
     },
@@ -749,7 +749,7 @@ const ro: Dictionary = {
       },
       acwr_low: {
         name: "Subîncărcare (ACWR)",
-        desc: "Sarcina este mult sub cea obișnuită — sportivul își pierde forma. Informativ.",
+        desc: "Sarcina este mult sub cea obișnuită — verificați expunerea reală și cauzele. Informativ.",
       },
       monotony_high: {
         name: "Fără zile ușoare",
