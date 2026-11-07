@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { GroupReport } from "./group-report";
 import { requireRole } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { dateRange, localDate, resolveRange, todayInTz, type RangeKey } from "@/lib/dates";
@@ -16,7 +17,7 @@ import type {
 export default async function CoachReportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ athlete?: string; period?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ athlete?: string; group?: string; period?: string; from?: string; to?: string }>;
 }) {
   const sp = await searchParams;
   const profile = await requireRole(["coach", "admin"]);
@@ -31,6 +32,19 @@ export default async function CoachReportPage({
   const days = dateRange(range.from, range.to);
 
   const { data: athletes } = await supabase.from("athletes").select("*");
+  if (sp.group) {
+    return (
+      <GroupReport
+        groupId={sp.group}
+        days={days}
+        from={range.from}
+        to={range.to}
+        athletes={(athletes as Athlete[]) ?? []}
+        tz={tz}
+        dict={dict}
+      />
+    );
+  }
   const athlete = ((athletes as Athlete[]) ?? []).find((a) => a.id === sp.athlete);
   if (!athlete) {
     return (
