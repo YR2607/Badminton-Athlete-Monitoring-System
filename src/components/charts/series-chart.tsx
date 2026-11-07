@@ -292,6 +292,9 @@ export function LoadBarChart({
             dataKey="planned"
             name={plannedLabel}
             fill="var(--chart-planned)"
+            fillOpacity={0.35}
+            stroke="var(--chart-planned)"
+            strokeWidth={1.5}
             radius={[3, 3, 0, 0]}
             isAnimationActive={false}
           />

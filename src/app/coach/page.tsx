@@ -76,6 +76,7 @@ export default async function CoachDashboard({
 
   // Is any of the coach's groups scheduled to train today (template or override)?
   const groupIds = groups.map((g) => g.id);
+  const waveFrom = addDays(coachToday, -13);
   const [{ data: schedRows }, { data: overrideRows }] = groupIds.length
     ? await Promise.all([
         supabase
@@ -87,7 +88,8 @@ export default async function CoachDashboard({
           .from("session_plan_overrides")
           .select("plan_date, cancelled, start_time, planned_minutes, planned_rpe, group_id")
           .in("group_id", groupIds)
-          .eq("plan_date", coachToday),
+          .gte("plan_date", waveFrom)
+          .lte("plan_date", coachToday),
       ])
     : [{ data: [] }, { data: [] }];
   const plannedToday = groups.some((g) =>
@@ -97,7 +99,7 @@ export default async function CoachDashboard({
         (s) => s.group_id === g.id,
       ),
       ((overrideRows ?? []) as (PlanOverride & { group_id: string })[]).filter(
-        (o) => o.group_id === g.id,
+        (o) => o.group_id === g.id && o.plan_date === coachToday,
       ),
     ).scheduled,
   );
@@ -111,10 +113,27 @@ export default async function CoachDashboard({
         .gte("started_at", `${addDays(coachToday, -13)}T00:00:00Z`)
         .lt("started_at", `${addDays(coachToday, 1)}T00:00:00Z`)
     : { data: [] };
+  const { data: memberRows } = athleteIds.length
+    ? await supabase
+        .from("group_memberships")
+        .select("athlete_id, group_id")
+        .in("athlete_id", athleteIds)
+        .is("left_at", null)
+    : { data: [] };
+  const groupOf = new Map(
+    athleteIds.map((id) => [
+      id,
+      ((memberRows ?? []) as { athlete_id: string; group_id: string }[]).find(
+        (m) => m.athlete_id === id,
+      )?.group_id ?? null,
+    ]),
+  );
+  const schedAll = (schedRows ?? []) as (ScheduleInput & { group_id: string })[];
+  const ovAll = (overrideRows ?? []) as (PlanOverride & { group_id: string })[];
   const tzOf = (athleteId: string) =>
     rows.find((r) => r.athlete.id === athleteId)?.profile?.timezone ??
     profile.timezone;
-  const wave14Days = dateRange(addDays(coachToday, -13), coachToday).map((dt) => {
+  const wave14Days = dateRange(waveFrom, coachToday).map((dt) => {
     const dayTotals = new Map<string, number>();
     for (const s of (waveSessionsRaw ?? []) as TrainingSession[]) {
       if (s.session_rpe == null || s.duration_minutes == null) continue;
@@ -129,7 +148,29 @@ export default async function CoachDashboard({
     const avg = vals.length
       ? Math.round(vals.reduce((x, y) => x + y, 0) / vals.length)
       : 0;
-    return { date: dt, load: avg, n: vals.length };
+    // Coach's plan for the day — mean planned AU over athletes whose
+    // group has a plan, so the wave shows "задано vs получилось".
+    let planSum = 0;
+    let planN = 0;
+    for (const id of athleteIds) {
+      const g = groupOf.get(id);
+      if (!g) continue;
+      const p = plannedForDate(
+        dt,
+        schedAll.filter((s) => s.group_id === g),
+        ovAll.filter((o) => o.group_id === g),
+      ).planned;
+      if (p != null) {
+        planSum += p;
+        planN++;
+      }
+    }
+    return {
+      date: dt,
+      load: avg,
+      n: vals.length,
+      planned: planN ? Math.round(planSum / planN) : null,
+    };
   });
   const wave14 = analyzeLoadWave(wave14Days);
   // Sample size behind the group average — an avg over 3 of 20 athletes
@@ -507,9 +548,11 @@ export default async function CoachDashboard({
                   data={wave14Days.map((x) => ({
                     date: x.date.slice(5),
                     load: x.load,
+                    planned: x.planned,
                     wave: wave14.tags.get(x.date) ?? null,
                   }))}
-                  label={dict.dashboard.fact}
+                  label={dict.dashboard.factGroup}
+                  plannedLabel={dict.dashboard.plan}
                 />
                 <p className="text-[11px] text-muted">{dict.dashboard.waveLegend}</p>
                 <p
