@@ -386,7 +386,7 @@ export default async function AthleteDetailPage({
       )}
 
       {/* Three decision-oriented sections: today / load & recovery / development */}
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap items-center gap-1">
         {(["today", "load", "dev"] as const).map((k) => (
           <a
             key={k}
@@ -399,6 +399,12 @@ export default async function AthleteDetailPage({
             {k === "today" ? dd.tabToday : k === "load" ? dd.tabLoad : dd.tabDev}
           </a>
         ))}
+        <a
+          href={`/coach/report?athlete=${a.id}&period=7d`}
+          className="ml-auto rounded-lg bg-foreground/5 px-3 py-1.5 text-sm font-medium text-accent"
+        >
+          {dict.report.title} →
+        </a>
       </div>
 
       {/* Today block — independent of the selected period below */}
