@@ -58,6 +58,8 @@ const mkPost = (over: Partial<PostTrainingCheckin> = {}): PostTrainingCheckin =>
   pain_status: "none",
   pain_location: null,
   pain_side: null,
+  pain_severity: null,
+  pain_onset: null,
   pain_triggers: [],
   notes: null,
   ...over,

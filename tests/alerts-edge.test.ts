@@ -34,7 +34,7 @@ const mkPost = (submittedAt: string, over: Partial<PostTrainingCheckin> = {}): P
   submitted_at: submittedAt,
   overall_feeling: 3, leg_fatigue: 3, arm_shoulder_fatigue: 3,
   pain_status: "none", pain_location: null, pain_side: null,
-  pain_triggers: [], notes: null,
+  pain_severity: null, pain_onset: null, pain_triggers: [], notes: null,
   ...over,
 });
 

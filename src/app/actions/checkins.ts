@@ -8,6 +8,7 @@ import { evaluateAthleteDay } from "@/lib/evaluate";
 import { addDays, localDate, localDayUtcBounds } from "@/lib/dates";
 import { isFlagEnabled } from "@/lib/flags";
 import { morningCheckinSchema, postTrainingSchema } from "@/lib/validation";
+import { detectBodyZone } from "@/lib/body-zones";
 
 export type ActionResult = { ok?: boolean; error?: string };
 
@@ -162,6 +163,8 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
           pain_status: parsed.data.pain_status,
           pain_location: parsed.data.pain_location || null,
           pain_side: parsed.data.pain_side ?? null,
+          pain_severity: parsed.data.pain_severity ?? null,
+          pain_onset: parsed.data.pain_onset ?? null,
           pain_triggers: parsed.data.pain_triggers,
           notes: parsed.data.notes || null,
         })
@@ -249,7 +252,7 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
     if (!session) return { error: "error" };
   }
 
-  const { error } = await supabase.from("post_training_checkins").insert({
+  const { data: insertedPost, error } = await supabase.from("post_training_checkins").insert({
     training_session_id: session.id,
     athlete_id: athlete.id,
     overall_feeling: parsed.data.overall_feeling,
@@ -258,11 +261,29 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
     pain_status: parsed.data.pain_status,
     pain_location: parsed.data.pain_location || null,
     pain_side: parsed.data.pain_side ?? null,
+    pain_severity: parsed.data.pain_severity ?? null,
+    pain_onset: parsed.data.pain_onset ?? null,
     pain_triggers: parsed.data.pain_triggers,
     notes: parsed.data.notes || null,
     client_uuid: parsed.data.client_uuid,
-  });
+  }).select("id").single();
   if (error) return { error: error.code === "23505" ? "duplicate" : error.message };
+
+  // Normalized pain report for the unified feed (zone/severity/triggers).
+  if (parsed.data.pain_status !== "none") {
+    const zone = detectBodyZone(parsed.data.pain_location);
+    await createAdminClient().from("pain_reports").insert({
+      athlete_id: athlete.id,
+      source: "evening",
+      checkin_id: insertedPost?.id ?? null,
+      report_date: sessionDate,
+      zone: zone ?? "other",
+      side: parsed.data.pain_side ?? null,
+      severity: parsed.data.pain_severity ?? null,
+      triggers: parsed.data.pain_triggers,
+      onset: parsed.data.pain_onset ?? null,
+    });
+  }
 
   try {
     // Recompute the session's day — for backfills that's yesterday, so its

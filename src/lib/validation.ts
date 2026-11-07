@@ -51,7 +51,11 @@ export const postTrainingSchema = z
     pain_status: painStatus,
     pain_location: z.string().max(200).optional().or(z.literal("")),
     pain_side: painSide.optional(),
-    pain_triggers: z.array(z.enum(["walking", "jumping", "lunges", "rest"])).default([]),
+    pain_severity: z.number().int().min(1).max(10).optional(),
+    pain_onset: z.enum(["new", "same"]).optional(),
+    pain_triggers: z
+      .array(z.enum(["walking", "jumping", "lunges", "smash_serve", "footwork", "rest"]))
+      .default([]),
     notes: z.string().max(1000).optional().or(z.literal("")),
     client_uuid: z.string().uuid(),
   })

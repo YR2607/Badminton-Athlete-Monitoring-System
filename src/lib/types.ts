@@ -171,8 +171,27 @@ export interface PostTrainingCheckin {
   pain_status: PainStatus;
   pain_location: string | null;
   pain_side: PainSide | null;
+  pain_severity: number | null;
+  pain_onset: string | null;
   pain_triggers: string[];
   notes: string | null;
+}
+
+export type PainSource = "morning" | "evening" | "ostrc";
+
+export interface PainReport {
+  id: string;
+  athlete_id: string;
+  source: PainSource;
+  checkin_id: string | null;
+  report_date: string;
+  zone: string;
+  side: PainSide | null;
+  severity: number | null;
+  triggers: string[];
+  onset: string | null;
+  notes: string | null;
+  created_at: string;
 }
 
 export interface ReadinessSnapshot {

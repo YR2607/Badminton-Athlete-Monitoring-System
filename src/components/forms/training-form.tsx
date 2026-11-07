@@ -27,6 +27,8 @@ const schema = z.object({
   pain_status: z.enum(["none", "muscle_soreness", "joint_tendon", "acute_instability", "other"]),
   pain_location: z.string().optional(),
   pain_side: z.enum(["left", "right", "both", "na"]).optional(),
+  pain_severity: z.number().min(1).max(10).optional(),
+  pain_onset: z.enum(["new", "same"]).optional(),
   pain_triggers: z.array(z.string()).default([]),
   notes: z.string().optional(),
 });
@@ -36,6 +38,11 @@ const painKeys = ["painNone", "painMuscle", "painJoint", "painAcute", "painOther
 const painValues = ["none", "muscle_soreness", "joint_tendon", "acute_instability", "other"] as const;
 const sideKeys = ["sideLeft", "sideRight", "sideBoth", "sideNa"] as const;
 const sideValues = ["left", "right", "both", "na"] as const;
+// Badminton-specific triggers — tell the coach exactly what provoked it.
+const triggerKeys = ["triggerLunges", "triggerJumping", "triggerSmash", "triggerFootwork", "triggerRest"] as const;
+const triggerValues = ["lunges", "jumping", "smash_serve", "footwork", "rest"] as const;
+const onsetKeys = ["painOnsetNew", "painOnsetSame"] as const;
+const onsetValues = ["new", "same"] as const;
 
 /**
  * Only the dictionary slices the form renders — passing the whole Dictionary
@@ -136,6 +143,8 @@ export function TrainingForm({
         pain_status: values.pain_status,
         pain_location: values.pain_location,
         pain_side: values.pain_side,
+        pain_severity: values.pain_severity,
+        pain_onset: values.pain_onset,
         pain_triggers: values.pain_triggers,
         notes: values.notes,
         client_uuid: crypto.randomUUID(),
@@ -405,6 +414,68 @@ export function TrainingForm({
                     </div>
                   )}
                 />
+              </div>
+              <div>
+                <Label>{dm.painSeverity}</Label>
+                <Controller
+                  control={control}
+                  name="pain_severity"
+                  render={({ field }) => (
+                    <ScaleInput min={1} max={10} value={field.value} onChange={field.onChange} />
+                  )}
+                />
+              </div>
+              <div>
+                <Label>{dm.painOnsetQ}</Label>
+                <Controller
+                  control={control}
+                  name="pain_onset"
+                  render={({ field }) => (
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {onsetValues.map((v, i) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => field.onChange(v)}
+                          className={cn(
+                            "rounded-lg border px-2 py-2 text-xs",
+                            field.value === v ? "border-accent bg-accent/5 font-medium" : "border-border",
+                          )}
+                        >
+                          {dm[onsetKeys[i]]}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                />
+              </div>
+              <div>
+                <Label>{dm.painTriggers}</Label>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {triggerValues.map((v, i) => {
+                    const sel = (watch("pain_triggers") ?? []).includes(v);
+                    return (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() =>
+                          setValue(
+                            "pain_triggers",
+                            sel
+                              ? (watch("pain_triggers") ?? []).filter((x) => x !== v)
+                              : [...(watch("pain_triggers") ?? []), v],
+                          )
+                        }
+                        className={cn(
+                          "rounded-lg border px-2 py-2 text-xs",
+                          sel ? "border-accent bg-accent/5 font-medium" : "border-border",
+                        )}
+                      >
+                        {dm[triggerKeys[i]]}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
