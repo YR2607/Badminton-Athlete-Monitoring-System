@@ -4,8 +4,10 @@ import { athleteStats } from "@/lib/analytics";
 import { postsByLocalDate } from "@/lib/readiness";
 import { plannedForDate, type PlanOverride } from "@/lib/load";
 import { attendanceSummary } from "@/lib/attendance";
+import { detectBodyZone } from "@/lib/body-zones";
 import { LoadBarChart } from "@/components/charts/series-chart";
 import { PrintButton } from "./print-button";
+import { PeriodBar } from "./period-bar";
 import type { Dictionary } from "@/i18n";
 import type {
   Alert, Athlete, AttendanceStatus, Group, MorningCheckin,
@@ -15,6 +17,7 @@ import type {
 /** Whole-group period report — summary + load chart + per-athlete rows, printable. */
 export async function GroupReport({
   groupId,
+  period,
   days,
   from,
   to,
@@ -24,6 +27,7 @@ export async function GroupReport({
   cols,
 }: {
   groupId: string;
+  period: string;
   days: string[];
   from: string;
   to: string;
@@ -77,38 +81,60 @@ export async function GroupReport({
   const schedules = (schedRes.data as TrainingSchedule[]) ?? [];
   const overrides = (ovRes.data as PlanOverride[]) ?? [];
 
-  const plannedTotal = days.reduce(
-    (sum, day) => sum + (plannedForDate(day, schedules, overrides).planned ?? 0),
-    0,
-  );
+  const plans = days.map((day) => plannedForDate(day, schedules, overrides));
+  const plannedTotal = plans.reduce((sum, p) => sum + (p.planned ?? 0), 0);
+  const plannedRpes = plans.map((p) => p.planned_rpe).filter((v): v is number => v != null);
+  const plannedAvgRpe = plannedRpes.length
+    ? Number((plannedRpes.reduce((a, b) => a + b, 0) / plannedRpes.length).toFixed(1))
+    : null;
+  const zoneOf = (z: string) => (dict.pro.bodyZones as Record<string, string>)[z] ?? z;
 
   const rowsOut = rows.map((a) => {
     const aTz = profById.get(a.profile_id)?.timezone ?? tz;
     const mySes = sessions.filter((s) => s.athlete_id === a.id);
+    const myCk = checkins.filter((c) => c.athlete_id === a.id);
+    const myPosts = posts.filter((p) => p.athlete_id === a.id);
     const st = athleteStats(
-      a.id, days,
-      checkins.filter((c) => c.athlete_id === a.id),
-      mySes,
+      a.id, days, myCk, mySes,
       alerts.filter((x) => x.athlete_id === a.id),
-      postsByLocalDate(posts.filter((p) => p.athlete_id === a.id), aTz),
-      aTz,
+      postsByLocalDate(myPosts, aTz), aTz,
     );
-    const au = mySes
-      .filter((s) => s.session_rpe != null && s.duration_minutes != null)
-      .reduce((x, s) => x + s.session_rpe! * s.duration_minutes!, 0);
+    const known = mySes.filter((s) => s.session_rpe != null && s.duration_minutes != null);
+    const au = known.reduce((x, s) => x + s.session_rpe! * s.duration_minutes!, 0);
+    const avgRpe = known.length
+      ? Number((known.reduce((x, s) => x + s.session_rpe!, 0) / known.length).toFixed(1))
+      : null;
     const sessionDates = new Set(mySes.map((s) => localDate(new Date(s.started_at), aTz)));
     const marksMap = new Map(
       attendance.filter((x) => x.athlete_id === a.id).map((x) => [x.att_date, x.status]),
     );
     const att = attendanceSummary(days, schedules, overrides, sessionDates, marksMap);
+
+    // Unified pain count + top zone
+    const myZones: string[] = [
+      ...pains.filter((p) => p.athlete_id === a.id).map((p) => p.zone),
+      ...myCk.filter((c) => c.pain_status !== "none").map((c) => detectBodyZone(c.pain_location) ?? c.pain_status),
+      ...myPosts.filter((p) => p.pain_status !== "none").map((p) => detectBodyZone(p.pain_location) ?? p.pain_status),
+    ];
+    const zCount = new Map<string, number>();
+    for (const z of myZones) zCount.set(z, (zCount.get(z) ?? 0) + 1);
+    const topZone = [...zCount.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? null;
+    const maxSev = Math.max(
+      0,
+      ...pains.filter((p) => p.athlete_id === a.id).map((p) => p.severity ?? 0),
+      ...myCk.map((c) => c.pain_severity ?? 0),
+      ...myPosts.map((p) => p.pain_severity ?? 0),
+    );
     return {
       a,
       name: profById.get(a.profile_id)?.display_name ?? a.athlete_code,
       st,
       au,
+      avgRpe,
       pctPlan: plannedTotal > 0 && au > 0 ? Math.round((au / plannedTotal) * 100) : null,
-      pain: pains.filter((p) => p.athlete_id === a.id).length,
-      maxSev: Math.max(0, ...pains.filter((p) => p.athlete_id === a.id).map((p) => p.severity ?? 0)),
+      pain: myZones.length,
+      topZone,
+      maxSev,
       att,
       openAlerts: alerts.filter((x) => x.athlete_id === a.id && x.status === "open").length,
     };
@@ -140,13 +166,23 @@ export async function GroupReport({
   const avgAttRate = attRates.length
     ? Math.round(attRates.reduce((a, b) => a + b, 0) / attRates.length)
     : null;
+  const colsParam = [...cols].join(",");
 
   return (
     <main className="mx-auto max-w-4xl space-y-4 p-4 print:p-0">
-      <div className="flex items-center justify-between print:hidden">
+      <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
         <a href="/coach/report" className="text-sm text-accent">← {d.changeFilter}</a>
         <PrintButton label={d.print} />
       </div>
+
+      <PeriodBar
+        baseHref={`/coach/report?group=${groupId}&cols=${colsParam}`}
+        period={period}
+        from={from}
+        to={to}
+        d={d}
+      />
+
       <header>
         <h1 className="text-2xl font-bold">{d.groupTitle}: {(group as Group).name}</h1>
         <p className="text-sm text-muted">{from} → {to}</p>
@@ -177,11 +213,12 @@ export async function GroupReport({
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted">
               <th className="p-2.5">{d.colAthlete}</th>
+              {cols.has("att") && <th className="p-2.5">{d.colTrainings}</th>}
               {cols.has("fill") && <th className="p-2.5">{d.colFill}</th>}
               {cols.has("score") && <th className="p-2.5">{d.colScore}</th>}
+              {cols.has("au") && <th className="p-2.5">{d.colRpePlanFact}</th>}
               {cols.has("au") && <th className="p-2.5">{d.factVsPlan} (AU)</th>}
               {cols.has("pain") && <th className="p-2.5">{d.colPain}</th>}
-              {cols.has("att") && <th className="p-2.5">{d.colAtt}</th>}
               {cols.has("alerts") && <th className="p-2.5">{d.colAlerts}</th>}
             </tr>
           </thead>
@@ -194,10 +231,22 @@ export async function GroupReport({
                     {r.name}
                   </a>
                 </td>
+                {cols.has("att") && (
+                  <td className="p-2.5 tabular-nums">
+                    {r.att.scheduled === 0
+                      ? "—"
+                      : `${r.att.attended}/${r.att.scheduled} (${r.att.rate ?? 0}%)`}
+                  </td>
+                )}
                 {cols.has("fill") && (
                   <td className="p-2.5 tabular-nums">{r.st.filled}/{r.st.expected} ({r.st.rate}%)</td>
                 )}
                 {cols.has("score") && <td className="p-2.5 tabular-nums">{r.st.avgReadiness ?? "—"}</td>}
+                {cols.has("au") && (
+                  <td className="p-2.5 tabular-nums">
+                    {r.avgRpe ?? "—"} / {plannedAvgRpe ?? "—"}
+                  </td>
+                )}
                 {cols.has("au") && (
                   <td className="p-2.5 tabular-nums">
                     {r.au ? `${r.au} / ${plannedTotal || "—"}` : "—"}
@@ -205,15 +254,10 @@ export async function GroupReport({
                   </td>
                 )}
                 {cols.has("pain") && (
-                  <td className="p-2.5 tabular-nums">
-                    {r.pain === 0 ? "—" : `${r.pain}${r.maxSev >= 7 ? " ⚠️" : ""}`}
-                  </td>
-                )}
-                {cols.has("att") && (
-                  <td className="p-2.5 tabular-nums">
-                    {r.att.scheduled === 0
+                  <td className="p-2.5">
+                    {r.pain === 0
                       ? "—"
-                      : `${r.att.attended}/${r.att.scheduled} (${r.att.rate ?? 0}%)`}
+                      : `${r.pain}${r.maxSev >= 7 ? " ⚠️" : ""}${r.topZone ? ` (${zoneOf(r.topZone)})` : ""}`}
                   </td>
                 )}
                 {cols.has("alerts") && <td className="p-2.5 tabular-nums">{r.openAlerts || "—"}</td>}

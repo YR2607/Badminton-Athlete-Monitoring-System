@@ -219,6 +219,12 @@ export default async function AthleteDetailPage({
     { key: "mood_score", label: dict.history.mood, hint: dd.today.hints.mood, inverted: false },
   ];
 
+  const dashLoadByDate = new Map(dashLoads.map((l) => [l.date, l]));
+  const fmtDayLoad = (d: string) => {
+    const l = dashLoadByDate.get(d);
+    if (!l || l.state !== "known" || l.load === 0) return dict.report.noLoadPrev;
+    return `${l.load} AU${l.planned ? ` (${dict.report.planShort} ${l.planned})` : ""}`;
+  };
   const painEntries = [
     ...ck.filter((c) => c.pain_status !== "none").map((c) => ({
       date: c.checkin_date,
@@ -390,7 +396,7 @@ export default async function AthleteDetailPage({
         {(["today", "load", "dev"] as const).map((k) => (
           <a
             key={k}
-            href={`/coach/athletes/${a.id}?tab=${k}`}
+            href={`/coach/athletes/${a.id}?tab=${k}${sp.range ? `&range=${sp.range}` : ""}${sp.from ? `&from=${sp.from}` : ""}${sp.to ? `&to=${sp.to}` : ""}`}
             className={cn(
               "rounded-lg px-3 py-1.5 text-sm font-medium",
               tab === k ? "bg-accent text-accent-foreground" : "bg-foreground/5",
@@ -400,10 +406,10 @@ export default async function AthleteDetailPage({
           </a>
         ))}
         <a
-          href={`/coach/report?athlete=${a.id}&period=7d`}
+          href={`/coach/report?athlete=${a.id}&period=custom&from=${range.from}&to=${range.to}`}
           className="ml-auto rounded-lg bg-foreground/5 px-3 py-1.5 text-sm font-medium text-accent"
         >
-          {dict.report.title} →
+          {dict.report.title} ({range.from.slice(5)}→{range.to.slice(5)}) →
         </a>
       </div>
 
@@ -617,11 +623,11 @@ export default async function AthleteDetailPage({
       )}
 
       {tab === "load" && (
-      <div className="flex flex-wrap gap-1">
+      <div className="flex flex-wrap items-center gap-1.5">
           {rangeKeys.map((k) => (
             <a
               key={k}
-              href={`/coach/athletes/${a.id}?range=${k}`}
+              href={`/coach/athletes/${a.id}?tab=load&range=${k}`}
               className={cn(
                 "rounded-lg px-2.5 py-1.5 text-xs",
                 (sp.range ?? "30d") === k ? "bg-accent text-accent-foreground" : "bg-foreground/5",
@@ -630,6 +636,26 @@ export default async function AthleteDetailPage({
               {dict.ranges[k]}
             </a>
           ))}
+          <form method="get" action={`/coach/athletes/${a.id}`} className="flex items-center gap-1 text-xs">
+            <input type="hidden" name="tab" value="load" />
+            <input type="hidden" name="range" value="custom" />
+            <input
+              type="date"
+              name="from"
+              defaultValue={range.from}
+              className="rounded-lg border border-border bg-surface px-2 py-1 text-xs"
+            />
+            <span className="text-muted">→</span>
+            <input
+              type="date"
+              name="to"
+              defaultValue={range.to}
+              className="rounded-lg border border-border bg-surface px-2 py-1 text-xs"
+            />
+            <button type="submit" className="rounded-lg bg-accent px-2.5 py-1.5 font-medium text-white">
+              {dict.report.applyDates}
+            </button>
+          </form>
       </div>
       )}
 
@@ -854,21 +880,30 @@ export default async function AthleteDetailPage({
             <p className="text-sm text-muted">{dict.history.noPain}</p>
           ) : (
             <ul className="divide-y divide-border text-sm">
-              {painEntries.map((p, i) => (
-                <li key={i} className="flex items-center justify-between py-2">
-                  <span>
-                    {p.date} · {p.src}
-                  </span>
-                  <span className="flex items-center gap-2 text-muted">
-                    {p.location ?? p.status}
-                    {p.status === "acute_instability" && (
-                      <Badge tone="danger" title={dict.coach.tipAcute}>
-                        !
-                      </Badge>
-                    )}
-                  </span>
-                </li>
-              ))}
+              {painEntries.map((p, i) => {
+                const prevDay = addDays(p.date, -1);
+                return (
+                  <li key={i} className="py-2">
+                    <div className="flex items-center justify-between">
+                      <span>
+                        {p.date} · {p.src}
+                      </span>
+                      <span className="flex items-center gap-2 text-muted">
+                        {p.location ?? p.status}
+                        {p.status === "acute_instability" && (
+                          <Badge tone="danger" title={dict.coach.tipAcute}>
+                            !
+                          </Badge>
+                        )}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted tabular-nums">
+                      ↳ {dict.report.prevDayLoad} ({prevDay.slice(5)}): <b>{fmtDayLoad(prevDay)}</b>
+                      {" · "}{dict.report.sameDayLoad}: <b>{fmtDayLoad(p.date)}</b>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </CardContent>

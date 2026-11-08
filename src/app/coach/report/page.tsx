@@ -1,13 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { GroupReport } from "./group-report";
 import { ReportBuilder } from "./report-builder";
+import { PeriodBar } from "./period-bar";
 import { requireRole } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { dateRange, localDate, resolveRange, type RangeKey } from "@/lib/dates";
 import { athleteStats } from "@/lib/analytics";
 import { dailyReadiness, postsByLocalDate, personalNorm } from "@/lib/readiness";
-import { dailyLoads, loadCoverage } from "@/lib/load";
+import { dailyLoads, loadCoverage, plannedForDate } from "@/lib/load";
 import { attendanceSummary, effectiveAttendance } from "@/lib/attendance";
+import { detectBodyZone } from "@/lib/body-zones";
 import { LoadBarChart } from "@/components/charts/series-chart";
 import { PrintButton } from "./print-button";
 import type { PlanOverride } from "@/lib/load";
@@ -30,7 +32,10 @@ export default async function CoachReportPage({
   const tz = profile.timezone ?? "Europe/Chisinau";
 
   const period: RangeKey =
-    sp.period === "month" ? "month" : sp.period === "custom" ? "custom" : "7d";
+    sp.period === "month" ? "month"
+    : sp.period === "30d" ? "30d"
+    : sp.period === "custom" ? "custom"
+    : "7d";
   const range = resolveRange(period, tz, { from: sp.from, to: sp.to });
   const days = dateRange(range.from, range.to);
 
@@ -43,6 +48,7 @@ export default async function CoachReportPage({
     return (
       <GroupReport
         groupId={sp.group}
+        period={period}
         days={days}
         from={range.from}
         to={range.to}
@@ -81,23 +87,24 @@ export default async function CoachReportPage({
   const aProf = profRow as Profile | null;
   const aTz = aProf?.timezone ?? tz;
   const name = aProf?.display_name ?? athlete.athlete_code;
+  const prevFrom = addDaysStr(range.from, -1); // need 1 day before range for prev-day load on pain
 
   const [ckRes, postRes, sesRes, alertRes, schedRes, ovRes, attRes, painRes, membRes] =
     await Promise.all([
       supabase.from("morning_checkins").select("*").eq("athlete_id", athlete.id)
         .gte("checkin_date", range.from).lte("checkin_date", range.to),
       supabase.from("post_training_checkins").select("*").eq("athlete_id", athlete.id)
-        .gte("submitted_at", `${addDaysStr(range.from, -1)}T00:00:00Z`)
+        .gte("submitted_at", `${prevFrom}T00:00:00Z`)
         .lte("submitted_at", `${range.to}T23:59:59Z`),
       supabase.from("training_sessions").select("*").eq("athlete_id", athlete.id)
-        .gte("started_at", `${range.from}T00:00:00Z`)
+        .gte("started_at", `${prevFrom}T00:00:00Z`)
         .lt("started_at", `${addDaysStr(range.to, 1)}T00:00:00Z`),
       supabase.from("alerts").select("*").eq("athlete_id", athlete.id)
         .gte("triggered_at", `${range.from}T00:00:00Z`)
         .lte("triggered_at", `${range.to}T23:59:59Z`),
       supabase.from("training_schedules").select("*").eq("active", true),
       supabase.from("session_plan_overrides").select("*")
-        .gte("plan_date", range.from).lte("plan_date", range.to),
+        .gte("plan_date", prevFrom).lte("plan_date", range.to),
       supabase.from("attendance").select("att_date, status").eq("athlete_id", athlete.id)
         .gte("att_date", range.from).lte("att_date", range.to),
       supabase.from("pain_reports").select("*").eq("athlete_id", athlete.id)
@@ -106,10 +113,18 @@ export default async function CoachReportPage({
     ]);
 
   const checkins = (ckRes.data as MorningCheckin[]) ?? [];
-  const posts = (postRes.data as PostTrainingCheckin[]) ?? [];
-  const sessions = (sesRes.data as TrainingSession[]) ?? [];
+  const allPosts = (postRes.data as PostTrainingCheckin[]) ?? [];
+  const posts = allPosts.filter((p) => {
+    const dt = localDate(new Date(p.submitted_at), aTz);
+    return dt >= range.from && dt <= range.to;
+  });
+  const allSessions = (sesRes.data as TrainingSession[]) ?? [];
+  const sessions = allSessions.filter((s) => {
+    const dt = localDate(new Date(s.started_at), aTz);
+    return dt >= range.from && dt <= range.to;
+  });
   const alerts = (alertRes.data as Alert[]) ?? [];
-  const pains = (painRes.data as PainReport[]) ?? [];
+  const painRows = (painRes.data as PainReport[]) ?? [];
   const membership = (membRes.data as Pick<GroupMembership, "group_id">[] | null)?.[0];
   const mySchedules = ((schedRes.data as (TrainingSchedule & { group_id: string })[]) ?? [])
     .filter((s) => s.group_id === membership?.group_id);
@@ -118,11 +133,12 @@ export default async function CoachReportPage({
   const attRows = (attRes.data as { att_date: string; status: AttendanceStatus }[]) ?? [];
 
   const stats = athleteStats(athlete.id, days, checkins, sessions, alerts, postsByLocalDate(posts, aTz), aTz);
-  const sessionInputs = sessions.map((s) => ({
+  const allSessionInputs = allSessions.map((s) => ({
     date: localDate(new Date(s.started_at), aTz),
     rpe: s.session_rpe,
     minutes: s.duration_minutes,
   }));
+  const sessionInputs = allSessionInputs.filter((s) => s.date >= range.from && s.date <= range.to);
   const sessionDates = new Set(sessionInputs.map((s) => s.date));
   const marksMap = new Map(attRows.map((a) => [a.att_date, a.status]));
   const att = attendanceSummary(days, mySchedules, myOverrides, sessionDates, marksMap);
@@ -131,40 +147,138 @@ export default async function CoachReportPage({
     present: new Set(attRows.filter((a) => a.status === "present").map((a) => a.att_date)),
     absent: new Set(attRows.filter((a) => a.status !== "present").map((a) => a.att_date)),
   };
-  const loads = dailyLoads(days, sessionInputs, mySchedules, myOverrides, attendanceMarks);
+  const loadsWithPrev = dailyLoads([prevFrom, ...days], allSessionInputs, mySchedules, myOverrides, attendanceMarks);
+  const loadByDate = new Map(loadsWithPrev.map((l) => [l.date, l]));
+  const loads = loadsWithPrev.slice(1);
   const coverage = loadCoverage(loads);
   const overPlan = loads.filter((l) => l.state === "known" && l.planned != null && l.load > l.planned * 1.25).length;
-  const totalAU = loads.reduce((a, l) => a + (l.state === "known" ? l.load : 0), 0);
+
+  // Plan vs Actual aggregates
+  const plans = days.map((day) => plannedForDate(day, mySchedules, myOverrides));
+  const plannedDays = plans.filter((p) => p.scheduled);
+  const plannedMin = plannedDays.reduce((a, p) => a + (p.planned_minutes ?? 0), 0);
+  const plannedRpeVals = plannedDays.map((p) => p.planned_rpe).filter((v): v is number => v != null);
+  const plannedAvgRpe = plannedRpeVals.length
+    ? Number((plannedRpeVals.reduce((a, b) => a + b, 0) / plannedRpeVals.length).toFixed(1))
+    : null;
   const plannedAU = loads.reduce((a, l) => a + (l.planned ?? 0), 0);
+
+  const totalAU = loads.reduce((a, l) => a + (l.state === "known" ? l.load : 0), 0);
   const planPct = plannedAU > 0 ? Math.round((totalAU / plannedAU) * 100) : null;
   const knownSessions = sessionInputs.filter((s) => s.rpe != null && s.minutes != null);
-  const avgRpe = knownSessions.length
-    ? (knownSessions.reduce((a, s) => a + s.rpe!, 0) / knownSessions.length).toFixed(1)
-    : "—";
-  const avgMin = knownSessions.length
-    ? Math.round(knownSessions.reduce((a, s) => a + s.minutes!, 0) / knownSessions.length)
-    : "—";
-  const avgSessionAU = knownSessions.length ? Math.round(totalAU / knownSessions.length) : "—";
+  const actualMin = sessionInputs.reduce((a, s) => a + (s.minutes ?? 0), 0);
+  const actualAvgRpe = knownSessions.length
+    ? Number((knownSessions.reduce((a, s) => a + s.rpe!, 0) / knownSessions.length).toFixed(1))
+    : null;
+  const rpeDelta = actualAvgRpe != null && plannedAvgRpe != null
+    ? Number((actualAvgRpe - plannedAvgRpe).toFixed(1))
+    : null;
 
+  // Readiness & load-tolerance comparison (morning score after heavy vs normal days)
   const series = dailyReadiness(checkins);
   const scoreByDate = new Map(series.map((s) => [s.date, s.score]));
   const ckByDate = new Map(checkins.map((c) => [c.checkin_date, c]));
-  const loadByDate = new Map(loads.map((l) => [l.date, l]));
   const norm = personalNorm(series, range.to);
   const belowNorm = norm ? series.filter((s) => s.score < norm.avg - norm.sd).length : null;
 
+  const afterHeavy: number[] = [];
+  const afterNormal: number[] = [];
+  for (const day of days) {
+    const sc = scoreByDate.get(day);
+    if (sc == null) continue;
+    const prev = loadByDate.get(addDaysStr(day, -1));
+    if (prev && prev.state === "known" && prev.planned && prev.load > prev.planned * 1.15) {
+      afterHeavy.push(sc);
+    } else {
+      afterNormal.push(sc);
+    }
+  }
+  const avgArr = (xs: number[]) => (xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null);
+  const avgAfterHeavy = avgArr(afterHeavy);
+  const avgAfterNormal = avgArr(afterNormal);
+
+  // Unified pain list (pain_reports + morning + evening checkins), deduplicated per day+zone
   const zoneOf = (z: string) => (dict.pro.bodyZones as Record<string, string>)[z] ?? z;
+  const painEvents: {
+    date: string;
+    zone: string;
+    rawLoc: string | null;
+    side: string | null;
+    severity: number | null;
+    onset: string | null;
+    src: string;
+  }[] = [];
+  const seenPain = new Set<string>();
+  const pushPain = (e: (typeof painEvents)[number]) => {
+    const k = `${e.date}:${e.zone}:${e.src}`;
+    if (seenPain.has(k)) return;
+    seenPain.add(k);
+    painEvents.push(e);
+  };
+  for (const p of painRows) {
+    pushPain({
+      date: p.report_date,
+      zone: p.zone,
+      rawLoc: p.notes,
+      side: p.side,
+      severity: p.severity,
+      onset: p.onset,
+      src: p.source === "morning" ? dict.nav.morning : dict.nav.training,
+    });
+  }
+  for (const c of checkins) {
+    if (c.pain_status === "none") continue;
+    pushPain({
+      date: c.checkin_date,
+      zone: detectBodyZone(c.pain_location) ?? c.pain_status,
+      rawLoc: c.pain_location,
+      side: c.pain_side,
+      severity: c.pain_severity,
+      onset: c.pain_onset,
+      src: dict.nav.morning,
+    });
+  }
+  for (const p of posts) {
+    if (p.pain_status === "none") continue;
+    pushPain({
+      date: localDate(new Date(p.submitted_at), aTz),
+      zone: detectBodyZone(p.pain_location) ?? p.pain_status,
+      rawLoc: p.pain_location,
+      side: p.pain_side,
+      severity: p.pain_severity,
+      onset: p.pain_onset,
+      src: dict.nav.training,
+    });
+  }
+  painEvents.sort((a, b) => a.date.localeCompare(b.date));
+  const zoneCounts = new Map<string, number>();
+  for (const e of painEvents) zoneCounts.set(e.zone, (zoneCounts.get(e.zone) ?? 0) + 1);
+
+  const fmtLoadCtx = (day: string) => {
+    const l = loadByDate.get(day);
+    if (!l || l.state !== "known" || l.load === 0) return d.noLoadPrev;
+    return `${l.load} AU${l.planned ? ` (${d.planShort} ${l.planned})` : ""}`;
+  };
+
   const chartData = loads.map((l) => ({ date: l.date, load: l.load, planned: l.planned, state: l.state }));
 
   return (
     <main className="mx-auto max-w-3xl space-y-4 p-4 print:p-0">
-      <div className="flex items-center justify-between print:hidden">
+      <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
         <div className="flex gap-3 text-sm">
-          <a href={`/coach/athletes/${athlete.id}`} className="text-accent">← {name}</a>
+          <a href={`/coach/athletes/${athlete.id}?tab=load&range=${period}&from=${range.from}&to=${range.to}`} className="text-accent">← {name}</a>
           <a href="/coach/report" className="text-muted hover:text-foreground">· {d.changeFilter}</a>
         </div>
         <PrintButton label={d.print} />
       </div>
+
+      <PeriodBar
+        baseHref={`/coach/report?athlete=${athlete.id}`}
+        period={period}
+        from={range.from}
+        to={range.to}
+        d={d}
+      />
 
       <header>
         <h1 className="text-2xl font-bold">{d.title}: {name}</h1>
@@ -176,73 +290,160 @@ export default async function CoachReportPage({
         </p>
       </header>
 
-      <section className="rounded-xl border border-border p-4">
-        <h2 className="mb-2 font-semibold">{d.wellness}</h2>
+      {/* Main comparison table: Coach plan vs Athlete actual */}
+      <section className="overflow-x-auto rounded-xl border border-border">
+        <div className="border-b border-border p-3">
+          <h2 className="font-semibold">{d.cmpTitle}</h2>
+          <p className="text-xs text-muted">AU — {d.auExplain}</p>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-xs text-muted">
+              <th className="p-2.5">{d.cmpMetric}</th>
+              <th className="p-2.5">{d.cmpPlanned}</th>
+              <th className="p-2.5">{d.cmpActual}</th>
+              <th className="p-2.5">{d.cmpDiff}</th>
+            </tr>
+          </thead>
+          <tbody className="tabular-nums">
+            <tr className="border-b border-border/50">
+              <td className="p-2.5 font-medium">{d.cmpTrainings}</td>
+              <td className="p-2.5">{att.scheduled}</td>
+              <td className="p-2.5">
+                <b>{att.attended}</b>
+                {att.absent > 0 ? <span className="text-xs text-danger"> ({d.absent}: {att.absent})</span> : null}
+                {att.excused > 0 ? <span className="text-xs text-muted"> ({d.excused}: {att.excused})</span> : null}
+              </td>
+              <td className="p-2.5">{att.rate != null ? `${att.rate}%` : "—"}</td>
+            </tr>
+            <tr className="border-b border-border/50">
+              <td className="p-2.5 font-medium">{d.cmpMinutes}</td>
+              <td className="p-2.5">{plannedMin || "—"}</td>
+              <td className="p-2.5"><b>{actualMin || "—"}</b></td>
+              <td className="p-2.5">
+                {plannedMin > 0 && actualMin > 0 ? `${Math.round((actualMin / plannedMin) * 100)}%` : "—"}
+              </td>
+            </tr>
+            <tr className="border-b border-border/50">
+              <td className="p-2.5 font-medium">{d.cmpRpe}</td>
+              <td className="p-2.5">{plannedAvgRpe ?? "—"}</td>
+              <td className="p-2.5"><b>{actualAvgRpe ?? "—"}</b></td>
+              <td className="p-2.5">
+                {rpeDelta === null ? "—" : (
+                  <span className={rpeDelta > 1 ? "text-danger font-medium" : rpeDelta < -1 ? "text-warn" : "text-ok"}>
+                    {rpeDelta > 0 ? `+${rpeDelta}` : rpeDelta} ({rpeDelta > 0.5 ? d.rpeHarder : rpeDelta < -0.5 ? d.rpeEasier : d.rpeOnTarget})
+                  </span>
+                )}
+              </td>
+            </tr>
+            <tr className="border-b border-border/50">
+              <td className="p-2.5 font-medium">{d.cmpLoadAU}</td>
+              <td className="p-2.5">{plannedAU || "—"}</td>
+              <td className="p-2.5"><b>{totalAU || "—"}</b></td>
+              <td className="p-2.5">
+                {planPct != null ? `${planPct}%` : "—"}
+                {overPlan > 0 ? <span className="text-xs text-warn"> · {d.overPlan}: {overPlan}</span> : null}
+              </td>
+            </tr>
+            <tr>
+              <td className="p-2.5 font-medium">{d.cmpCheckins}</td>
+              <td className="p-2.5">{days.length} / {att.attended}</td>
+              <td className="p-2.5"><b>{checkins.length}</b> / <b>{posts.length}</b></td>
+              <td className="p-2.5">{stats.rate}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      {/* Load chart */}
+      <section className="space-y-2 rounded-xl border border-border p-4 print:hidden">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold">{d.loadChartTitle}</h2>
+          <span className="text-xs text-muted">
+            {coverage.reliable
+              ? d.loadCoverage.replace("{pct}", String(coverage.pct))
+              : d.loadUnreliable.replace("{pct}", String(coverage.pct))}
+          </span>
+        </div>
+        <LoadBarChart
+          data={chartData}
+          height={170}
+          label={dict.dashboard.fact}
+          plannedLabel={dict.dashboard.plan}
+        />
+      </section>
+
+      {/* Wellness + Load tolerance */}
+      <section className="space-y-2 rounded-xl border border-border p-4">
+        <h2 className="font-semibold">{d.wellness} · {d.recoveryImpact}</h2>
         <p className="text-sm">
           {d.avgReadiness}: <b>{stats.avgReadiness ?? "—"}</b>
           {norm ? <span className="text-muted"> (норма {Math.round(norm.avg)})</span> : null}
           {" · "}{d.avgSleep}: <b>{stats.avgSleep ?? "—"}/5</b>
           {" · "}{d.avgFatigue}: <b>{stats.avgFatigue ?? "—"}/5</b>
-        </p>
-        <p className="mt-1 text-xs text-muted">
-          {belowNorm === null ? d.noNorm : d.belowNorm.replace("{n}", String(belowNorm))}
-        </p>
-      </section>
-
-      <section className="space-y-3 rounded-xl border border-border p-4">
-        <div>
-          <h2 className="font-semibold">{d.load}</h2>
-          <p className="text-xs text-muted">AU — {d.auExplain}</p>
-        </div>
-        <p className="text-sm">
-          {d.factVsPlan}: <b>{totalAU}</b> / {plannedAU || "—"} AU
-          {planPct != null ? <span> ({planPct}%)</span> : null}
-          {" · "}{d.sessions}: <b>{stats.sessions}</b>
-          {" · "}{d.overPlan}: <b>{overPlan}</b>
-        </p>
-        <p className="text-xs text-muted">
-          {d.avgSession}: {avgSessionAU} AU · {d.avgRpe}: {avgRpe} · {d.avgMin}: {avgMin}
           {" · "}
-          {coverage.reliable
-            ? d.loadCoverage.replace("{pct}", String(coverage.pct))
-            : d.loadUnreliable.replace("{pct}", String(coverage.pct))}
+          <span className="text-muted">
+            {belowNorm === null ? d.noNorm : d.belowNorm.replace("{n}", String(belowNorm))}
+          </span>
         </p>
-        <div className="print:hidden">
-          <LoadBarChart
-            data={chartData}
-            height={170}
-            label={dict.dashboard.fact}
-            plannedLabel={dict.dashboard.plan}
-          />
+        {(avgAfterHeavy !== null || avgAfterNormal !== null) && (
+          <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
+            <div className="rounded-lg bg-foreground/5 p-2.5">
+              <div className="text-muted">{d.scoreAfterHeavy}</div>
+              <div className="mt-0.5 text-base font-bold tabular-nums">
+                {avgAfterHeavy ?? "—"} <span className="text-xs font-normal text-muted">({afterHeavy.length} дн.)</span>
+              </div>
+            </div>
+            <div className="rounded-lg bg-foreground/5 p-2.5">
+              <div className="text-muted">{d.scoreAfterNormal}</div>
+              <div className="mt-0.5 text-base font-bold tabular-nums">
+                {avgAfterNormal ?? "—"} <span className="text-xs font-normal text-muted">({afterNormal.length} дн.)</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Pain reports + previous-day load context */}
+      <section className="space-y-2 rounded-xl border border-border p-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 className="font-semibold">{d.pain}</h2>
+          <span className="text-xs text-muted">{d.painSummary.replace("{n}", String(painEvents.length))}</span>
         </div>
-      </section>
-
-      <section className="rounded-xl border border-border p-4">
-        <h2 className="mb-2 font-semibold">{d.attendance}</h2>
-        <p className="text-sm">
-          {d.scheduledDays}: <b>{att.scheduled}</b>
-          {" · "}{d.present}: <b>{att.attended}</b>
-          {" · "}{d.absent}: <b>{att.absent}</b>
-          {" · "}{d.excused}: <b>{att.excused}</b>
-          {att.rate != null ? <> · {d.attRate}: <b>{att.rate}%</b></> : null}
-        </p>
-      </section>
-
-      <section className="rounded-xl border border-border p-4">
-        <h2 className="mb-2 font-semibold">{d.pain}</h2>
-        {pains.length === 0 ? (
+        {painEvents.length === 0 ? (
           <p className="text-sm text-muted">{d.noPain}</p>
         ) : (
-          <ul className="space-y-1 text-sm">
-            {pains.map((p) => (
-              <li key={p.id}>
-                {p.report_date} — {zoneOf(p.zone)}
-                {p.side && p.side !== "na" ? ` (${p.side})` : ""}
-                {p.severity ? ` · ${d.severity} ${p.severity}/10` : ""}
-                {p.onset === "new" ? ` · ${d.newPain}` : p.onset === "same" ? ` · ${d.samePain}` : ""}
-              </li>
-            ))}
-          </ul>
+          <>
+            <p className="text-xs text-muted">
+              {d.painByZone}:{" "}
+              {[...zoneCounts.entries()]
+                .sort((a, b) => b[1] - a[1])
+                .map(([z, n]) => `${zoneOf(z)} ×${n}`)
+                .join(" · ")}
+            </p>
+            <ul className="divide-y divide-border/60 text-sm">
+              {painEvents.map((p, i) => {
+                const prevDay = addDaysStr(p.date, -1);
+                return (
+                  <li key={i} className="py-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span>
+                        <b>{p.date}</b> ({p.src}) — <b>{zoneOf(p.zone)}</b>
+                        {p.rawLoc && p.rawLoc !== p.zone ? ` (${p.rawLoc})` : ""}
+                        {p.side && p.side !== "na" ? ` · ${p.side}` : ""}
+                        {p.severity ? ` · ${d.severity} ${p.severity}/10` : ""}
+                        {p.onset === "new" ? ` · ${d.newPain}` : p.onset === "same" ? ` · ${d.samePain}` : ""}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-muted tabular-nums">
+                      ↳ {d.prevDayLoad} ({prevDay.slice(5)}): <b>{fmtLoadCtx(prevDay)}</b>
+                      {" · "}{d.sameDayLoad}: <b>{fmtLoadCtx(p.date)}</b>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
         )}
       </section>
 
