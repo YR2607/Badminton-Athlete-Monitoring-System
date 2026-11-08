@@ -447,6 +447,34 @@ export interface AcademyResponse {
   completed_at: string;
 }
 
+export interface Tournament {
+  id: string;
+  title: string;
+  played_on: string;
+  courts: number;
+  status: "active" | "completed";
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface TournamentPlayer {
+  id: string;
+  tournament_id: string;
+  seed: number;
+  display_name: string;
+  athlete_id: string | null;
+}
+
+export interface TournamentMatch {
+  id: string;
+  tournament_id: string;
+  player_a_seed: number;
+  player_b_seed: number;
+  score_a: number;
+  score_b: number;
+  updated_at: string;
+}
+
 export interface AcademyTest {
   id: string;
   code: string;

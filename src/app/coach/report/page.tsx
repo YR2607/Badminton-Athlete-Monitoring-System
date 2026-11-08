@@ -12,10 +12,12 @@ import { attendanceSummary, effectiveAttendance } from "@/lib/attendance";
 import { detectBodyZone } from "@/lib/body-zones";
 import { LoadBarChart } from "@/components/charts/series-chart";
 import { PrintButton } from "./print-button";
+import { summarizeAthleteTournaments } from "@/lib/tournaments";
 import type { PlanOverride } from "@/lib/load";
 import type {
   Alert, Athlete, AttendanceStatus, Group, MorningCheckin, PainReport,
-  PostTrainingCheckin, Profile, TrainingSchedule, TrainingSession, GroupMembership,
+  PostTrainingCheckin, Profile, Tournament, TournamentMatch, TournamentPlayer,
+  TrainingSchedule, TrainingSession, GroupMembership,
 } from "@/lib/types";
 
 /** Period report — builder, group mode or detailed per-athlete view. */
@@ -89,7 +91,7 @@ export default async function CoachReportPage({
   const name = aProf?.display_name ?? athlete.athlete_code;
   const prevFrom = addDaysStr(range.from, -1); // need 1 day before range for prev-day load on pain
 
-  const [ckRes, postRes, sesRes, alertRes, schedRes, ovRes, attRes, painRes, membRes] =
+  const [ckRes, postRes, sesRes, alertRes, schedRes, ovRes, attRes, painRes, membRes, tSlotRes] =
     await Promise.all([
       supabase.from("morning_checkins").select("*").eq("athlete_id", athlete.id)
         .gte("checkin_date", range.from).lte("checkin_date", range.to),
@@ -110,7 +112,33 @@ export default async function CoachReportPage({
       supabase.from("pain_reports").select("*").eq("athlete_id", athlete.id)
         .gte("report_date", range.from).lte("report_date", range.to),
       supabase.from("group_memberships").select("group_id").eq("athlete_id", athlete.id).is("left_at", null),
+      supabase.from("tournament_players").select("tournament_id").eq("athlete_id", athlete.id),
     ]);
+
+  // Tournament results within the report period (tournaments are one-day events,
+  // so filtering by played_on is enough).
+  const myTournamentIds = [
+    ...new Set(
+      ((tSlotRes.data as Pick<TournamentPlayer, "tournament_id">[]) ?? []).map(
+        (p) => p.tournament_id,
+      ),
+    ),
+  ];
+  let tSum = summarizeAthleteTournaments(athlete.id, [], [], []);
+  if (myTournamentIds.length > 0) {
+    const [ttRes, tpRes, tmRes] = await Promise.all([
+      supabase.from("tournaments").select("*").in("id", myTournamentIds)
+        .gte("played_on", range.from).lte("played_on", range.to),
+      supabase.from("tournament_players").select("*").in("tournament_id", myTournamentIds),
+      supabase.from("tournament_matches").select("*").in("tournament_id", myTournamentIds),
+    ]);
+    tSum = summarizeAthleteTournaments(
+      athlete.id,
+      (ttRes.data as Tournament[]) ?? [],
+      (tpRes.data as TournamentPlayer[]) ?? [],
+      (tmRes.data as TournamentMatch[]) ?? [],
+    );
+  }
 
   const checkins = (ckRes.data as MorningCheckin[]) ?? [];
   const allPosts = (postRes.data as PostTrainingCheckin[]) ?? [];
@@ -446,6 +474,49 @@ export default async function CoachReportPage({
           </>
         )}
       </section>
+
+      {myTournamentIds.length > 0 && (
+        <section className="rounded-xl border border-border p-4">
+          <h2 className="mb-2 font-semibold">{d.tournamentsTitle}</h2>
+          {tSum.matchesPlayed === 0 ? (
+            <p className="text-sm text-muted">{d.noTournaments}</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                {[
+                  { l: d.tournamentsPlayed, v: String(tSum.tournamentsPlayed) },
+                  { l: d.matchesRecord, v: `${tSum.wins}-${tSum.losses}` },
+                  { l: d.winRate, v: tSum.winRate !== null ? `${tSum.winRate}%` : "—" },
+                  { l: d.pointsDiff, v: tSum.diff > 0 ? `+${tSum.diff}` : String(tSum.diff) },
+                  { l: d.bestPlace, v: tSum.bestPlace !== null ? `#${tSum.bestPlace}` : "—" },
+                ].map(({ l, v }) => (
+                  <div key={l} className="rounded-lg bg-foreground/5 p-2.5">
+                    <div className="text-xs text-muted">{l}</div>
+                    <div className="mt-0.5 text-base font-bold tabular-nums">{v}</div>
+                  </div>
+                ))}
+              </div>
+              {tSum.placements.length > 0 && (
+                <ul className="mt-2 divide-y divide-border/60 text-sm">
+                  {tSum.placements.map((p) => (
+                    <li key={p.tournamentId} className="flex items-center justify-between gap-2 py-1.5">
+                      <span className="min-w-0 truncate">
+                        <b>{p.playedOn}</b> · {p.title}
+                      </span>
+                      <span className="shrink-0 tabular-nums text-muted">
+                        <b className="text-foreground">#{p.place}</b>/{p.total} ·{" "}
+                        {dict.tournaments.winsOf
+                          .replace("{wins}", String(p.wins))
+                          .replace("{played}", String(p.played))}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </section>
+      )}
 
       <section className="rounded-xl border border-border p-4">
         <h2 className="mb-2 font-semibold">{d.alerts}</h2>

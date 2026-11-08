@@ -18,6 +18,7 @@ import { OstrcHeatmap } from "@/components/ostrc-heatmap";
 import { TestsPanel } from "./tests-panel";
 import { FieldTestRadar } from "@/components/athlete-radar-badges";
 import { decimalAge, growthVelocity, khamisRoche, maturationCategory } from "@/lib/growth";
+import { summarizeAthleteTournaments } from "@/lib/tournaments";
 import { AthleteSwitcher } from "./athlete-switcher";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +32,9 @@ import type {
   MorningCheckin,
   PostTrainingCheckin,
   Profile,
+  Tournament,
+  TournamentMatch,
+  TournamentPlayer,
   TrainingSession,
 } from "@/lib/types";
 
@@ -99,6 +103,19 @@ export default async function AthleteDetailPage({
       return list.filter((r) => r.assigned_date.startsWith(month)).length;
     }
   })();
+
+  // Tournament career — used by the "dev" tab card.
+  const [ttRes, tpRes, tmRes] = await Promise.all([
+    supabase.from("tournaments").select("*"),
+    supabase.from("tournament_players").select("*"),
+    supabase.from("tournament_matches").select("*"),
+  ]);
+  const tSum = summarizeAthleteTournaments(
+    data.a.id,
+    (ttRes.data as Tournament[]) ?? [],
+    (tpRes.data as TournamentPlayer[]) ?? [],
+    (tmRes.data as TournamentMatch[]) ?? [],
+  );
 
   const {
     a,
@@ -688,6 +705,51 @@ export default async function AthleteDetailPage({
       </div>
       <p className="text-xs text-muted">{dict.stats.explainer}</p>
       </>
+      )}
+
+      {tSum.matchesPlayed > 0 && tab === "dev" && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base">🏆 {dict.report.tournamentsTitle}</CardTitle>
+            <Link
+              href="/coach/tournaments"
+              className="text-xs font-medium text-accent underline-offset-2 hover:underline"
+            >
+              {dict.tournaments.viewTournament}
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {[
+                { l: dict.report.tournamentsPlayed, v: String(tSum.tournamentsPlayed) },
+                { l: dict.report.matchesRecord, v: `${tSum.wins}-${tSum.losses}` },
+                { l: dict.report.winRate, v: tSum.winRate !== null ? `${tSum.winRate}%` : "—" },
+                { l: dict.report.pointsDiff, v: tSum.diff > 0 ? `+${tSum.diff}` : String(tSum.diff) },
+                { l: dict.report.bestPlace, v: tSum.bestPlace !== null ? `#${tSum.bestPlace}` : "—" },
+              ].map(({ l, v }) => (
+                <div
+                  key={l}
+                  className="rounded-lg border border-border/60 px-3 py-2"
+                >
+                  <p className="text-xs text-muted">{l}</p>
+                  <p className="mt-0.5 text-lg font-bold tabular-nums">{v}</p>
+                </div>
+              ))}
+            </div>
+            <ul className="mt-3 divide-y divide-border/60 text-sm">
+              {tSum.matches.slice(0, 5).map((m, i) => (
+                <li key={i} className="flex items-center justify-between gap-2 py-1.5">
+                  <span className="min-w-0 truncate">
+                    <span className="text-muted">{m.playedOn}</span> · {m.opponentName}
+                  </span>
+                  <span className={`shrink-0 font-bold tabular-nums ${m.won ? "text-ok" : "text-danger"}`}>
+                    {m.myScore}:{m.oppScore}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       )}
 
       {acad && tab === "dev" && (

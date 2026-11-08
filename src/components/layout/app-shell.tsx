@@ -24,6 +24,7 @@ export function navGroups(role: AppRole, d: Dictionary): { primary: NavItem[]; o
       ],
       overflow: [
         { href: "/athlete/history", label: d.nav.history },
+        { href: "/athlete/tournaments", label: d.nav.tournaments },
         { href: "/athlete/settings", label: d.nav.profile },
       ],
     };
@@ -41,6 +42,7 @@ export function navGroups(role: AppRole, d: Dictionary): { primary: NavItem[]; o
       overflow: [
         { href: "/coach/academy", label: d.nav.academy },
         { href: "/coach/tests", label: d.nav.tests },
+        { href: "/coach/tournaments", label: d.nav.tournaments },
         { href: "/coach/alerts", label: d.nav.alerts },
         { href: "/coach/guide", label: d.nav.guide },
       ],
@@ -57,6 +59,7 @@ export function navGroups(role: AppRole, d: Dictionary): { primary: NavItem[]; o
     overflow: [
       { href: "/admin", label: d.nav.home },
       { href: "/coach/guide", label: d.nav.guide },
+      { href: "/coach/tournaments", label: d.nav.tournaments },
       { href: "/admin/users", label: d.nav.users },
       { href: "/admin/groups", label: d.nav.groups },
       { href: "/admin/features", label: d.nav.features },
