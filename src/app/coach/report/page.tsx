@@ -7,14 +7,16 @@ import { dateRange, localDate, resolveRange, type RangeKey } from "@/lib/dates";
 import { athleteStats } from "@/lib/analytics";
 import { dailyReadiness, postsByLocalDate, personalNorm } from "@/lib/readiness";
 import { dailyLoads, loadCoverage } from "@/lib/load";
+import { attendanceSummary, effectiveAttendance } from "@/lib/attendance";
+import { LoadBarChart } from "@/components/charts/series-chart";
 import { PrintButton } from "./print-button";
 import type { PlanOverride } from "@/lib/load";
 import type {
-  Alert, Athlete, Group, MorningCheckin, PainReport, PostTrainingCheckin,
-  Profile, TrainingSchedule, TrainingSession, GroupMembership,
+  Alert, Athlete, AttendanceStatus, Group, MorningCheckin, PainReport,
+  PostTrainingCheckin, Profile, TrainingSchedule, TrainingSession, GroupMembership,
 } from "@/lib/types";
 
-/** Compact per-athlete report for a period — designed to print to PDF. */
+/** Period report — builder, group mode or detailed per-athlete view. */
 export default async function CoachReportPage({
   searchParams,
 }: {
@@ -73,6 +75,7 @@ export default async function CoachReportPage({
       </main>
     );
   }
+
   const { data: profRow } = await supabase
     .from("profiles").select("*").eq("id", athlete.profile_id).maybeSingle();
   const aProf = profRow as Profile | null;
@@ -95,8 +98,8 @@ export default async function CoachReportPage({
       supabase.from("training_schedules").select("*").eq("active", true),
       supabase.from("session_plan_overrides").select("*")
         .gte("plan_date", range.from).lte("plan_date", range.to),
-      supabase.from("attendance").select("*").eq("athlete_id", athlete.id)
-        .gte("date", range.from).lte("date", range.to),
+      supabase.from("attendance").select("att_date, status").eq("athlete_id", athlete.id)
+        .gte("att_date", range.from).lte("att_date", range.to),
       supabase.from("pain_reports").select("*").eq("athlete_id", athlete.id)
         .gte("report_date", range.from).lte("report_date", range.to),
       supabase.from("group_memberships").select("group_id").eq("athlete_id", athlete.id).is("left_at", null),
@@ -110,10 +113,9 @@ export default async function CoachReportPage({
   const membership = (membRes.data as Pick<GroupMembership, "group_id">[] | null)?.[0];
   const mySchedules = ((schedRes.data as (TrainingSchedule & { group_id: string })[]) ?? [])
     .filter((s) => s.group_id === membership?.group_id);
-  const myOverrides = ((ovRes.data as PlanOverride[]) ?? []).filter(
-    (o) => (o as { group_id?: string }).group_id === membership?.group_id,
-  );
-  const attendance = (attRes.data as { date: string; status: string }[]) ?? [];
+  const myOverrides = ((ovRes.data as (PlanOverride & { group_id?: string })[]) ?? [])
+    .filter((o) => o.group_id === membership?.group_id);
+  const attRows = (attRes.data as { att_date: string; status: AttendanceStatus }[]) ?? [];
 
   const stats = athleteStats(athlete.id, days, checkins, sessions, alerts, postsByLocalDate(posts, aTz), aTz);
   const sessionInputs = sessions.map((s) => ({
@@ -121,28 +123,46 @@ export default async function CoachReportPage({
     rpe: s.session_rpe,
     minutes: s.duration_minutes,
   }));
+  const sessionDates = new Set(sessionInputs.map((s) => s.date));
+  const marksMap = new Map(attRows.map((a) => [a.att_date, a.status]));
+  const att = attendanceSummary(days, mySchedules, myOverrides, sessionDates, marksMap);
+
   const attendanceMarks = {
-    present: new Set(attendance.filter((a) => a.status === "present").map((a) => a.date)),
-    absent: new Set(attendance.filter((a) => a.status !== "present").map((a) => a.date)),
+    present: new Set(attRows.filter((a) => a.status === "present").map((a) => a.att_date)),
+    absent: new Set(attRows.filter((a) => a.status !== "present").map((a) => a.att_date)),
   };
   const loads = dailyLoads(days, sessionInputs, mySchedules, myOverrides, attendanceMarks);
   const coverage = loadCoverage(loads);
   const overPlan = loads.filter((l) => l.state === "known" && l.planned != null && l.load > l.planned * 1.25).length;
   const totalAU = loads.reduce((a, l) => a + (l.state === "known" ? l.load : 0), 0);
+  const plannedAU = loads.reduce((a, l) => a + (l.planned ?? 0), 0);
+  const planPct = plannedAU > 0 ? Math.round((totalAU / plannedAU) * 100) : null;
+  const knownSessions = sessionInputs.filter((s) => s.rpe != null && s.minutes != null);
+  const avgRpe = knownSessions.length
+    ? (knownSessions.reduce((a, s) => a + s.rpe!, 0) / knownSessions.length).toFixed(1)
+    : "—";
+  const avgMin = knownSessions.length
+    ? Math.round(knownSessions.reduce((a, s) => a + s.minutes!, 0) / knownSessions.length)
+    : "—";
+  const avgSessionAU = knownSessions.length ? Math.round(totalAU / knownSessions.length) : "—";
+
   const series = dailyReadiness(checkins);
+  const scoreByDate = new Map(series.map((s) => [s.date, s.score]));
+  const ckByDate = new Map(checkins.map((c) => [c.checkin_date, c]));
+  const loadByDate = new Map(loads.map((l) => [l.date, l]));
   const norm = personalNorm(series, range.to);
   const belowNorm = norm ? series.filter((s) => s.score < norm.avg - norm.sd).length : null;
 
-  const present = attendance.filter((a) => a.status === "present").length;
-  const absent = attendance.filter((a) => a.status === "absent").length;
-  const excused = attendance.filter((a) => a.status === "excused").length;
-
   const zoneOf = (z: string) => (dict.pro.bodyZones as Record<string, string>)[z] ?? z;
+  const chartData = loads.map((l) => ({ date: l.date, load: l.load, planned: l.planned, state: l.state }));
 
   return (
     <main className="mx-auto max-w-3xl space-y-4 p-4 print:p-0">
       <div className="flex items-center justify-between print:hidden">
-        <a href={`/coach/athletes/${athlete.id}`} className="text-sm text-accent">← {name}</a>
+        <div className="flex gap-3 text-sm">
+          <a href={`/coach/athletes/${athlete.id}`} className="text-accent">← {name}</a>
+          <a href="/coach/report" className="text-muted hover:text-foreground">· {d.changeFilter}</a>
+        </div>
         <PrintButton label={d.print} />
       </div>
 
@@ -160,24 +180,51 @@ export default async function CoachReportPage({
         <h2 className="mb-2 font-semibold">{d.wellness}</h2>
         <p className="text-sm">
           {d.avgReadiness}: <b>{stats.avgReadiness ?? "—"}</b>
-          {" · "}{d.avgSleep}: {stats.avgSleep ?? "—"}
-          {" · "}{d.avgFatigue}: {stats.avgFatigue ?? "—"}
+          {norm ? <span className="text-muted"> (норма {Math.round(norm.avg)})</span> : null}
+          {" · "}{d.avgSleep}: <b>{stats.avgSleep ?? "—"}/5</b>
+          {" · "}{d.avgFatigue}: <b>{stats.avgFatigue ?? "—"}/5</b>
         </p>
         <p className="mt-1 text-xs text-muted">
           {belowNorm === null ? d.noNorm : d.belowNorm.replace("{n}", String(belowNorm))}
         </p>
       </section>
 
-      <section className="rounded-xl border border-border p-4">
-        <h2 className="mb-2 font-semibold">{d.load}</h2>
+      <section className="space-y-3 rounded-xl border border-border p-4">
+        <div>
+          <h2 className="font-semibold">{d.load}</h2>
+          <p className="text-xs text-muted">AU — {d.auExplain}</p>
+        </div>
         <p className="text-sm">
-          {d.sessions}: <b>{stats.sessions}</b> · {d.totalAU}: <b>{totalAU}</b>
+          {d.factVsPlan}: <b>{totalAU}</b> / {plannedAU || "—"} AU
+          {planPct != null ? <span> ({planPct}%)</span> : null}
+          {" · "}{d.sessions}: <b>{stats.sessions}</b>
           {" · "}{d.overPlan}: <b>{overPlan}</b>
         </p>
-        <p className="mt-1 text-xs text-muted">
+        <p className="text-xs text-muted">
+          {d.avgSession}: {avgSessionAU} AU · {d.avgRpe}: {avgRpe} · {d.avgMin}: {avgMin}
+          {" · "}
           {coverage.reliable
             ? d.loadCoverage.replace("{pct}", String(coverage.pct))
             : d.loadUnreliable.replace("{pct}", String(coverage.pct))}
+        </p>
+        <div className="print:hidden">
+          <LoadBarChart
+            data={chartData}
+            height={170}
+            label={dict.dashboard.fact}
+            plannedLabel={dict.dashboard.plan}
+          />
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border p-4">
+        <h2 className="mb-2 font-semibold">{d.attendance}</h2>
+        <p className="text-sm">
+          {d.scheduledDays}: <b>{att.scheduled}</b>
+          {" · "}{d.present}: <b>{att.attended}</b>
+          {" · "}{d.absent}: <b>{att.absent}</b>
+          {" · "}{d.excused}: <b>{att.excused}</b>
+          {att.rate != null ? <> · {d.attRate}: <b>{att.rate}%</b></> : null}
         </p>
       </section>
 
@@ -200,13 +247,6 @@ export default async function CoachReportPage({
       </section>
 
       <section className="rounded-xl border border-border p-4">
-        <h2 className="mb-2 font-semibold">{d.attendance}</h2>
-        <p className="text-sm">
-          {d.present}: <b>{present}</b> · {d.absent}: <b>{absent}</b> · {d.excused}: <b>{excused}</b>
-        </p>
-      </section>
-
-      <section className="rounded-xl border border-border p-4">
         <h2 className="mb-2 font-semibold">{d.alerts}</h2>
         {alerts.length === 0 ? (
           <p className="text-sm text-muted">{d.noAlerts}</p>
@@ -219,6 +259,43 @@ export default async function CoachReportPage({
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="overflow-x-auto rounded-xl border border-border">
+        <h2 className="border-b border-border p-3 text-sm font-semibold">{d.dailyTitle}</h2>
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-border text-left text-muted">
+              <th className="p-2">{d.colDate}</th>
+              <th className="p-2">{d.colScore}</th>
+              <th className="p-2">{d.colSleep}</th>
+              <th className="p-2">{d.colFatigue}</th>
+              <th className="p-2">{d.colDayPlan}</th>
+              <th className="p-2">{d.colDayFact}</th>
+              <th className="p-2">{d.colAtt}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {days.map((day) => {
+              const ck = ckByDate.get(day);
+              const ld = loadByDate.get(day);
+              const eff = effectiveAttendance(day, marksMap, sessionDates);
+              return (
+                <tr key={day} className="border-b border-border/40 last:border-0 tabular-nums">
+                  <td className="p-2">{day.slice(5)}</td>
+                  <td className="p-2">{scoreByDate.get(day) ?? "—"}</td>
+                  <td className="p-2">{ck?.sleep_score ?? "—"}</td>
+                  <td className="p-2">{ck?.fatigue_score ?? "—"}</td>
+                  <td className="p-2 text-muted">{ld?.planned ?? "—"}</td>
+                  <td className="p-2">{ld && ld.state === "known" && ld.load > 0 ? ld.load : "—"}</td>
+                  <td className="p-2">
+                    {eff === "present" ? "✓" : eff === "absent" ? "✗" : eff === "excused" ? "◯" : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </section>
 
       <p className="pt-2 text-center text-[10px] text-muted print:block">
