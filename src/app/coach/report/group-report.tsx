@@ -18,6 +18,7 @@ export async function GroupReport({
   athletes,
   tz,
   dict,
+  cols,
 }: {
   groupId: string;
   days: string[];
@@ -26,6 +27,7 @@ export async function GroupReport({
   athletes: Athlete[];
   tz: string;
   dict: Dictionary;
+  cols: Set<string>;
 }) {
   const d = dict.report;
   const supabase = await createClient();
@@ -109,12 +111,12 @@ export async function GroupReport({
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted">
               <th className="p-2.5">{d.colAthlete}</th>
-              <th className="p-2.5">{d.colFill}</th>
-              <th className="p-2.5">{d.colScore}</th>
-              <th className="p-2.5">{d.colAU}</th>
-              <th className="p-2.5">{d.colPain}</th>
-              <th className="p-2.5">{d.colAtt}</th>
-              <th className="p-2.5">{d.colAlerts}</th>
+              {cols.has("fill") && <th className="p-2.5">{d.colFill}</th>}
+              {cols.has("score") && <th className="p-2.5">{d.colScore}</th>}
+              {cols.has("au") && <th className="p-2.5">{d.colAU}</th>}
+              {cols.has("pain") && <th className="p-2.5">{d.colPain}</th>}
+              {cols.has("att") && <th className="p-2.5">{d.colAtt}</th>}
+              {cols.has("alerts") && <th className="p-2.5">{d.colAlerts}</th>}
             </tr>
           </thead>
           <tbody>
@@ -126,14 +128,20 @@ export async function GroupReport({
                     {r.name}
                   </a>
                 </td>
-                <td className="p-2.5 tabular-nums">{r.st.filled}/{r.st.expected} ({r.st.rate}%)</td>
-                <td className="p-2.5 tabular-nums">{r.st.avgReadiness ?? "—"}</td>
-                <td className="p-2.5 tabular-nums">{r.au || "—"}</td>
-                <td className="p-2.5 tabular-nums">
-                  {r.pain === 0 ? "—" : `${r.pain}${r.maxSev >= 7 ? " ⚠️" : ""}`}
-                </td>
-                <td className="p-2.5 tabular-nums">{r.present}/{r.present + r.absent || "—"}</td>
-                <td className="p-2.5 tabular-nums">{r.openAlerts || "—"}</td>
+                {cols.has("fill") && (
+                  <td className="p-2.5 tabular-nums">{r.st.filled}/{r.st.expected} ({r.st.rate}%)</td>
+                )}
+                {cols.has("score") && <td className="p-2.5 tabular-nums">{r.st.avgReadiness ?? "—"}</td>}
+                {cols.has("au") && <td className="p-2.5 tabular-nums">{r.au || "—"}</td>}
+                {cols.has("pain") && (
+                  <td className="p-2.5 tabular-nums">
+                    {r.pain === 0 ? "—" : `${r.pain}${r.maxSev >= 7 ? " ⚠️" : ""}`}
+                  </td>
+                )}
+                {cols.has("att") && (
+                  <td className="p-2.5 tabular-nums">{r.present}/{r.present + r.absent || "—"}</td>
+                )}
+                {cols.has("alerts") && <td className="p-2.5 tabular-nums">{r.openAlerts || "—"}</td>}
               </tr>
             ))}
           </tbody>

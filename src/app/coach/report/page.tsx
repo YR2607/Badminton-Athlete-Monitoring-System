@@ -1,15 +1,16 @@
 import { createClient } from "@/lib/supabase/server";
 import { GroupReport } from "./group-report";
+import { ReportBuilder } from "./report-builder";
 import { requireRole } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
-import { dateRange, localDate, resolveRange, todayInTz, type RangeKey } from "@/lib/dates";
+import { dateRange, localDate, resolveRange, type RangeKey } from "@/lib/dates";
 import { athleteStats } from "@/lib/analytics";
 import { dailyReadiness, postsByLocalDate, personalNorm } from "@/lib/readiness";
 import { dailyLoads, loadCoverage } from "@/lib/load";
 import { PrintButton } from "./print-button";
 import type { PlanOverride } from "@/lib/load";
 import type {
-  Alert, Athlete, MorningCheckin, PainReport, PostTrainingCheckin,
+  Alert, Athlete, Group, MorningCheckin, PainReport, PostTrainingCheckin,
   Profile, TrainingSchedule, TrainingSession, GroupMembership,
 } from "@/lib/types";
 
@@ -17,7 +18,7 @@ import type {
 export default async function CoachReportPage({
   searchParams,
 }: {
-  searchParams: Promise<{ athlete?: string; group?: string; period?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ athlete?: string; group?: string; period?: string; from?: string; to?: string; cols?: string }>;
 }) {
   const sp = await searchParams;
   const profile = await requireRole(["coach", "admin"]);
@@ -32,24 +33,43 @@ export default async function CoachReportPage({
   const days = dateRange(range.from, range.to);
 
   const { data: athletes } = await supabase.from("athletes").select("*");
+  const allAthletes = (athletes as Athlete[]) ?? [];
   if (sp.group) {
+    const cols = new Set(
+      (sp.cols ?? "fill,score,au,pain,att,alerts").split(",").filter(Boolean),
+    );
     return (
       <GroupReport
         groupId={sp.group}
         days={days}
         from={range.from}
         to={range.to}
-        athletes={(athletes as Athlete[]) ?? []}
+        athletes={allAthletes}
         tz={tz}
         dict={dict}
+        cols={cols}
       />
     );
   }
-  const athlete = ((athletes as Athlete[]) ?? []).find((a) => a.id === sp.athlete);
+  const athlete = allAthletes.find((a) => a.id === sp.athlete);
   if (!athlete) {
+    const [{ data: groups }, { data: profs }] = await Promise.all([
+      supabase.from("groups").select("id, name"),
+      supabase.from("profiles").select("id, display_name"),
+    ]);
+    const nameById = new Map(
+      ((profs as Pick<Profile, "id" | "display_name">[]) ?? []).map((p) => [p.id, p.display_name]),
+    );
     return (
-      <main className="mx-auto max-w-3xl p-4">
-        <p className="text-sm text-muted">{d.noAthlete}</p>
+      <main className="mx-auto max-w-3xl space-y-4 p-4">
+        <h1 className="text-2xl font-bold">{d.builderTitle}</h1>
+        <ReportBuilder
+          groups={((groups as Pick<Group, "id" | "name">[]) ?? []).map((g) => ({ id: g.id, name: g.name }))}
+          athletes={allAthletes
+            .filter((a) => a.status === "active")
+            .map((a) => ({ id: a.id, name: nameById.get(a.profile_id) ?? a.athlete_code }))}
+          d={d}
+        />
       </main>
     );
   }
