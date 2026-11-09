@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export type NavItem = { href: string; label: string };
 
@@ -83,6 +83,16 @@ export function BottomNav({
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
+  // Lock page scroll while the "More" sheet is open.
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
   return (
     <>
       <nav
@@ -133,7 +143,7 @@ export function BottomNav({
             className="fixed inset-0 z-40 bg-black/40 md:hidden"
             onClick={() => setOpen(false)}
           />
-          <div className="fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border-t border-border bg-surface p-2 pb-6 md:hidden">
+          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[70vh] overflow-y-auto overscroll-contain rounded-t-2xl border-t border-border bg-surface p-2 pb-6 md:hidden">
             {overflow.map((i) => (
               <Link
                 key={i.href}
