@@ -20,6 +20,8 @@ const ICONS: Record<string, string> = {
   analytics: "M4 20V10m6 10V4m6 16v-7m4 7H2",
   academy: "M22 9 12 4 2 9l10 5 10-5zM6 11.5V16c0 1.66 2.69 3 6 3s6-1.34 6-3v-4.5M22 9v6",
   attendance: "M8 3h8l3 3v15H5V6zM9 13l2 2 4-4M9 4v4h6V4",
+  tournaments:
+    "M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2z",
   features: "M4 6h4v4H4zM4 14h4v4H4zM12 6h8M12 10h8M12 14h8M12 18h8",
   more: "M5 6h14M5 12h14M5 18h14",
 };
@@ -40,6 +42,7 @@ export function iconKey(href: string): string {
   if (href.includes("analytics")) return "analytics";
   if (href.includes("academy")) return "academy";
   if (href.includes("attendance")) return "attendance";
+  if (href.includes("tournaments")) return "tournaments";
   return "home";
 }
 
