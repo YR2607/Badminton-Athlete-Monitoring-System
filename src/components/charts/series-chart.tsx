@@ -40,19 +40,34 @@ export interface Zone {
   label?: string;
 }
 
-const tooltipStyle = {
-  backgroundColor: "var(--surface)",
-  border: "1px solid var(--border)",
-  borderRadius: 8,
-  color: "var(--foreground)",
-  fontSize: 12,
-} as const;
-
 /** "2026-10-24" or "10-24" → "24.10" */
 const fmtDate = (v: unknown) => {
   const parts = String(v).split("-");
   return parts.length >= 2 ? `${parts.at(-1)}.${parts.at(-2)}` : String(v);
 };
+
+/** Fully opaque tooltip — default recharts styling can blend into content below. */
+function ChartTooltip({
+  active,
+  payload,
+  label,
+}: {
+  active?: boolean;
+  payload?: { name?: string; value?: number | string; color?: string; dataKey?: string }[];
+  label?: string | number;
+}) {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="max-w-60 rounded-lg border border-border bg-surface px-3 py-2 text-xs shadow-md">
+      <p className="mb-1 font-semibold">{fmtDate(label)}</p>
+      {payload.map((p) => (
+        <p key={String(p.dataKey ?? p.name)} style={{ color: p.color }}>
+          {p.name} : {p.value}
+        </p>
+      ))}
+    </div>
+  );
+}
 
 export function SeriesLineChart({
   data,
@@ -134,7 +149,7 @@ export function SeriesLineChart({
           axisLine={false}
           tickLine={false}
         />
-        <Tooltip contentStyle={tooltipStyle} />
+        <Tooltip content={<ChartTooltip />} />
         {series.length > 1 ? (
           <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} iconSize={10} />
         ) : null}
@@ -283,7 +298,7 @@ export function LoadBarChart({
           axisLine={false}
           tickLine={false}
         />
-        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "var(--border)", fillOpacity: 0.3 }} />
+        <Tooltip content={<ChartTooltip />} cursor={{ fill: "var(--border)", fillOpacity: 0.3 }} />
         {plannedLabel ? (
           <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} iconSize={10} />
         ) : null}
