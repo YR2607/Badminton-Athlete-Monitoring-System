@@ -29,19 +29,43 @@ export function aiModel(): string {
   return process.env.AI_MODEL ?? process.env.OPENAI_MODEL ?? DEFAULT_MODEL;
 }
 
-/** Parse raw JSON; fall back to the first {...} block (fences/prose-safe). */
+/**
+ * Parse raw JSON; fall back to extracting a JSON object from prose.
+ * Reasoning models emit thinking + fenced blocks — scan all balanced
+ * {...} spans, prefer the LAST object containing our root key.
+ */
 export function extractJson(text: string): unknown {
-  const trimmed = text.trim();
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    /* fall through */
+  const trimmed = text.trim().replace(/```(?:json)?/g, "");
+  const direct = safeParse(trimmed);
+  if (direct !== null) return direct;
+  // Balanced-brace spans, last-to-first.
+  const spans: string[] = [];
+  let depth = 0, start = -1;
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i];
+    if (ch === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      if (depth === 0 && start >= 0) spans.push(trimmed.slice(start, i + 1));
+    }
   }
-  const start = trimmed.indexOf("{");
-  const end = trimmed.lastIndexOf("}");
-  if (start < 0 || end <= start) return null;
+  for (const span of spans.reverse()) {
+    if (!span.includes('"insufficient"')) continue;
+    const parsed = safeParse(span);
+    if (parsed !== null) return parsed;
+  }
+  for (const span of spans) {
+    const parsed = safeParse(span);
+    if (parsed !== null) return parsed;
+  }
+  return null;
+}
+
+function safeParse(s: string): unknown {
   try {
-    return JSON.parse(trimmed.slice(start, end + 1));
+    return JSON.parse(s);
   } catch {
     return null;
   }
@@ -102,7 +126,10 @@ export async function callAI(opts: {
       const text = json.choices?.[0]?.message?.content;
       if (!text) return { ok: false, error: "empty provider response", usage };
       const data = extractJson(text);
-      if (data === null) return { ok: false, error: "provider returned invalid JSON", usage };
+      if (data === null) {
+        console.error("AI invalid JSON, raw head:", text.slice(0, 300));
+        return { ok: false, error: "provider returned invalid JSON", usage };
+      }
       return { ok: true, data, usage };
     } catch {
       if (attempt === 0) continue;

@@ -87,3 +87,15 @@ describe("cost accounting", () => {
     expect(estimateCostUsd("unknown-model", 1_000_000, 0)).toBe(0.15);
   });
 });
+
+describe("extractJson robustness", () => {
+  it("parses raw, fenced, and prose-wrapped JSON", async () => {
+    const { extractJson } = await import("@/lib/ai/provider");
+    expect(extractJson('{"insufficient":true,"reason":"r","missing":[]}')).toBeTruthy();
+    expect(extractJson('```json\n{"insufficient":true,"reason":"r","missing":[]}\n```')).toBeTruthy();
+    const out = extractJson('Thinking... {"a":1} final: {"insufficient":false,"insight":{}}');
+    expect(out).toEqual({ insufficient: false, insight: {} });
+    expect(extractJson("no json here")).toBeNull();
+    expect(extractJson("{broken")).toBeNull();
+  });
+});
