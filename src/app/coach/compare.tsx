@@ -98,10 +98,9 @@ export function CompareChart({
               onClick={() => toggle(a.id)}
               className={cn(
                 "flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors",
-                on
-                  ? "border-transparent bg-foreground/10"
-                  : "border-border text-muted",
+                on ? "bg-surface font-semibold" : "border-border text-muted",
               )}
+              style={on ? { borderColor: colorOf.get(a.id) } : undefined}
             >
               <span
                 className="inline-block h-2.5 w-2.5 rounded-full"
