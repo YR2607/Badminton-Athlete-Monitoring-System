@@ -12,6 +12,9 @@ import { attendanceSummary, effectiveAttendance } from "@/lib/attendance";
 import { detectBodyZone } from "@/lib/body-zones";
 import { LoadBarChart } from "@/components/charts/series-chart";
 import { PrintButton } from "./print-button";
+import { AIInsightCard } from "@/components/ai/insight-card";
+import { getLatestGroupInsight, type InsightRow } from "@/app/actions/ai-insights";
+import { getFeatureFlags, flagEnabled } from "@/lib/flags";
 import { summarizeAthleteTournaments } from "@/lib/tournaments";
 import type { PlanOverride } from "@/lib/load";
 import type {
@@ -47,8 +50,18 @@ export default async function CoachReportPage({
     const cols = new Set(
       (sp.cols ?? "fill,score,au,pain,att,alerts").split(",").filter(Boolean),
     );
+    const aiOn = flagEnabled(await getFeatureFlags(), "ai", null);
+    let groupInsight: InsightRow | null = null;
+    if (aiOn) {
+      const r = await getLatestGroupInsight(sp.group);
+      if (r.ok) groupInsight = r.data;
+    }
     return (
-      <GroupReport
+      <>
+        {aiOn && (
+          <AIInsightCard target={{ kind: "group", id: sp.group }} initial={groupInsight} d={dict.ai} />
+        )}
+        <GroupReport
         groupId={sp.group}
         period={period}
         days={days}
@@ -59,6 +72,7 @@ export default async function CoachReportPage({
         dict={dict}
         cols={cols}
       />
+      </>
     );
   }
   const athlete = allAthletes.find((a) => a.id === sp.athlete);
