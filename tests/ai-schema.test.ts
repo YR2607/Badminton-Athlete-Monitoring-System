@@ -45,3 +45,16 @@ describe("parseAIOutput", () => {
     expect(AIInsight.safeParse(many).success).toBe(false);
   });
 });
+
+describe("bare insight tolerance", () => {
+  it("wraps a wrapper-less insight object", () => {
+    const r = parseAIOutput({
+      observation: "Load rose",
+      interpretation: "May need lighter day",
+      title: "Spike",
+      evidence: [{ metric: "total_au", value: 420, period: "14d", source: "load" }],
+    });
+    expect(r && !r.insufficient && r.insight.observation).toBe("Load rose");
+    expect(r && !r.insufficient && r.insight.confidence).toBe("low");
+  });
+});
