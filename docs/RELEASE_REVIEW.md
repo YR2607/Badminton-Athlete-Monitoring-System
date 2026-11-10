@@ -1,10 +1,12 @@
 # RallyMonitor — Release Review: `ux/coach-admin-overhaul` → `main`
 
-Date: 2026-11-10 · Reviewed HEAD: `87c6785` (+ review fix commit)
+Date: 2026-11-10 · Reviewed HEAD: `87c6785` (+ review fix commit `38681f5`;
+current branch head `68d9796` — see `FINAL_RELEASE_HANDOFF.md` §2)
 
 ## 1. Git state
 
-- Branch `ux/coach-admin-overhaul`: **8 commits ahead, 0 behind** `origin/main`.
+- Branch `ux/coach-admin-overhaul`: **8 commits ahead, 0 behind** `origin/main`
+  at review time (now 11 ahead — subsequent commits are docs + the anchor fix).
 - Working tree clean; no stray files, no `.env`, no secrets or test
   credentials in the diff (scanned for keys/tokens — none).
 - Changed files: 19 — all presentation layer (pages, layout, i18n, docs).

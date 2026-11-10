@@ -7,10 +7,10 @@ Date: 2026-11-10 · Branch: `ux/coach-admin-overhaul` → `main`
 | Item | Status |
 |---|---|
 | Working tree | PASS — clean, no stray/secret files |
-| Head SHA | `74e02ab` (docs) / code HEAD `38681f5` |
+| Head SHA | `68d9796` (docs) / code HEAD `38681f5` |
 | Base `origin/main` | `e460651` |
-| Commits | 10 ahead / 0 behind — fast-forward, no conflicts |
-| Changed files | 20 — presentation layer + docs only |
+| Commits | 11 ahead / 0 behind — fast-forward, no conflicts |
+| Changed files | 22 — presentation layer + docs only |
 
 ## 2. PR status — WARNING
 
@@ -58,7 +58,7 @@ differs from remote format.
 Vercel preview is SSO-protected; no test accounts exist locally. Manual
 checklist for owner (§10) — coach flow, admin flow, 3 mobile viewports.
 
-## 6. Automated validation (fresh run, HEAD `74e02ab`)
+## 6. Automated validation (fresh run, HEAD `74e02ab`; code last changed `38681f5`)
 
 | Check | Result |
 |---|---|

@@ -14,15 +14,16 @@ Date: 2026-11-10 · Reviewed by: Devin
 
 ## 2. State
 
-- **Source SHA (head):** `38681f5` — pushed, tree clean.
+- **Source SHA (head):** `68d9796` — pushed, tree clean.
 - **Base SHA (origin/main):** `e460651`.
-- **Commits:** 9 ahead / 0 behind — fast-forwardable, no conflicts expected.
-- **Files changed:** 20 (incl. `docs/RELEASE_REVIEW.md`, this handoff).
+- **Commits:** 11 ahead / 0 behind — fast-forwardable, no conflicts expected.
+- **Files changed:** 22 (incl. `docs/RELEASE_REVIEW.md`, this handoff,
+  `docs/PRODUCTION_READINESS.md`).
 - **Diff scope:** presentation layer only — `src/app/`, `src/components/`,
   `src/i18n/`, `docs/`. Zero changes in `src/lib/` (algorithms),
   `supabase/migrations/`, `tests/`.
 
-## 3. Checks (fresh run on `38681f5`)
+## 3. Checks (fresh run on `74e02ab`; code last changed `38681f5`)
 
 | Check | Result |
 |---|---|
@@ -57,14 +58,11 @@ Analysis (read-only):
   `0002_rls.sql` — dependency order OK.
 - Consumers: `/coach/tournaments`, `/athlete/tournaments` pages + server
   actions in `src/app/actions/tournaments.ts`.
-- **Why not applied:** local files use `NNNN_name.sql` numbering while the
-  remote migration history uses a different version format →
-  `supabase db push` fails.
-
-**Safe apply instructions (owner):**
-1. Supabase Dashboard → SQL Editor → paste `supabase/migrations/0026_tournaments.sql` → Run (idempotent).
-2. Then mark it applied: `supabase migration repair --status applied <version>` OR record the row in `supabase_migrations.schema_migrations` matching the remote versioning.
-3. Verify: open `/coach/tournaments` — create/list must work without 404/RLS errors.
+- Migration history: `supabase_migrations.schema_migrations` may not
+  contain a `0026` version row (local `NNNN_name` numbering differs from
+  remote format; direct Postgres check needs the DB password, which is
+  not available locally). Optional bookkeeping for `db push` parity —
+  does not affect app function.
 
 Do NOT run `supabase db push` blindly — it may try to re-apply the whole
 mismatched history.
@@ -82,7 +80,8 @@ policies, schema. The only behavioral additions are UI-layer: a native
 1. **Browser QA not performed** — needs an authenticated session (SSO-protected
    preview / test accounts). One manual click-through recommended.
 2. **9 RLS integration tests skipped** — require live Supabase env by design.
-3. **Migration 0026 unapplied** on remote — tournaments UI will error until §5 done.
+3. **Migration 0026 history row** may be missing on remote — schema itself
+   verified live (§5); optional bookkeeping only.
 4. **4 pre-existing lint warnings** — unrelated to this diff.
 5. `PageHeader`/`EmptyState`/`StatCard` exported but unused (foundation).
 
@@ -91,7 +90,6 @@ policies, schema. The only behavioral additions are UI-layer: a native
 - [ ] Create PR via link in §1 (title: `UX overhaul: Coach and Admin workspaces`)
 - [ ] Open Vercel preview (SSO) → login → `/coach` → athlete profile →
       attendance → `/admin` — ~5 min click-through on phone viewport
-- [ ] Apply migration 0026 per §5 (or confirm tournaments already work on prod)
 - [ ] Merge when satisfied — branch is fast-forwardable
 
 ## 9. Verdict
@@ -131,6 +129,7 @@ the 5-minute manual preview check.
 ### Known limitations
 1. Browser QA requires a manual authenticated check (preview is SSO-protected)
 2. 9 RLS integration tests skipped without live Supabase env
-3. Migration `0026_tournaments.sql` still needs remote apply (see handoff doc)
+3. Migration `0026_tournaments.sql` — tables verified live on remote; optional
+   migration-history bookkeeping only (see handoff doc §5)
 4. 4 pre-existing lint warnings unrelated to this diff
 ```
