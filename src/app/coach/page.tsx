@@ -356,7 +356,7 @@ export default async function CoachDashboard({
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           {
-            href: "#athletes",
+            href: "/coach/athletes",
             value: `${filled}/${rows.length}`,
             valueClass: filled === rows.length ? "text-ok" : "",
             label: d.tileCheckins,
