@@ -63,35 +63,42 @@ alter table public.ai_insight_feedback enable row level security;
 alter table public.ai_usage_logs enable row level security;
 
 -- Staff-only read: coaches and admins; athletes see nothing.
+drop policy if exists ai_runs_staff on public.ai_analysis_runs;
 create policy ai_runs_staff on public.ai_analysis_runs
   for all to authenticated
   using (public.is_admin() or public.current_role() = 'coach')
   with check (public.is_admin() or public.current_role() = 'coach');
 
+drop policy if exists ai_insights_staff on public.ai_insights;
 create policy ai_insights_staff on public.ai_insights
   for all to authenticated
   using (public.is_admin() or public.current_role() = 'coach')
   with check (public.is_admin() or public.current_role() = 'coach');
 
 -- Feedback: staff write their own rows, read all.
+drop policy if exists ai_feedback_staff_read on public.ai_insight_feedback;
 create policy ai_feedback_staff_read on public.ai_insight_feedback
   for select to authenticated
   using (public.is_admin() or public.current_role() = 'coach');
+drop policy if exists ai_feedback_staff_write on public.ai_insight_feedback;
 create policy ai_feedback_staff_write on public.ai_insight_feedback
   for insert to authenticated
   with check (
     (public.is_admin() or public.current_role() = 'coach')
     and profile_id = auth.uid()
   );
+drop policy if exists ai_feedback_staff_update on public.ai_insight_feedback;
 create policy ai_feedback_staff_update on public.ai_insight_feedback
   for update to authenticated
   using (profile_id = auth.uid())
   with check (profile_id = auth.uid());
 
 -- Usage/cost data is financial: SELECT admin-only; staff may still insert.
+drop policy if exists ai_usage_admin_read on public.ai_usage_logs;
 create policy ai_usage_admin_read on public.ai_usage_logs
   for select to authenticated
   using (public.is_admin());
+drop policy if exists ai_usage_staff_insert on public.ai_usage_logs;
 create policy ai_usage_staff_insert on public.ai_usage_logs
   for insert to authenticated
   with check (public.is_admin() or public.current_role() = 'coach');

@@ -6,7 +6,7 @@ import { isUniqueViolation } from "@/lib/ai/guard";
 import { reserveBudget, settleBudget } from "@/lib/ai/budget";
 import { estimateCostUsd } from "@/lib/ai/cost";
 import { fetchAthleteContext } from "@/lib/ai/context";
-import { callAI } from "@/lib/ai/provider";
+import { callAI, aiModel } from "@/lib/ai/provider";
 import { AI_OUTPUT_JSON_SCHEMA, parseAIOutput } from "@/lib/ai/schema";
 import { SYSTEM_PROMPT, PROMPT_VERSION, buildUserPrompt } from "@/lib/ai/prompt";
 import { verifyEvidence } from "@/lib/ai/verify";
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
       continue;
     }
 
-    const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+    const model = aiModel();
     const resv = await reserveBudget(admin, model);
     if (!resv.ok) {
       await admin.from("ai_analysis_runs").update({ status: "error", error: "budget_exceeded" }).eq("id", runId);
