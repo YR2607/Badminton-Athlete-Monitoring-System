@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { scopedAthleteIds } from "@/lib/coach-data";
 import { fetchAthleteContext, type AthleteContext } from "@/lib/ai/context";
 import { checkRateLimit } from "@/lib/ai/rate-limit";
+import { isFlagEnabled } from "@/lib/flags";
 import type { Alert, FieldTest, FieldTestResult, GrowthMeasurement, TrainingSession } from "@/lib/types";
 
 /**
@@ -17,6 +18,7 @@ type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 async function staffContext() {
   const me = await getCurrentProfile();
   if (!me || (me.role !== "coach" && me.role !== "admin")) return null;
+  if (!(await isFlagEnabled("ai", null))) return null;
   if (!checkRateLimit(`ai:${me.id}`, 60, 60_000)) return null;
   const supabase = await createClient();
   return { me, supabase };

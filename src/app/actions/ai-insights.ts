@@ -327,6 +327,7 @@ export async function analyzeGroup(groupId: string): Promise<Result<InsightRow>>
 export async function sendInsightFeedback(insightId: string, rating: 1 | -1) {
   const me = await getCurrentProfile();
   if (!me || (me.role !== "coach" && me.role !== "admin")) return err("forbidden");
+  if (!(await isFlagEnabled("ai", null))) return err("disabled");
   const supabase = await createClient();
   const { error } = await supabase.from("ai_insight_feedback").upsert(
     { insight_id: insightId, profile_id: me.id, rating },

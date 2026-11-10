@@ -19,7 +19,7 @@ import type { Athlete, FeatureFlag } from "@/lib/types";
  */
 
 const TZ = "Europe/Chisinau";
-const MAX_PER_RUN = 30;
+const MAX_PER_RUN = 12; // keep one cron run under typical serverless timeouts
 
 export async function GET(req: NextRequest) {
   const secret = process.env.AI_CRON_SECRET;
