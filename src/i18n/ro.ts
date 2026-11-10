@@ -102,6 +102,7 @@ const ro: Dictionary = {
     overview: "Prezentare",
     configuration: "Configurare",
     coachWorkspace: "Mod antrenor",
+    adminWorkspace: "Mod admin",
   },
   athleteHome: {
     greeting: "Salut",

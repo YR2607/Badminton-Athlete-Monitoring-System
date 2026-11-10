@@ -102,6 +102,7 @@ const en: Dictionary = {
     overview: "Overview",
     configuration: "Configuration",
     coachWorkspace: "Coach workspace",
+    adminWorkspace: "Admin workspace",
   },
   athleteHome: {
     greeting: "Hi",

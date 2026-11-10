@@ -13,7 +13,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { TopProgress } from "@/components/layout/top-progress";
 
 /** primary — mobile bottom tabs; overflow — inside the "More" sheet */
-export function navGroups(role: AppRole, d: Dictionary): { primary: NavItem[]; overflow: NavItem[] } {
+export function navGroups(role: AppRole, d: Dictionary, isAdmin = false): { primary: NavItem[]; overflow: NavItem[] } {
   if (role === "athlete") {
     return {
       primary: [
@@ -45,6 +45,7 @@ export function navGroups(role: AppRole, d: Dictionary): { primary: NavItem[]; o
         { href: "/coach/tournaments", label: d.nav.tournaments },
         { href: "/coach/report", label: d.nav.reports },
         { href: "/coach/guide", label: d.nav.guide },
+        ...(isAdmin ? [{ href: "/admin", label: d.nav.adminWorkspace }] : []),
       ],
     };
   }
@@ -71,6 +72,7 @@ export async function AppShell({
   displayName,
   dict,
   pushEnabled = false,
+  isAdmin = false,
   children,
 }: {
   role: AppRole;
@@ -78,9 +80,11 @@ export async function AppShell({
   dict: Dictionary;
   /** Mounts the push opt-in banner + SW registration (flag 'push'). */
   pushEnabled?: boolean;
+  /** Admin viewing the coach workspace gets a way back to /admin. */
+  isAdmin?: boolean;
   children: React.ReactNode;
 }) {
-  const { primary, overflow } = navGroups(role, dict);
+  const { primary, overflow } = navGroups(role, dict, isAdmin);
   const impersonating = (await cookies()).has("rm-impersonating");
   return (
     <div className="min-h-full flex flex-col">
