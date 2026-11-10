@@ -70,3 +70,7 @@ verify: typecheck ✅ · lint 0 ✅ · 252/252 ✅ · build ✅ · **CORE_CLEAN*
 | — | flag-less read tools / feedback / MAX_PER_RUN | FIXED this round |
 
 **Verdict: READY WITH CONDITIONS** — code safe; conditions are the checklist (DB apply, env, flag, smoke).
+
+## Phase 3.8 addendum
+
+Budget guard implemented: atomic DB reservation (UPDATE ... WHERE under row lock — concurrent requests serialize; no bypass). Distributed rate limit via Postgres counter. Usage SELECT is admin-only (financial). MEDIUM in-memory-limit finding → resolved for generation paths.

@@ -88,9 +88,10 @@ create policy ai_feedback_staff_update on public.ai_insight_feedback
   using (profile_id = auth.uid())
   with check (profile_id = auth.uid());
 
-create policy ai_usage_staff on public.ai_usage_logs
+-- Usage/cost data is financial: SELECT admin-only; staff may still insert.
+create policy ai_usage_admin_read on public.ai_usage_logs
   for select to authenticated
-  using (public.is_admin() or public.current_role() = 'coach');
+  using (public.is_admin());
 create policy ai_usage_staff_insert on public.ai_usage_logs
   for insert to authenticated
   with check (public.is_admin() or public.current_role() = 'coach');

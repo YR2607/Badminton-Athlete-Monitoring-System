@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { flagEnabled, getFeatureFlags } from "@/lib/flags";
 import { todayInTz } from "@/lib/dates";
 import { isUniqueViolation } from "@/lib/ai/guard";
+import { reserveBudget, settleBudget } from "@/lib/ai/budget";
+import { estimateCostUsd } from "@/lib/ai/cost";
 import { fetchAthleteContext } from "@/lib/ai/context";
 import { callAI } from "@/lib/ai/provider";
 import { AI_OUTPUT_JSON_SCHEMA, parseAIOutput } from "@/lib/ai/schema";
@@ -70,11 +72,23 @@ export async function GET(req: NextRequest) {
       continue;
     }
 
+    const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+    const resv = await reserveBudget(admin, model);
+    if (!resv.ok) {
+      await admin.from("ai_analysis_runs").update({ status: "error", error: "budget_exceeded" }).eq("id", runId);
+      results.push({ athlete_id: a.id, status: "budget_exceeded" });
+      continue;
+    }
     const res = await callAI({
       system: SYSTEM_PROMPT,
       user: buildUserPrompt(context, "ru"),
       jsonSchema: AI_OUTPUT_JSON_SCHEMA,
     });
+    await settleBudget(
+      admin,
+      resv.est,
+      res.usage ? estimateCostUsd(res.usage.model, res.usage.input_tokens, res.usage.output_tokens) : 0,
+    );
     if (!res.ok) {
       await admin.from("ai_analysis_runs").update({ status: "error", error: res.error }).eq("id", runId);
       results.push({ athlete_id: a.id, status: res.error });

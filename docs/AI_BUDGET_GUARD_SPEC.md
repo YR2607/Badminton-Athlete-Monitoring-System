@@ -43,3 +43,11 @@ if (spent >= BUDGET_USD) return err("budget_exceeded");
 ## E. Not implementing now
 
 Distributed rate limiter (Upstash) — unjustified for 1–3 coaches; in-memory limit + Supabase budget check is sufficient for pilot.
+
+## Implemented (phase 3.8)
+
+- `0028_ai_budget.sql`: `ai_budget_months` + `ai_rate_counters` + security-definer `ai_reserve_budget` / `ai_settle_budget` / `ai_rate_check` — atomic single-row UPDATE under row lock.
+- Every `callAI` (actions + cron) is wrapped: reserve → call → settle(est, actual). Failed generation settles with 0 → reservation released.
+- Monthly cap via env `AI_MONTHLY_BUDGET_USD` (default 10) — no code change.
+- Distributed per-coach rate limit via `ai_rate_check` (fixed 1h windows), in-memory fallback pre-migration.
+- `ai_usage_logs` SELECT tightened to admin-only.

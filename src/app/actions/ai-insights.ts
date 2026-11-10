@@ -9,8 +9,9 @@ import { callAI } from "@/lib/ai/provider";
 import { AI_OUTPUT_JSON_SCHEMA, parseAIOutput } from "@/lib/ai/schema";
 import { SYSTEM_PROMPT, PROMPT_VERSION, buildUserPrompt } from "@/lib/ai/prompt";
 import { verifyEvidence } from "@/lib/ai/verify";
-import { checkRateLimit } from "@/lib/ai/rate-limit";
 import { isUniqueViolation } from "@/lib/ai/guard";
+import { reserveBudget, settleBudget, rateCheck } from "@/lib/ai/budget";
+import { estimateCostUsd } from "@/lib/ai/cost";
 import { todayInTz } from "@/lib/dates";
 
 export interface InsightRow {
@@ -121,7 +122,7 @@ export async function analyzeAthlete(athleteId: string): Promise<Result<InsightR
   const ctx = await staffAthlete(athleteId);
   if (!ctx) return err("forbidden");
   if (!(await isFlagEnabled("ai", null))) return err("disabled");
-  if (!checkRateLimit(`ai:analyze:${ctx.me.id}`, 10, 3_600_000)) return err("rate_limited");
+  if (!(await rateCheck(ctx.supabase, `ai:analyze:${ctx.me.id}`, 10))) return err("rate_limited");
   const tzEarly = ctx.me.timezone ?? "UTC";
   const cached = await cachedInsight(
     ctx.supabase, "athlete_on_demand", "athlete", athleteId, todayInTz(tzEarly),
@@ -139,11 +140,23 @@ export async function analyzeAthlete(athleteId: string): Promise<Result<InsightR
     subject_id: athleteId,
   });
 
+  const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+  const resv = await reserveBudget(ctx.supabase, model);
+  if (!resv.ok) {
+    if (runId)
+      await ctx.supabase.from("ai_analysis_runs").update({ status: "error", error: "budget_exceeded" }).eq("id", runId);
+    return err("budget_exceeded");
+  }
   const res = await callAI({
     system: SYSTEM_PROMPT,
     user: buildUserPrompt(context, ctx.me.preferred_language),
     jsonSchema: AI_OUTPUT_JSON_SCHEMA,
   });
+  await settleBudget(
+    ctx.supabase,
+    resv.est,
+    res.usage ? estimateCostUsd(res.usage.model, res.usage.input_tokens, res.usage.output_tokens) : 0,
+  );
   if (!res.ok) {
     if (runId)
       await ctx.supabase.from("ai_analysis_runs").update({ status: "error", error: res.error }).eq("id", runId);
@@ -241,7 +254,8 @@ export async function analyzeGroup(groupId: string): Promise<Result<InsightRow>>
   const me = await getCurrentProfile();
   if (!me || (me.role !== "coach" && me.role !== "admin")) return err("forbidden");
   if (!(await isFlagEnabled("ai", null))) return err("disabled");
-  if (!checkRateLimit(`ai:analyze:${me.id}`, 10, 3_600_000)) return err("rate_limited");
+  const supa0 = await createClient();
+  if (!(await rateCheck(supa0, `ai:analyze:${me.id}`, 10))) return err("rate_limited");
   const supabase = await createClient();
   const tz = me.timezone ?? "UTC";
   const cached = await cachedInsight(supabase, "group_briefing", "group", groupId, todayInTz(tz));
@@ -268,11 +282,23 @@ export async function analyzeGroup(groupId: string): Promise<Result<InsightRow>>
     subject_id: groupId,
   });
 
+  const gmodel = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+  const gresv = await reserveBudget(supabase, gmodel);
+  if (!gresv.ok) {
+    if (runId)
+      await supabase.from("ai_analysis_runs").update({ status: "error", error: "budget_exceeded" }).eq("id", runId);
+    return err("budget_exceeded");
+  }
   const res = await callAI({
     system: SYSTEM_PROMPT,
     user: buildUserPrompt(gctx, me.preferred_language),
     jsonSchema: AI_OUTPUT_JSON_SCHEMA,
   });
+  await settleBudget(
+    supabase,
+    gresv.est,
+    res.usage ? estimateCostUsd(res.usage.model, res.usage.input_tokens, res.usage.output_tokens) : 0,
+  );
   if (!res.ok) {
     if (runId)
       await supabase.from("ai_analysis_runs").update({ status: "error", error: res.error }).eq("id", runId);

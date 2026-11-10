@@ -46,3 +46,10 @@ Owner-run steps. Nothing here is automated. Order matters.
 
 - Disable flag `ai` → UI + actions stop immediately (no schema change needed)
 - Full removal: drop `ai_*` tables (additive, nothing depends on them)
+
+## Phase 3.8 additions
+
+- [ ] Apply `0028_ai_budget.sql` after 0027
+- [ ] Set `AI_MONTHLY_BUDGET_USD` (default $10) — change anytime in env
+- [ ] Admin dashboard → "AI usage" card shows budget/spent/remaining/tokens
+- [ ] Rollback 0028: drop tables `ai_budget_months`, `ai_rate_counters`, drop 3 functions
