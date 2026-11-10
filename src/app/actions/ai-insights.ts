@@ -1,0 +1,160 @@
+"use server";
+
+import { getCurrentProfile } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
+import { scopedAthleteIds } from "@/lib/coach-data";
+import { isFlagEnabled } from "@/lib/flags";
+import { fetchAthleteContext } from "@/lib/ai/context";
+import { callAI } from "@/lib/ai/provider";
+import { AI_OUTPUT_JSON_SCHEMA, parseAIOutput } from "@/lib/ai/schema";
+import { SYSTEM_PROMPT, PROMPT_VERSION, buildUserPrompt } from "@/lib/ai/prompt";
+import { verifyEvidence } from "@/lib/ai/verify";
+import { checkRateLimit } from "@/lib/ai/rate-limit";
+import { todayInTz } from "@/lib/dates";
+
+export interface InsightRow {
+  id: string;
+  category: string;
+  severity: string;
+  title: string;
+  insight: unknown;
+  insufficient: boolean;
+  reason: string | null;
+  model_version: string | null;
+  prompt_version: string | null;
+  generated_at: string;
+}
+
+type Result<T> = { ok: true; data: T } | { ok: false; error: string };
+const err = (e: string): Result<never> => ({ ok: false, error: e });
+
+async function staffAthlete(athleteId: string) {
+  const me = await getCurrentProfile();
+  if (!me || (me.role !== "coach" && me.role !== "admin")) return null;
+  const supabase = await createClient();
+  const ids = await scopedAthleteIds(supabase);
+  if (!ids.includes(athleteId)) return null;
+  return { me, supabase };
+}
+
+/** Latest stored insight for the athlete (staff-scoped). */
+export async function getLatestInsight(athleteId: string): Promise<Result<InsightRow | null>> {
+  const ctx = await staffAthlete(athleteId);
+  if (!ctx) return err("forbidden");
+  const { data } = await ctx.supabase
+    .from("ai_insights")
+    .select("id,category,severity,title,insight,insufficient,reason,model_version,prompt_version,generated_at")
+    .eq("subject_type", "athlete")
+    .eq("subject_id", athleteId)
+    .order("generated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return { ok: true, data: (data as InsightRow | null) ?? null };
+}
+
+/** On-demand analysis: context → provider → validate → verify → persist. */
+export async function analyzeAthlete(athleteId: string): Promise<Result<InsightRow>> {
+  const ctx = await staffAthlete(athleteId);
+  if (!ctx) return err("forbidden");
+  if (!(await isFlagEnabled("ai", null))) return err("disabled");
+  if (!checkRateLimit(`ai:analyze:${ctx.me.id}`, 10, 3_600_000)) return err("rate_limited");
+
+  const tz = ctx.me.timezone ?? "UTC";
+  const context = await fetchAthleteContext(ctx.supabase, athleteId, tz, 14);
+  if (!context) return err("not_found");
+
+  const { data: run } = await ctx.supabase
+    .from("ai_analysis_runs")
+    .insert({
+      run_date: todayInTz(tz),
+      kind: "athlete_on_demand",
+      subject_type: "athlete",
+      subject_id: athleteId,
+      status: "running",
+    })
+    .select("id")
+    .single();
+  const runId = (run as { id: string } | null)?.id ?? null;
+
+  const res = await callAI({
+    system: SYSTEM_PROMPT,
+    user: buildUserPrompt(context, ctx.me.preferred_language),
+    jsonSchema: AI_OUTPUT_JSON_SCHEMA,
+  });
+  if (!res.ok) {
+    if (runId)
+      await ctx.supabase.from("ai_analysis_runs").update({ status: "error", error: res.error }).eq("id", runId);
+    return err(res.error);
+  }
+  if (res.usage) {
+    await ctx.supabase.from("ai_usage_logs").insert({
+      run_id: runId,
+      profile_id: ctx.me.id,
+      provider: "openai",
+      model: res.usage.model,
+      input_tokens: res.usage.input_tokens,
+      output_tokens: res.usage.output_tokens,
+      endpoint: "actions/analyzeAthlete",
+    });
+  }
+
+  const parsed = parseAIOutput(res.data);
+  if (!parsed) {
+    if (runId)
+      await ctx.supabase.from("ai_analysis_runs").update({ status: "error", error: "schema_invalid" }).eq("id", runId);
+    return err("schema_invalid");
+  }
+  if (!parsed.insufficient && !verifyEvidence(parsed.insight, context).ok) {
+    if (runId)
+      await ctx.supabase.from("ai_analysis_runs").update({ status: "error", error: "unverified_evidence" }).eq("id", runId);
+    return err("unverified_evidence");
+  }
+
+  const row = {
+    run_id: runId,
+    subject_type: "athlete",
+    subject_id: athleteId,
+    category: parsed.insufficient ? "data_quality" : parsed.insight.category,
+    severity: parsed.insufficient ? "info" : parsed.insight.severity,
+    title: parsed.insufficient ? "insufficient_data" : parsed.insight.title,
+    insight: parsed.insufficient ? null : parsed.insight,
+    insufficient: parsed.insufficient,
+    reason: parsed.insufficient ? parsed.reason : null,
+    model_version: res.usage?.model ?? "unknown",
+    prompt_version: PROMPT_VERSION,
+  };
+  const { data: inserted, error } = await ctx.supabase.from("ai_insights").insert(row).select("id,generated_at").single();
+  if (error || !inserted) {
+    if (runId)
+      await ctx.supabase.from("ai_analysis_runs").update({ status: "error", error: "insert_failed" }).eq("id", runId);
+    return err("insert_failed");
+  }
+  if (runId) await ctx.supabase.from("ai_analysis_runs").update({ status: "ok" }).eq("id", runId);
+  return {
+    ok: true,
+    data: {
+      id: inserted.id,
+      generated_at: inserted.generated_at,
+      category: row.category,
+      severity: row.severity,
+      title: row.title,
+      insight: row.insight,
+      insufficient: row.insufficient,
+      reason: row.reason,
+      model_version: row.model_version,
+      prompt_version: row.prompt_version,
+    } as InsightRow,
+  };
+}
+
+/** Coach thumbs feedback on an insight (upsert per profile). */
+export async function sendInsightFeedback(insightId: string, rating: 1 | -1) {
+  const me = await getCurrentProfile();
+  if (!me || (me.role !== "coach" && me.role !== "admin")) return err("forbidden");
+  const supabase = await createClient();
+  const { error } = await supabase.from("ai_insight_feedback").upsert(
+    { insight_id: insightId, profile_id: me.id, rating },
+    { onConflict: "insight_id,profile_id" },
+  );
+  return error ? err(error.message) : { ok: true as const, data: null };
+}

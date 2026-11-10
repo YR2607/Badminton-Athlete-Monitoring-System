@@ -25,6 +25,9 @@ import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart } from "@/components/charts/series-chart";
 import { CoachNotes } from "./notes";
 import { AlertList } from "./alert-list";
+import { AIInsightCard } from "@/components/ai/insight-card";
+import { getLatestInsight, type InsightRow } from "@/app/actions/ai-insights";
+import { isFlagEnabled } from "@/lib/flags";
 import { cn } from "@/lib/utils";
 import type {
   Alert,
@@ -157,6 +160,10 @@ export default async function AthleteDetailPage({
     dashLoads,
     attendanceStats,
   } = data;
+
+  const aiOn = await isFlagEnabled("ai", null);
+  const insightRes = aiOn ? await getLatestInsight(a.id) : null;
+  const latestInsight: InsightRow | null = insightRes?.ok ? insightRes.data : null;
 
   const ck = ((checkins as MorningCheckin[]) ?? []).filter(
     (c) => c.checkin_date >= addDays(range.from, -30) && c.checkin_date <= range.to,
@@ -599,6 +606,10 @@ export default async function AthleteDetailPage({
           zscore={zscoreOn}
           events={eventsOn ? eventRows : []}
         />
+      )}
+
+      {aiOn && tab === "today" && (
+        <AIInsightCard athleteId={a.id} initial={latestInsight} d={dict.ai} />
       )}
 
       {recsOn && tab === "notes" && <RecList recs={recs} dict={dict} />}
