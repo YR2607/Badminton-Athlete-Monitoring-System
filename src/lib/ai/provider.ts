@@ -8,6 +8,8 @@ export interface AIUsage {
   input_tokens: number;
   output_tokens: number;
   model: string;
+  /** Real billed cost when the provider reports it (OpenRouter usage.cost). */
+  cost_usd?: number;
 }
 
 export type AIResult =
@@ -25,6 +27,24 @@ export function aiConfigured(): boolean {
 
 export function aiModel(): string {
   return process.env.AI_MODEL ?? process.env.OPENAI_MODEL ?? DEFAULT_MODEL;
+}
+
+/** Parse raw JSON; fall back to the first {...} block (fences/prose-safe). */
+export function extractJson(text: string): unknown {
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    /* fall through */
+  }
+  const start = trimmed.indexOf("{");
+  const end = trimmed.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  try {
+    return JSON.parse(trimmed.slice(start, end + 1));
+  } catch {
+    return null;
+  }
 }
 
 export async function callAI(opts: {
@@ -45,7 +65,8 @@ export async function callAI(opts: {
       { role: "system", content: opts.system },
       { role: "user", content: opts.user },
     ],
-    response_format: { type: "json_object" },
+    // No response_format — the target free model rejects unknown params
+    // with HTTP 400. Output is validated by Zod on our side instead.
     max_tokens: opts.maxOutputTokens ?? 1200,
     temperature: 0.2,
   };
@@ -70,20 +91,19 @@ export async function callAI(opts: {
       }
       const json = (await res.json()) as {
         choices?: { message?: { content?: string } }[];
-        usage?: { prompt_tokens?: number; completion_tokens?: number };
+        usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number };
       };
       const usage: AIUsage = {
         input_tokens: json.usage?.prompt_tokens ?? 0,
         output_tokens: json.usage?.completion_tokens ?? 0,
         model,
+        cost_usd: typeof json.usage?.cost === "number" ? json.usage.cost : undefined,
       };
       const text = json.choices?.[0]?.message?.content;
       if (!text) return { ok: false, error: "empty provider response", usage };
-      try {
-        return { ok: true, data: JSON.parse(text), usage };
-      } catch {
-        return { ok: false, error: "provider returned invalid JSON", usage };
-      }
+      const data = extractJson(text);
+      if (data === null) return { ok: false, error: "provider returned invalid JSON", usage };
+      return { ok: true, data, usage };
     } catch {
       if (attempt === 0) continue;
       return { ok: false, error: "provider timeout/network error" };

@@ -155,7 +155,7 @@ export async function analyzeAthlete(athleteId: string): Promise<Result<InsightR
   await settleBudget(
     ctx.supabase,
     resv.est,
-    res.usage ? estimateCostUsd(res.usage.model, res.usage.input_tokens, res.usage.output_tokens) : 0,
+    res.usage ? (res.usage.cost_usd ?? estimateCostUsd(res.usage.model, res.usage.input_tokens, res.usage.output_tokens)) : 0,
   );
   if (!res.ok) {
     if (runId)
@@ -297,7 +297,7 @@ export async function analyzeGroup(groupId: string): Promise<Result<InsightRow>>
   await settleBudget(
     supabase,
     gresv.est,
-    res.usage ? estimateCostUsd(res.usage.model, res.usage.input_tokens, res.usage.output_tokens) : 0,
+    res.usage ? (res.usage.cost_usd ?? estimateCostUsd(res.usage.model, res.usage.input_tokens, res.usage.output_tokens)) : 0,
   );
   if (!res.ok) {
     if (runId)
