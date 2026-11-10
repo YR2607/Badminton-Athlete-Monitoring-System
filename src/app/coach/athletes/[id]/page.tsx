@@ -57,7 +57,8 @@ export default async function AthleteDetailPage({
   const me = (await getCurrentProfile())!;
   const dict = getDictionary(me.preferred_language);
   const dd = dict.athleteDetail;
-  const tab = sp.tab === "load" || sp.tab === "dev" ? sp.tab : "today";
+  const tab =
+    sp.tab === "load" || sp.tab === "dev" || sp.tab === "notes" ? sp.tab : "today";
   const supabase = await createClient();
 
   // RLS: null unless this athlete is assigned to the coach.
@@ -289,6 +290,23 @@ export default async function AthleteDetailPage({
             {a.athlete_code} · {dict.common.group}: {groupName}
             {a.birth_year ? ` · ${new Date().getUTCFullYear() - a.birth_year}` : ""}
           </p>
+          {(todayScore !== null || openAlerts.length > 0) && (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {todayScore !== null && (
+                <Badge tone={todayScore >= 70 ? "ok" : todayScore >= 45 ? "warn" : "danger"}>
+                  {dd.today.morningScore}: {Math.round(todayScore)}
+                  {normDelta !== null && normDelta !== 0
+                    ? ` (${normDelta > 0 ? "+" : ""}${normDelta})`
+                    : ""}
+                </Badge>
+              )}
+              {openAlerts.length > 0 && (
+                <Badge tone="danger">
+                  {dict.alerts.open}: {openAlerts.length}
+                </Badge>
+              )}
+            </div>
+          )}
         </div>
         {navAthletes.length > 1 && (
           <AthleteSwitcher athletes={navAthletes} currentId={a.id} label={dd.profile} />
@@ -408,23 +426,31 @@ export default async function AthleteDetailPage({
         </Card>
       )}
 
-      {/* Three decision-oriented sections: today / load & recovery / development */}
+      {/* Four decision-oriented sections: today / load & recovery / development / notes */}
       <div className="flex flex-wrap items-center gap-1">
-        {(["today", "load", "dev"] as const).map((k) => (
-          <a
-            key={k}
-            href={`/coach/athletes/${a.id}?tab=${k}${sp.range ? `&range=${sp.range}` : ""}${sp.from ? `&from=${sp.from}` : ""}${sp.to ? `&to=${sp.to}` : ""}`}
-            className={cn(
-              "rounded-lg px-3 py-1.5 text-sm font-medium",
-              tab === k ? "bg-accent text-accent-foreground" : "bg-foreground/5",
-            )}
-          >
-            {k === "today" ? dd.tabToday : k === "load" ? dd.tabLoad : dd.tabDev}
-          </a>
-        ))}
+        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+          {(["today", "load", "dev", "notes"] as const).map((k) => (
+            <a
+              key={k}
+              href={`/coach/athletes/${a.id}?tab=${k}${sp.range ? `&range=${sp.range}` : ""}${sp.from ? `&from=${sp.from}` : ""}${sp.to ? `&to=${sp.to}` : ""}`}
+              className={cn(
+                "shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium",
+                tab === k ? "bg-accent text-accent-foreground" : "bg-foreground/5",
+              )}
+            >
+              {k === "today"
+                ? dd.tabToday
+                : k === "load"
+                  ? dd.tabLoad
+                  : k === "dev"
+                    ? dd.tabDev
+                    : dd.tabNotes}
+            </a>
+          ))}
+        </div>
         <a
           href={`/coach/report?athlete=${a.id}&period=custom&from=${range.from}&to=${range.to}`}
-          className="ml-auto rounded-lg bg-foreground/5 px-3 py-1.5 text-sm font-medium text-accent"
+          className="shrink-0 rounded-lg bg-foreground/5 px-3 py-1.5 text-sm font-medium text-accent"
         >
           {dict.report.title} ({range.from.slice(5)}→{range.to.slice(5)}) →
         </a>
@@ -575,9 +601,9 @@ export default async function AthleteDetailPage({
         />
       )}
 
-      {recsOn && tab === "today" && <RecList recs={recs} dict={dict} />}
+      {recsOn && tab === "notes" && <RecList recs={recs} dict={dict} />}
 
-      {eventsOn && tab === "today" && (
+      {eventsOn && tab === "notes" && (
         <EventsPanel
           dict={dict}
           events={eventRows}
@@ -587,7 +613,7 @@ export default async function AthleteDetailPage({
         />
       )}
 
-      {ostrcOn && tab === "load" && (
+      {ostrcOn && tab === "dev" && (
         <Card>
           <CardHeader>
             <CardTitle>{dict.ostrc.historyTitle}</CardTitle>
@@ -972,7 +998,7 @@ export default async function AthleteDetailPage({
       </Card>
       )}
 
-      {tab === "dev" && (
+      {tab === "notes" && (
       <CoachNotes
         athleteId={a.id}
         notes={(notes as CoachNote[]) ?? []}

@@ -28,7 +28,8 @@ const ICONS: Record<string, string> = {
 
 export function iconKey(href: string): string {
   // Coach/admin home tab is labeled "Athletes" — show the people icon, not a house.
-  if (href === "/coach") return "users";
+  if (href === "/coach" || href.includes("athletes")) return "users";
+  if (href.includes("config")) return "settings";
   if (href.includes("morning")) return "morning";
   if (href.includes("training")) return "training";
   if (href.includes("history")) return "history";

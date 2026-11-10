@@ -63,8 +63,11 @@ export function AttendanceClient({
     else toast.error(res.error ?? dict.common.error);
   }
 
+  const unmarked = rows.filter((r) => !r.status).length;
+
   async function allPresent() {
     if (pending) return;
+    if (!window.confirm(d.confirmAll)) return;
     setPending("all");
     const res = await markGroupPresent({ group_id: groupId, att_date: date });
     setPending(null);
@@ -101,16 +104,22 @@ export function AttendanceClient({
             <Badge tone="neutral" className="mb-2">{d.noSchedule}</Badge>
           )}
           {groupId && rows.length > 0 && (
+            <div className="ml-auto flex items-end gap-2">
+              {unmarked > 0 && (
+                <Badge tone="warn" className="mb-1">
+                  {d.unmarkedCount.replace("{n}", String(unmarked))}
+                </Badge>
+              )}
             <Button
               size="sm"
               variant="secondary"
-              className="ml-auto"
               disabled={pending !== null}
               onClick={allPresent}
               title={d.tipAllPresent}
             >
               ✅ {d.allPresent}
             </Button>
+            </div>
           )}
         </CardContent>
       </Card>
