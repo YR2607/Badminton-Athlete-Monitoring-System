@@ -31,7 +31,12 @@ describe("parseAIOutput", () => {
     expect(parseAIOutput("text")).toBeNull();
     expect(parseAIOutput({})).toBeNull();
     expect(parseAIOutput({ insufficient: false })).toBeNull();
-    expect(parseAIOutput({ insufficient: true })).toBeNull();
+    // Bare insufficient is coerced with a default reason.
+    expect(parseAIOutput({ insufficient: true })).toEqual({
+      insufficient: true,
+      reason: "insufficient data",
+      missing: [],
+    });
     // Unknown enum values are coerced to safe defaults, not rejected.
     const coerced = parseAIOutput({
       insufficient: false,

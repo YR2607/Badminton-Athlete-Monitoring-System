@@ -156,7 +156,11 @@ export function parseAIOutput(raw: unknown): AIOutput | null {
   const obj = raw as Record<string, unknown> | null;
   if (!obj || typeof obj !== "object") return null;
   if (obj.insufficient === true) {
-    const r = AIInsufficient.safeParse(obj);
+    const r = AIInsufficient.safeParse({
+      insufficient: true,
+      reason: typeof obj.reason === "string" ? obj.reason : "insufficient data",
+      missing: Array.isArray(obj.missing) ? obj.missing.filter((x) => typeof x === "string") : [],
+    });
     return r.success ? r.data : null;
   }
   if (obj.insight && typeof obj.insight === "object") {

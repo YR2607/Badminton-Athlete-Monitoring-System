@@ -182,7 +182,7 @@ export async function analyzeAthlete(athleteId: string): Promise<Result<InsightR
   const parsed = parseAIOutput(res.data);
   if (!parsed) {
     if (runId)
-      await ctx.supabase.from("ai_analysis_runs").update({ status: "error", error: "schema_invalid" }).eq("id", runId);
+      await ctx.supabase.from("ai_analysis_runs").update({ status: "error", error: `schema_invalid:${JSON.stringify(res.data).slice(0, 180)}` }).eq("id", runId);
     return err("schema_invalid");
   }
   if (!parsed.insufficient && !verifyEvidence(parsed.insight, context).ok) {
@@ -319,7 +319,7 @@ export async function analyzeGroup(groupId: string): Promise<Result<InsightRow>>
   const parsed = parseAIOutput(res.data);
   if (!parsed) {
     if (runId)
-      await supabase.from("ai_analysis_runs").update({ status: "error", error: "schema_invalid" }).eq("id", runId);
+      await supabase.from("ai_analysis_runs").update({ status: "error", error: `schema_invalid:${JSON.stringify(res.data).slice(0, 180)}` }).eq("id", runId);
     return err("schema_invalid");
   }
   if (!parsed.insufficient && !verifyEvidence(parsed.insight, gctx).ok) {
