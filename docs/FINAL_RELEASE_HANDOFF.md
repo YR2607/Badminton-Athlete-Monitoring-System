@@ -38,9 +38,15 @@ auto-deploy per push works). Preview is behind **Vercel Deployment
 Protection (SSO)** — rendered pages not inspectable without the owner's
 Vercel session.
 
-## 5. Migration `0026_tournaments.sql` — separate action required
+## 5. Migration `0026_tournaments.sql` — VERIFIED LIVE on remote
 
-Already merged in `main` (code side), **not yet applied to the remote DB**.
+Updated 2026-11-10: remote schema probed read-only via PostgREST — all
+three tables, key columns and RLS-gated anonymous read confirmed live.
+**Tournament functionality is safe to use; no SQL action required.**
+Only optional bookkeeping remains (record the version row in
+`supabase_migrations.schema_migrations` for `db push` parity).
+Original analysis kept below for reference:
+
 Analysis (read-only):
 
 - Tables: `tournaments`, `tournament_players`, `tournament_matches` —
