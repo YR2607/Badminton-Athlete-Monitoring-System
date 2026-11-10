@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
 
     const parsed = parseAIOutput(res.data);
     if (!parsed) {
-      await admin.from("ai_analysis_runs").update({ status: "error", error: "schema_invalid" }).eq("id", runId);
+      await admin.from("ai_analysis_runs").update({ status: "error", error: `schema_invalid:${JSON.stringify(res.data).slice(0, 180)}` }).eq("id", runId);
       results.push({ athlete_id: a.id, status: "schema_invalid" });
       continue;
     }
