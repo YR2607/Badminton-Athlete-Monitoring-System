@@ -7,9 +7,9 @@ Date: 2026-11-10 · Branch: `ux/coach-admin-overhaul` → `main`
 | Item | Status |
 |---|---|
 | Working tree | PASS — clean, no stray/secret files |
-| Head SHA | `68d9796` (docs) / code HEAD `38681f5` |
+| Head SHA | `2a161bd` (docs) / code HEAD `38681f5` |
 | Base `origin/main` | `e460651` |
-| Commits | 11 ahead / 0 behind — fast-forward, no conflicts |
+| Commits | 12 ahead / 0 behind — fast-forward, no conflicts |
 | Changed files | 22 — presentation layer + docs only |
 
 ## 2. PR status — WARNING

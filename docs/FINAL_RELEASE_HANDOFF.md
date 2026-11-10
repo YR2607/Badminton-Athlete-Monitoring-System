@@ -10,13 +10,15 @@ Date: 2026-11-10 · Reviewed by: Devin
   machine (`gh` unauthenticated, GitHub MCP server unreachable, no
   `GH_TOKEN`/`GITHUB_TOKEN` in env). Creating the PR is a one-click manual
   step at the link above; suggested title: `UX overhaul: Coach and Admin workspaces`.
-- A ready-made PR description is included below (§11).
+- A ready-made PR description is included below (§10).
 
 ## 2. State
 
-- **Source SHA (head):** `68d9796` — pushed, tree clean.
+- **Source SHA (head):** `2a161bd` — pushed, tree clean.
+- **Code HEAD:** `38681f5` — last commit touching application code;
+  everything after it (`74e02ab`, `68d9796`, `2a161bd`) is docs-only.
 - **Base SHA (origin/main):** `e460651`.
-- **Commits:** 11 ahead / 0 behind — fast-forwardable, no conflicts expected.
+- **Commits:** 12 ahead / 0 behind — fast-forwardable, no conflicts expected.
 - **Files changed:** 22 (incl. `docs/RELEASE_REVIEW.md`, this handoff,
   `docs/PRODUCTION_READINESS.md`).
 - **Diff scope:** presentation layer only — `src/app/`, `src/components/`,

@@ -1,12 +1,12 @@
 # RallyMonitor — Release Review: `ux/coach-admin-overhaul` → `main`
 
 Date: 2026-11-10 · Reviewed HEAD: `87c6785` (+ review fix commit `38681f5`;
-current branch head `68d9796` — see `FINAL_RELEASE_HANDOFF.md` §2)
+current branch head `2a161bd` — see `FINAL_RELEASE_HANDOFF.md` §2)
 
 ## 1. Git state
 
 - Branch `ux/coach-admin-overhaul`: **8 commits ahead, 0 behind** `origin/main`
-  at review time (now 11 ahead — subsequent commits are docs + the anchor fix).
+  at review time (now 12 ahead — subsequent commits are docs + the anchor fix).
 - Working tree clean; no stray files, no `.env`, no secrets or test
   credentials in the diff (scanned for keys/tokens — none).
 - Changed files: 19 — all presentation layer (pages, layout, i18n, docs).
@@ -69,9 +69,14 @@ typecheck · lint · tests · build · i18n · preview build.
 - No authenticated browser QA — recommend one manual click-through on the
   preview before merge.
 - 9 RLS integration tests skipped (env-gated, by design).
-- Pre-existing (outside this branch): migration `0026_tournaments.sql`
-  not applied to remote DB — tournaments UI exists in `main` already;
-  apply the migration before/at deploy.
+- ~~Pre-existing: migration `0026_tournaments.sql` not applied to remote DB.~~
+  **Phase 4 update (2026-11-10):** read-only PostgREST verification found all
+  three tournament tables (`tournaments`, `tournament_players`,
+  `tournament_matches`) live on remote with expected columns; anonymous
+  reads are RLS-gated (`[]`). Runtime schema presence confirmed — no SQL
+  action needed. Migration-history bookkeeping (a `0026` row in
+  `supabase_migrations`) remains unverified and is optional for
+  `db push` parity only.
 - `PageHeader`/`EmptyState`/`StatCard` currently unused (dead exports).
 
 **BLOCKER:** none.
@@ -79,5 +84,5 @@ typecheck · lint · tests · build · i18n · preview build.
 ## 9. Verdict
 
 **READY TO MERGE** — conditional on one manual preview click-through
-(coach dashboard → athlete profile → attendance → admin overview) and
-applying the pending `0026` migration.
+(coach dashboard → athlete profile → attendance → admin overview).
+Migration 0026 verified live in Phase 4 — no longer a merge condition.
