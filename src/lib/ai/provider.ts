@@ -14,7 +14,7 @@ export interface AIUsage {
 
 export type AIResult =
   | { ok: true; data: unknown; usage: AIUsage }
-  | { ok: false; error: string; usage?: AIUsage };
+  | { ok: false; error: string; usage?: AIUsage; raw?: string };
 
 export const DEFAULT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free";
 const DEFAULT_BASE = "https://openrouter.ai/api/v1";
@@ -128,7 +128,7 @@ export async function callAI(opts: {
       const data = extractJson(text);
       if (data === null) {
         console.error("AI invalid JSON, raw head:", text.slice(0, 300));
-        return { ok: false, error: "provider returned invalid JSON", usage };
+        return { ok: false, error: "provider returned invalid JSON", usage, raw: text.slice(0, 200) };
       }
       return { ok: true, data, usage };
     } catch {
