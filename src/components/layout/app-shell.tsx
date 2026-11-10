@@ -30,43 +30,38 @@ export function navGroups(role: AppRole, d: Dictionary): { primary: NavItem[]; o
     };
   }
   if (role === "coach") {
-    // Primary = daily decisions (today's priorities, attendance, weekly
-    // analytics); everything else lives in "More".
+    // Primary = daily decisions; secondary tools live in "More".
     return {
       primary: [
-        { href: "/coach", label: d.nav.home },
+        { href: "/coach", label: d.nav.today },
+        { href: "/coach/athletes", label: d.nav.athletes },
         { href: "/coach/attendance", label: d.nav.attendance },
+        { href: "/coach/alerts", label: d.nav.alerts },
         { href: "/analytics", label: d.analytics.title },
-        { href: "/coach/report", label: d.nav.reports },
       ],
       overflow: [
         { href: "/coach/academy", label: d.nav.academy },
         { href: "/coach/tests", label: d.nav.tests },
         { href: "/coach/tournaments", label: d.nav.tournaments },
-        { href: "/coach/alerts", label: d.nav.alerts },
+        { href: "/coach/report", label: d.nav.reports },
         { href: "/coach/guide", label: d.nav.guide },
       ],
     };
   }
+  // Admin workspace: club management first, coach workspace one tap away.
   return {
     primary: [
-      { href: "/coach", label: d.nav.athletes },
-      { href: "/coach/attendance", label: d.nav.attendance },
-      { href: "/coach/academy", label: d.nav.academy },
-      { href: "/analytics", label: d.analytics.title },
-      { href: "/coach/report", label: d.nav.reports },
-    ],
-    overflow: [
-      { href: "/admin", label: d.nav.home },
-      { href: "/coach/guide", label: d.nav.guide },
-      { href: "/coach/tournaments", label: d.nav.tournaments },
+      { href: "/admin", label: d.nav.overview },
       { href: "/admin/users", label: d.nav.users },
       { href: "/admin/groups", label: d.nav.groups },
-      { href: "/admin/features", label: d.nav.features },
-      { href: "/admin/tests", label: d.nav.tests },
-      { href: "/admin/ostrc", label: d.tests.ostrcZones },
-      { href: "/admin/rules", label: d.nav.rules },
+      { href: "/admin/config", label: d.nav.configuration },
       { href: "/admin/audit", label: d.nav.audit },
+    ],
+    overflow: [
+      { href: "/coach", label: d.nav.coachWorkspace },
+      { href: "/coach/tournaments", label: d.nav.tournaments },
+      { href: "/coach/report", label: d.nav.reports },
+      { href: "/coach/guide", label: d.nav.guide },
     ],
   };
 }

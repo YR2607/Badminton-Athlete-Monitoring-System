@@ -14,7 +14,6 @@ import { analyzeLoadWave, plannedForDate, type PlanOverride, type ScheduleInput 
 import { isoWeekMonday } from "@/lib/ostrc";
 import type { TrainingSession } from "@/lib/types";
 import { ageInDays } from "@/lib/athlete-status";
-import { CoachTable } from "./table";
 import { AlertList } from "@/app/coach/athletes/[id]/alert-list";
 import { ChevronDown } from "lucide-react";
 
@@ -524,9 +523,16 @@ export default async function CoachDashboard({
         </Card>
       )}
 
-      <div id="athletes">
-        <CoachTable rows={rows} groups={groups} dict={dict} locale={profile.preferred_language} />
-      </div>
+      <Link href="/coach/athletes">
+        <Card className="transition-colors hover:border-accent/50">
+          <CardContent className="flex items-center justify-between pt-4">
+            <span className="font-medium">{dict.nav.athletes}</span>
+            <span className="text-sm text-muted">
+              {rows.length} →
+            </span>
+          </CardContent>
+        </Card>
+      </Link>
 
       <details className="group rounded-xl border border-border bg-surface">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-4">
