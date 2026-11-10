@@ -159,7 +159,7 @@ export async function analyzeAthlete(athleteId: string): Promise<Result<InsightR
   );
   if (!res.ok) {
     if (runId)
-      await ctx.supabase.from("ai_analysis_runs").update({ status: "error", error: res.error }).eq("id", runId);
+      await ctx.supabase.from("ai_analysis_runs").update({ status: "error", error: res.raw ? `${res.error}|${res.raw}` : res.error }).eq("id", runId);
     return err(res.error);
   }
   let usageFailed = false;
@@ -301,7 +301,7 @@ export async function analyzeGroup(groupId: string): Promise<Result<InsightRow>>
   );
   if (!res.ok) {
     if (runId)
-      await supabase.from("ai_analysis_runs").update({ status: "error", error: res.error }).eq("id", runId);
+      await supabase.from("ai_analysis_runs").update({ status: "error", error: res.raw ? `${res.error}|${res.raw}` : res.error }).eq("id", runId);
     return err(res.error);
   }
   let usageFailed = false;

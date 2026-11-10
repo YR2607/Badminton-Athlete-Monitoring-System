@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
       res.usage ? (res.usage.cost_usd ?? estimateCostUsd(res.usage.model, res.usage.input_tokens, res.usage.output_tokens)) : 0,
     );
     if (!res.ok) {
-      await admin.from("ai_analysis_runs").update({ status: "error", error: res.error }).eq("id", runId);
+      await admin.from("ai_analysis_runs").update({ status: "error", error: res.raw ? `${res.error}|${res.raw}` : res.error }).eq("id", runId);
       results.push({ athlete_id: a.id, status: res.error });
       continue;
     }
