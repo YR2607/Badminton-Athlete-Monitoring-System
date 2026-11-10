@@ -12,14 +12,12 @@ Date: 2026-11-10 · Branch: `ux/coach-admin-overhaul` → `main`
 | Commits | 12 ahead / 0 behind — fast-forward, no conflicts |
 | Changed files | 22 — presentation layer + docs only |
 
-## 2. PR status — WARNING
+## 2. PR status — PASS
 
-Not created: no GitHub auth on this machine (`gh` unauthenticated, GitHub
-MCP unreachable, no token in env). One-click link:
-
-https://github.com/YR2607/Badminton-Athlete-Monitoring-System/compare/main...ux/coach-admin-overhaul
-
-Title: `UX overhaul: Coach and Admin workspaces` · body: `docs/FINAL_RELEASE_HANDOFF.md` §10.
+**PR #2 created** 2026-11-10:
+https://github.com/YR2607/Badminton-Athlete-Monitoring-System/pull/2
+(base `main` ← head `ux/coach-admin-overhaul`; body from
+`docs/FINAL_RELEASE_HANDOFF.md` §10).
 
 ## 3. Database — migration 0026 — PASS (verified live)
 
@@ -83,11 +81,12 @@ checklist for owner (§10) — coach flow, admin flow, 3 mobile viewports.
 
 ## 9. Remaining blockers
 
-None. **Warnings only:** PR not created (auth), browser QA not run (SSO/no accounts), 9 env-gated RLS tests skipped.
+None. **Warnings only:** browser QA not run (SSO/no accounts — checklist in
+`docs/PRODUCTION_SMOKE_TEST.md`), 9 env-gated RLS tests skipped.
 
 ## 10. Owner actions required
 
-- [ ] Create PR (link §2) + paste body from `FINAL_RELEASE_HANDOFF.md` §10
+- [x] Create PR — done: https://github.com/YR2607/Badminton-Athlete-Monitoring-System/pull/2
 - [ ] Preview click-through: login → `/coach` (group switch, athlete profile 4 tabs, attendance + bulk confirm, alerts) → `/admin` (overview, users, groups, config, audit) → coach-mode toggle; on 390×844 viewport
 - [ ] Optionally record 0026 in remote migration history (§3)
 - [ ] Merge → verify prod deploy → smoke-check login
@@ -95,5 +94,5 @@ None. **Warnings only:** PR not created (auth), browser QA not run (SSO/no accou
 ## 11. Verdict
 
 **READY WITH CONDITIONS** — code, build, security and database state
-verified; remaining steps are owner's manual actions (PR creation,
-5-minute preview check, merge decision).
+verified; remaining steps are owner's manual actions (preview check on
+PR #2, merge decision).
