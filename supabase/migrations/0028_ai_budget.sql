@@ -19,8 +19,10 @@ alter table public.ai_budget_months enable row level security;
 alter table public.ai_rate_counters enable row level security;
 
 -- Financial data: admins only. Counters are touched via security-definer fns.
+drop policy if exists ai_budget_admin on public.ai_budget_months;
 create policy ai_budget_admin on public.ai_budget_months
   for select to authenticated using (public.is_admin());
+drop policy if exists ai_rate_admin on public.ai_rate_counters;
 create policy ai_rate_admin on public.ai_rate_counters
   for select to authenticated using (public.is_admin());
 
