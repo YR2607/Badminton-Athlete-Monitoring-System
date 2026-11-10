@@ -171,7 +171,7 @@ const ro: Dictionary = {
     plan: "plan antrenor",
     acwrTitle: "Raportul de încărcătură (ACWR)",
     acwrHint: "Cât de repede crește încărcătura față de cea obișnuită. Zonă orientativă 0.8–1.3; peste 1.5 e o creștere bruscă. E un semnal de verificare, nu o predicție de accidentare.",
-    acwrForming: "Date insuficiente — sunt necesare cel puțin 21 de zile de antrenament",
+    acwrForming: "Date insuficiente — sunt necesare cel puțin 15 zile de antrenament",
     waveTitle: "Valul de încărcătură",
     waveGood: "Val bun de încărcătură: zilele de vârf alternează cu descărcarea",
     waveMonotonous: "Atenție — încărcătură monotonă (fără fereastră de descărcare): programați o zi ușoară (RPE 2–3)",

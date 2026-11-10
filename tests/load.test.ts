@@ -86,7 +86,7 @@ describe("ewma", () => {
 
 describe("acwrEwma", () => {
   it("returns null below minDays", () => {
-    expect(acwrEwma(Array(20).fill(300))).toBeNull();
+    expect(acwrEwma(Array(14).fill(300))).toBeNull();
   });
 
   it("ratio ≈ 1 on a steady load", () => {

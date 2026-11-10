@@ -244,7 +244,7 @@ export interface AcwrResult {
  * (in chronological order). Returns null with < `minDays` of history
  * or when chronic load is ~0 (ratio is meaningless at zero denominator).
  */
-export function acwrEwma(loads: number[], minDays = 21): AcwrResult | null {
+export function acwrEwma(loads: number[], minDays = 15): AcwrResult | null {
   // History = days since the first non-zero load, not the window length —
   // otherwise a single session after weeks of zeros yields a fake spike.
   const firstIdx = loads.findIndex((l) => l > 0);
@@ -263,7 +263,7 @@ export function acwrEwma(loads: number[], minDays = 21): AcwrResult | null {
  * of history; earlier positions are null. Ratio < ~0 while chronic ≈ 0 is
  * suppressed as meaningless.
  */
-export function acwrSeries(loads: number[], minDays = 21): (number | null)[] {
+export function acwrSeries(loads: number[], minDays = 15): (number | null)[] {
   const firstIdx = loads.findIndex((l) => l > 0);
   const lAcute = 2 / (7 + 1);
   const lChronic = 2 / (28 + 1);
