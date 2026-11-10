@@ -1041,6 +1041,7 @@ const ru = {
       membersN: "{n} чел.",
       noSchedule: "нет расписания",
       coachesN: "Тренеров",
+      recentActions: "Последние действия",
       configHubHint: "Флаги функций, правила сигналов, зоны OSTRC и каталог тестов",
     },
   },

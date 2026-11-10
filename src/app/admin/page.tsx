@@ -22,6 +22,7 @@ export default async function AdminHome() {
     { data: groupRows },
     { data: schedRows },
     { data: activeAthletes },
+    { data: auditRows },
   ] = await Promise.all([
     supabase.from("profiles").select("id", { count: "exact", head: true }),
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("role", "coach"),
@@ -32,6 +33,11 @@ export default async function AdminHome() {
     supabase.from("groups").select("id, name").order("name"),
     supabase.from("training_schedules").select("group_id").eq("active", true),
     supabase.from("athletes").select("id").eq("status", "active"),
+    supabase
+      .from("audit_logs")
+      .select("action, target_type, created_at, actor:profiles!audit_logs_actor_profile_id_fkey(display_name)")
+      .order("created_at", { ascending: false })
+      .limit(8),
   ]);
 
   const membs = (memberships as { athlete_id: string; group_id: string }[] | null) ?? [];
@@ -150,6 +156,33 @@ export default async function AdminHome() {
           )}
         </CardContent>
       </Card>
+
+      {((auditRows as { action: string; target_type: string; created_at: string; actor: { display_name: string } | { display_name: string }[] | null }[] | null) ?? []).length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-base">{dd.recentActions}</CardTitle>
+            <Link href="/admin/audit" className="text-xs font-medium text-accent hover:underline">
+              {dict.nav.audit} →
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <ul className="divide-y divide-border/60 text-sm">
+              {((auditRows as { action: string; target_type: string; created_at: string; actor: { display_name: string } | { display_name: string }[] | null }[] | null) ?? []).map((r, i) => {
+                const actor = Array.isArray(r.actor) ? r.actor[0] : r.actor;
+                return (
+                  <li key={i} className="flex items-center justify-between gap-2 py-1.5">
+                    <span className="min-w-0 truncate">
+                      {r.action} · {r.target_type}
+                      {actor?.display_name ? ` · ${actor.display_name}` : ""}
+                    </span>
+                    <span className="shrink-0 text-xs text-muted">{r.created_at.slice(0, 10)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

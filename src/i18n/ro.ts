@@ -1039,6 +1039,7 @@ const ro: Dictionary = {
       membersN: "{n} sportivi",
       noSchedule: "fără program",
       coachesN: "Antrenori",
+      recentActions: "Activitate recentă",
       configHubHint: "Steaguri de funcții, reguli de alerte, zone OSTRC și catalogul de teste",
     },
   },

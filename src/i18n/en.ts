@@ -1039,6 +1039,7 @@ const en: Dictionary = {
       membersN: "{n} athletes",
       noSchedule: "no schedule",
       coachesN: "Coaches",
+      recentActions: "Recent activity",
       configHubHint: "Feature flags, alert rules, OSTRC zones and the test catalogue",
     },
   },
