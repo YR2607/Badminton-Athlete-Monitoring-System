@@ -289,6 +289,23 @@ export default async function AthleteDetailPage({
             {a.athlete_code} · {dict.common.group}: {groupName}
             {a.birth_year ? ` · ${new Date().getUTCFullYear() - a.birth_year}` : ""}
           </p>
+          {(todayScore !== null || openAlerts.length > 0) && (
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {todayScore !== null && (
+                <Badge tone={todayScore >= 70 ? "ok" : todayScore >= 45 ? "warn" : "danger"}>
+                  {dd.today.morningScore}: {Math.round(todayScore)}
+                  {normDelta !== null && normDelta !== 0
+                    ? ` (${normDelta > 0 ? "+" : ""}${normDelta})`
+                    : ""}
+                </Badge>
+              )}
+              {openAlerts.length > 0 && (
+                <Badge tone="danger">
+                  {dict.alerts.open}: {openAlerts.length}
+                </Badge>
+              )}
+            </div>
+          )}
         </div>
         {navAthletes.length > 1 && (
           <AthleteSwitcher athletes={navAthletes} currentId={a.id} label={dd.profile} />
