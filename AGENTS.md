@@ -3,10 +3,17 @@
 ## Verify before claiming done
 
 ```bash
+npm run verify      # typecheck + lint + tests in one gate (use before commits)
 npm run typecheck   # tsc --noEmit
-npm run lint        # eslint (2 known RHF watch() warnings are informational)
+npm run lint        # eslint (4 known warnings are informational)
 npm test            # vitest unit tests
 npm run build       # needs NEXT_PUBLIC_SUPABASE_* env (placeholders OK)
+```
+
+Deployed-env smoke (safe, read-only + auth checks):
+
+```bash
+APP_URL=https://badminton-athlete-monitoring-system.vercel.app ./scripts/smoke-staging.sh
 ```
 
 RLS integration tests need a real project:

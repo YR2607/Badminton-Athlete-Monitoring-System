@@ -17,6 +17,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsc --noEmit
+      - run: npx eslint
       - run: npx vitest run
       - name: Build (placeholder env)
         env:

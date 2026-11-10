@@ -11,6 +11,22 @@ export default async function AdminHome() {
   const dict = getDictionary(profile.preferred_language);
   const dd = dict.admin.dash;
   const supabase = await createClient();
+  const { getFeatureFlags, flagEnabled } = await import("@/lib/flags");
+  const { monthlyBudgetUsd } = await import("@/lib/ai/budget");
+  const aiOn = flagEnabled(await getFeatureFlags(), "ai", null);
+  let aiRows: { model: string; input_tokens: number; output_tokens: number; endpoint: string | null }[] = [];
+  let aiBudget: { reserved_usd: number; spent_usd: number } | null = null;
+  if (aiOn) {
+    const monthStart = new Date();
+    monthStart.setUTCDate(1);
+    monthStart.setUTCHours(0, 0, 0, 0);
+    const [u, b] = await Promise.all([
+      supabase.from("ai_usage_logs").select("model,input_tokens,output_tokens,endpoint").gte("created_at", monthStart.toISOString()).limit(1000),
+      supabase.from("ai_budget_months").select("reserved_usd,spent_usd").eq("month", monthStart.toISOString().slice(0, 10)).maybeSingle(),
+    ]);
+    aiRows = (u.data as { model: string; input_tokens: number; output_tokens: number; endpoint: string | null }[] | null) ?? [];
+    aiBudget = (b.data as { reserved_usd: number; spent_usd: number } | null) ?? null;
+  }
 
   const [
     { count: users },
@@ -156,6 +172,51 @@ export default async function AdminHome() {
           )}
         </CardContent>
       </Card>
+
+      {aiOn && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">{dd.aiUsage}</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div>
+                <p className="text-xs text-muted">{dd.aiBudget}</p>
+                <p className="font-semibold">${monthlyBudgetUsd().toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted">{dd.aiSpent}</p>
+                <p className="font-semibold">${(aiBudget?.spent_usd ?? 0).toFixed(4)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted">{dd.aiRemain}</p>
+                <p className="font-semibold">
+                  ${Math.max(monthlyBudgetUsd() - (aiBudget?.spent_usd ?? 0) - (aiBudget?.reserved_usd ?? 0), 0).toFixed(4)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted">{dd.aiGens}</p>
+                <p className="font-semibold">{aiRows.length}</p>
+              </div>
+            </div>
+            {aiRows.length > 0 && (
+              <p className="mt-2 text-xs text-muted">
+                {dd.aiTokens}: {aiRows.reduce((a, r) => a + r.input_tokens + r.output_tokens, 0).toLocaleString()}
+                {" · "}
+                {dd.aiByModel}:{" "}
+                {Object.entries(
+                  aiRows.reduce<Record<string, number>>((acc, r) => {
+                    acc[r.model] = (acc[r.model] ?? 0) + 1;
+                    return acc;
+                  }, {}),
+                )
+                  .map(([m, n]) => `${m} ×${n}`)
+                  .join(", ")}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {((auditRows as { action: string; target_type: string; created_at: string; actor: { display_name: string } | { display_name: string }[] | null }[] | null) ?? []).length > 0 && (
         <Card>
