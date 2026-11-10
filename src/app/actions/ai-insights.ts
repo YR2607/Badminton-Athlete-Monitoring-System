@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { scopedAthleteIds } from "@/lib/coach-data";
 import { isFlagEnabled } from "@/lib/flags";
 import { fetchAthleteContext, summarizeGroup } from "@/lib/ai/context";
-import { callAI } from "@/lib/ai/provider";
+import { callAI, aiModel } from "@/lib/ai/provider";
 import { AI_OUTPUT_JSON_SCHEMA, parseAIOutput } from "@/lib/ai/schema";
 import { SYSTEM_PROMPT, PROMPT_VERSION, buildUserPrompt } from "@/lib/ai/prompt";
 import { verifyEvidence } from "@/lib/ai/verify";
@@ -140,7 +140,7 @@ export async function analyzeAthlete(athleteId: string): Promise<Result<InsightR
     subject_id: athleteId,
   });
 
-  const model = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+  const model = aiModel();
   const resv = await reserveBudget(ctx.supabase, model);
   if (!resv.ok) {
     if (runId)
@@ -282,7 +282,7 @@ export async function analyzeGroup(groupId: string): Promise<Result<InsightRow>>
     subject_id: groupId,
   });
 
-  const gmodel = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+  const gmodel = aiModel();
   const gresv = await reserveBudget(supabase, gmodel);
   if (!gresv.ok) {
     if (runId)
