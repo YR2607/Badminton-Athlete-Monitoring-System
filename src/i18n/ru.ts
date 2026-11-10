@@ -509,6 +509,10 @@ const ru = {
   },
   coach: {
     dashboard: "Обзор группы",
+    todayTraining: "Тренировка сегодня",
+    allGroups: "Все группы",
+    noTrainingToday: "Сегодня по расписанию тренировок нет",
+    planLine: "{min} мин · RPE {rpe}",
     dashboardHint: "Кто заполнил утреннюю анкету и кому нужно внимание сегодня",
     tableAthlete: "Спортсмен",
     tableGroup: "Группа",

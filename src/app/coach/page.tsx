@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { GroupBodyHeatmap, type GroupPainEntry } from "@/components/forms/body-map";
 import { LoadBarChart } from "@/components/charts/series-chart";
 import { addDays, dateRange, localDate, todayInTz } from "@/lib/dates";
-import { analyzeLoadWave, plannedForDate, type PlanOverride, type ScheduleInput } from "@/lib/load";
+import { analyzeLoadWave, plannedForDate, weekdayOf, type PlanOverride, type ScheduleInput } from "@/lib/load";
 import { isoWeekMonday } from "@/lib/ostrc";
 import type { TrainingSession } from "@/lib/types";
 import { ageInDays } from "@/lib/athlete-status";
@@ -26,12 +26,12 @@ export default async function CoachDashboard({
   const dict = getDictionary(profile.preferred_language);
   const d = dict.coach;
   const supabase = await createClient();
-  void (await searchParams);
+  const sp = await searchParams;
   const coachToday = todayInTz(profile.timezone);
 
   // Dashboard rows, feature flags and upcoming tournaments in one batch.
   const { getFeatureFlags, flagEnabled } = await import("@/lib/flags");
-  const [{ rows, groups }, flags, { data: upcomingTournaments }] = await Promise.all([
+  const [{ rows: allRows, groups }, flags, { data: upcomingTournaments }] = await Promise.all([
     coachDashboard(supabase, profile.timezone),
     getFeatureFlags(),
     supabase
@@ -44,6 +44,10 @@ export default async function CoachDashboard({
       .limit(3),
   ]);
   const eventsOn = flagEnabled(flags, "events", null);
+  const groupFilter = sp.group ?? "";
+  const rows = groupFilter
+    ? allRows.filter((r) => r.group?.id === groupFilter)
+    : allRows;
 
   // Day-overview strip: today's attendance marks, this week's OSTRC survey,
   // today's Academy lesson — each tile deep-links into its section.
@@ -80,7 +84,7 @@ export default async function CoachDashboard({
     ? await Promise.all([
         supabase
           .from("training_schedules")
-          .select("weekday, planned_minutes, planned_rpe, group_id")
+          .select("weekday, planned_minutes, planned_rpe, start_time, group_id")
           .in("group_id", groupIds)
           .eq("active", true),
         supabase
@@ -127,8 +131,23 @@ export default async function CoachDashboard({
       )?.group_id ?? null,
     ]),
   );
-  const schedAll = (schedRows ?? []) as (ScheduleInput & { group_id: string })[];
-  const ovAll = (overrideRows ?? []) as (PlanOverride & { group_id: string })[];
+  const schedAll = (schedRows ?? []) as (ScheduleInput & { group_id: string; start_time?: string | null })[];
+  const ovAll = (overrideRows ?? []) as (PlanOverride & { group_id: string; start_time?: string | null })[];
+  // Today's scheduled sessions per group — time, planned duration and RPE.
+  const todayTrainings = groups
+    .map((g) => {
+      const plan = plannedForDate(
+        coachToday,
+        schedAll.filter((s) => s.group_id === g.id),
+        ovAll.filter((o) => o.group_id === g.id),
+      );
+      const ov = ovAll.find((o) => o.group_id === g.id && o.plan_date === coachToday);
+      const schedRow = schedAll.find(
+        (s) => s.group_id === g.id && s.weekday === weekdayOf(coachToday),
+      );
+      return { group: g, plan, time: ov?.start_time ?? schedRow?.start_time ?? null };
+    })
+    .filter((t) => t.plan.scheduled);
   const tzOf = (athleteId: string) =>
     rows.find((r) => r.athlete.id === athleteId)?.profile?.timezone ??
     profile.timezone;
@@ -269,10 +288,45 @@ export default async function CoachDashboard({
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">{d.dashboard}</h1>
-        <p className="text-sm text-muted">{d.dashboardHint}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h1 className="text-xl font-bold">
+            {dict.athleteHome.greeting}, {profile.display_name.split(" ")[0]} · {coachToday}
+          </h1>
+          <p className="text-sm text-muted">{d.dashboardHint}</p>
+        </div>
+        <Link href="/coach/attendance">
+          <Button size="sm" variant="secondary" title={dict.pro.attendanceBtnHint}>
+            ✅ {dict.nav.attendance}
+          </Button>
+        </Link>
       </div>
+
+      {groups.length > 1 && (
+        <div className="flex flex-wrap gap-1.5">
+          <Link
+            href="/coach"
+            className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+              !groupFilter ? "border-accent bg-accent text-white" : "border-border bg-surface"
+            }`}
+          >
+            {d.allGroups}
+          </Link>
+          {groups.map((g) => (
+            <Link
+              key={g.id}
+              href={`/coach?group=${g.id}`}
+              className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                groupFilter === g.id
+                  ? "border-accent bg-accent text-white"
+                  : "border-border bg-surface"
+              }`}
+            >
+              {g.name}
+            </Link>
+          ))}
+        </div>
+      )}
 
       {priorityAlerts.length > 0 && (
         <Card className="border-danger/50 bg-danger/5">
@@ -484,6 +538,36 @@ export default async function CoachDashboard({
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {todayTrainings.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
+              <span>{d.todayTraining}</span>
+              <Link href="/coach/attendance" className="text-xs font-medium text-accent">
+                {dict.nav.attendance} →
+              </Link>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="divide-y divide-border/60 text-sm">
+              {todayTrainings.map((t) => (
+                <li key={t.group.id} className="flex items-center justify-between gap-2 py-1.5">
+                  <span className="font-medium">{t.group.name}</span>
+                  <span className="tabular-nums text-muted">
+                    {t.time ? `${t.time} · ` : ""}
+                    {t.plan.planned_minutes != null && t.plan.planned_rpe != null
+                      ? d.planLine
+                          .replace("{min}", String(t.plan.planned_minutes))
+                          .replace("{rpe}", String(t.plan.planned_rpe))
+                      : "—"}
+                  </span>
+                </li>
+              ))}
+            </ul>
           </CardContent>
         </Card>
       )}

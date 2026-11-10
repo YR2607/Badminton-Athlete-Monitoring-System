@@ -507,6 +507,10 @@ const ro: Dictionary = {
   },
   coach: {
     dashboard: "Prezentare generală a grupei",
+    todayTraining: "Antrenamentul de azi",
+    allGroups: "Toate grupele",
+    noTrainingToday: "Niciun antrenament programat azi",
+    planLine: "{min} min · RPE {rpe}",
     dashboardHint: "Cine a completat chestionarul de dimineață și cine are nevoie de atenție azi",
     tableAthlete: "Sportiv",
     tableGroup: "Grupă",

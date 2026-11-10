@@ -28,8 +28,22 @@ export default async function AdminUsersPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-bold">{dict.admin.users}</h1>
-      <CreateUserForm dict={dict} groups={(groups as { id: string; name: string }[]) ?? []} />
-      <BulkCreateForm dict={dict} groups={(groups as { id: string; name: string }[]) ?? []} />
+      <details className="rounded-xl border border-border bg-surface">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold">
+          {dict.admin.createUser}
+        </summary>
+        <div className="border-t border-border px-4 py-3">
+          <CreateUserForm dict={dict} groups={(groups as { id: string; name: string }[]) ?? []} />
+        </div>
+      </details>
+      <details className="rounded-xl border border-border bg-surface">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold">
+          {dict.admin.bulkTitle}
+        </summary>
+        <div className="border-t border-border px-4 py-3">
+          <BulkCreateForm dict={dict} groups={(groups as { id: string; name: string }[]) ?? []} />
+        </div>
+      </details>
       <UserTable
         dict={dict}
         selfId={me.id}

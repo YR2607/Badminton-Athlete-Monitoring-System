@@ -507,6 +507,10 @@ const en: Dictionary = {
   },
   coach: {
     dashboard: "Group overview",
+    todayTraining: "Today's training",
+    allGroups: "All groups",
+    noTrainingToday: "No training scheduled today",
+    planLine: "{min} min · RPE {rpe}",
     dashboardHint: "Who filled in the morning check-in and who needs attention today",
     tableAthlete: "Athlete",
     tableGroup: "Group",
