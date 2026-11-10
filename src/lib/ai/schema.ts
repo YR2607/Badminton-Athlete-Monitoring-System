@@ -160,24 +160,68 @@ export function parseAIOutput(raw: unknown): AIOutput | null {
     return r.success ? r.data : null;
   }
   if (obj.insight && typeof obj.insight === "object") {
-    const r = AIInsight.safeParse(obj.insight);
+    const r = AIInsight.safeParse(sanitizeInsight(obj.insight as Record<string, unknown>));
     return r.success ? { insufficient: false, insight: r.data } : null;
   }
   // Tolerate bare insight objects — some models drop the wrapper.
   if (typeof obj.observation === "string" && typeof obj.interpretation === "string") {
-    const r = AIInsight.safeParse({
-      title: obj.title ?? "AI analysis",
-      category: obj.category ?? "readiness",
-      severity: obj.severity ?? "info",
-      observation: obj.observation,
-      interpretation: obj.interpretation,
-      evidence: Array.isArray(obj.evidence) ? obj.evidence : [],
-      recommendations: Array.isArray(obj.recommendations) ? obj.recommendations : [],
-      confidence: obj.confidence ?? "low",
-      limitations: Array.isArray(obj.limitations) ? obj.limitations : [],
-      period: obj.period && typeof obj.period === "object" ? obj.period : { from: "", to: "" },
-    });
+    const r = AIInsight.safeParse(sanitizeInsight(obj));
     if (r.success) return { insufficient: false, insight: r.data };
   }
   return null;
+}
+
+const okEnum = <T extends string>(v: unknown, allowed: readonly T[], dflt: T): T =>
+  typeof v === "string" && (allowed as readonly string[]).includes(v) ? (v as T) : dflt;
+
+function asStringArray(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+}
+
+/** Coerce loose model output into a valid AIInsight candidate. */
+export function sanitizeInsight(obj: Record<string, unknown>) {
+  const evidence = (Array.isArray(obj.evidence) ? obj.evidence : [])
+    .map((e) => (e && typeof e === "object" ? (e as Record<string, unknown>) : null))
+    .filter((e): e is Record<string, unknown> => e !== null)
+    .map((e) => ({
+      metric: typeof e.metric === "string" ? e.metric : "metric",
+      value:
+        typeof e.value === "number" || typeof e.value === "string"
+          ? e.value
+          : String(e.value ?? ""),
+      period: typeof e.period === "string" ? e.period : "period",
+      comparison: typeof e.comparison === "string" ? e.comparison : undefined,
+      source: typeof e.source === "string" ? e.source : "context",
+    }))
+    .slice(0, 10);
+  const recommendations = (Array.isArray(obj.recommendations) ? obj.recommendations : [])
+    .map((r) => {
+      if (typeof r === "string") return { action: r, rationale: "" };
+      if (r && typeof r === "object") {
+        const o = r as Record<string, unknown>;
+        return {
+          action: typeof o.action === "string" ? o.action : String(o.action ?? ""),
+          rationale: typeof o.rationale === "string" ? o.rationale : String(o.rationale ?? ""),
+        };
+      }
+      return null;
+    })
+    .filter((r): r is { action: string; rationale: string } => r !== null && r.action.length > 0)
+    .slice(0, 5);
+  const p = obj.period && typeof obj.period === "object" ? (obj.period as Record<string, unknown>) : {};
+  return {
+    title: typeof obj.title === "string" ? obj.title.slice(0, 200) : "AI analysis",
+    category: okEnum(obj.category, InsightCategory.options, "readiness"),
+    severity: okEnum(obj.severity, InsightSeverity.options, "info"),
+    observation: String(obj.observation),
+    interpretation: String(obj.interpretation),
+    evidence,
+    recommendations,
+    confidence: okEnum(obj.confidence, Confidence.options, "low"),
+    limitations: asStringArray(obj.limitations),
+    period: {
+      from: typeof p.from === "string" ? p.from : "",
+      to: typeof p.to === "string" ? p.to : "",
+    },
+  };
 }

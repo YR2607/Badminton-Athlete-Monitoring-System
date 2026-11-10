@@ -300,7 +300,7 @@ export function evaluateAlerts(ctx: EvalContext): AlertCandidate[] {
     // days with missing load records must not silently count as zeros.
     const coverage = loadCoverage(loads);
     if ((acwrHigh || acwrLow) && coverage.reliable) {
-      const minDaysHigh = num(acwrHigh?.params.min_days, 21);
+      const minDaysHigh = num(acwrHigh?.params.min_days, 15);
       const minDaysLow = num(acwrLow?.params.min_days, 28);
       const acwr = acwrEwma(loadSeries, Math.min(minDaysHigh, minDaysLow));
       if (acwr) {

@@ -171,7 +171,7 @@ const en: Dictionary = {
     plan: "coach plan",
     acwrTitle: "Workload ratio (ACWR)",
     acwrHint: "How fast load grows vs your usual. A guide zone is 0.8–1.3; above 1.5 is a sharp rise. It's a check signal, not an injury forecast.",
-    acwrForming: "Not enough data yet — at least 21 days of training needed",
+    acwrForming: "Not enough data yet — at least 15 days of training needed",
     waveTitle: "Load wave",
     waveGood: "Good load wave: peak days alternate with recovery windows",
     waveMonotonous: "High monotony ('flat fence' without a recovery window): schedule a light day (RPE 2–3)",

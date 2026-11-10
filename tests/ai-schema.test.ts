@@ -32,12 +32,18 @@ describe("parseAIOutput", () => {
     expect(parseAIOutput({})).toBeNull();
     expect(parseAIOutput({ insufficient: false })).toBeNull();
     expect(parseAIOutput({ insufficient: true })).toBeNull();
-    expect(
-      parseAIOutput({ insufficient: false, insight: { ...validInsight, category: "diagnosis" } }),
-    ).toBeNull();
-    expect(
-      parseAIOutput({ insufficient: false, insight: { ...validInsight, evidence: "n/a" } }),
-    ).toBeNull();
+    // Unknown enum values are coerced to safe defaults, not rejected.
+    const coerced = parseAIOutput({
+      insufficient: false,
+      insight: { ...validInsight, category: "diagnosis" },
+    });
+    expect(coerced && !coerced.insufficient && coerced.insight.category).toBe("readiness");
+    // Malformed evidence is dropped to [] by the sanitizer, not fatal.
+    const sanitized = parseAIOutput({
+      insufficient: false,
+      insight: { ...validInsight, evidence: "n/a" },
+    });
+    expect(sanitized && !sanitized.insufficient && sanitized.insight.evidence).toEqual([]);
   });
 
   it("caps recommendation count via schema", () => {
