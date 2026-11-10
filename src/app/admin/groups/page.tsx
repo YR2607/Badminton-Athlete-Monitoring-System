@@ -38,6 +38,7 @@ export default async function AdminGroupsPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold">{dict.nav.groups}</h1>
+      <h2 className="text-sm font-semibold text-muted">{dict.admin.dash.groupsOverview}</h2>
       <GroupsManager
         dict={dict}
         groups={(groups as Group[]) ?? []}
@@ -45,6 +46,7 @@ export default async function AdminGroupsPage() {
         athletes={athleteOptions}
         schedules={(schedules as TrainingSchedule[]) ?? []}
       />
+      <h2 className="pt-2 text-sm font-semibold text-muted">{dict.admin.weekPlan}</h2>
       <WeekPlan
         dict={dict}
         groups={(groups as Group[]) ?? []}
