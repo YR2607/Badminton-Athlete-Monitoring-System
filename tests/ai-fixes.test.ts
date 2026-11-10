@@ -69,3 +69,21 @@ describe("rate limiter boundary", () => {
     expect(checkRateLimit(key, 2, 60_000)).toBe(false);
   });
 });
+
+describe("phase 3.6 — same-day cache + cost accounting", () => {
+  const src = readFileSync("src/app/actions/ai-insights.ts", "utf8");
+  it("on-demand returns today's ok-run insight instead of re-billing", () => {
+    expect(src).toContain("cachedInsight");
+    expect(src).toContain('.eq("status", "ok")');
+    expect(src.indexOf('"athlete_on_demand", "athlete"')).toBeLessThan(src.indexOf("await callAI"));
+  });
+});
+
+describe("cost accounting", () => {
+  it("estimates USD from model pricing", async () => {
+    const { estimateCostUsd } = await import("@/lib/ai/cost");
+    expect(estimateCostUsd("gpt-4o-mini", 1_000_000, 0)).toBe(0.15);
+    expect(estimateCostUsd("gpt-4o-mini", 500_000, 500_000)).toBe(0.375);
+    expect(estimateCostUsd("unknown-model", 1_000_000, 0)).toBe(0.15);
+  });
+});

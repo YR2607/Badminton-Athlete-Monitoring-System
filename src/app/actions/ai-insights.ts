@@ -85,12 +85,48 @@ export async function getLatestInsight(athleteId: string): Promise<Result<Insigh
   return { ok: true, data: (data as InsightRow | null) ?? null };
 }
 
+/**
+ * Same-day cache: if an 'ok' run for this subject already produced an
+ * insight today, return it — never re-bill OpenAI for an identical ask.
+ */
+async function cachedInsight(
+  supabase: Supa,
+  kind: string,
+  subjectType: "athlete" | "group",
+  subjectId: string,
+  runDate: string,
+): Promise<InsightRow | null> {
+  const { data: run } = await supabase
+    .from("ai_analysis_runs")
+    .select("id")
+    .eq("run_date", runDate)
+    .eq("kind", kind)
+    .eq("subject_type", subjectType)
+    .eq("subject_id", subjectId)
+    .eq("status", "ok")
+    .maybeSingle();
+  if (!run) return null;
+  const { data: ins } = await supabase
+    .from("ai_insights")
+    .select("id,category,severity,title,insight,insufficient,reason,model_version,prompt_version,generated_at")
+    .eq("run_id", (run as { id: string }).id)
+    .order("generated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (ins as InsightRow | null) ?? null;
+}
+
 /** On-demand analysis: context → provider → validate → verify → persist. */
 export async function analyzeAthlete(athleteId: string): Promise<Result<InsightRow>> {
   const ctx = await staffAthlete(athleteId);
   if (!ctx) return err("forbidden");
   if (!(await isFlagEnabled("ai", null))) return err("disabled");
   if (!checkRateLimit(`ai:analyze:${ctx.me.id}`, 10, 3_600_000)) return err("rate_limited");
+  const tzEarly = ctx.me.timezone ?? "UTC";
+  const cached = await cachedInsight(
+    ctx.supabase, "athlete_on_demand", "athlete", athleteId, todayInTz(tzEarly),
+  );
+  if (cached) return { ok: true, data: cached };
 
   const tz = ctx.me.timezone ?? "UTC";
   const context = await fetchAthleteContext(ctx.supabase, athleteId, tz, 14);
@@ -208,6 +244,8 @@ export async function analyzeGroup(groupId: string): Promise<Result<InsightRow>>
   if (!checkRateLimit(`ai:analyze:${me.id}`, 10, 3_600_000)) return err("rate_limited");
   const supabase = await createClient();
   const tz = me.timezone ?? "UTC";
+  const cached = await cachedInsight(supabase, "group_briefing", "group", groupId, todayInTz(tz));
+  if (cached) return { ok: true, data: cached };
 
   const [{ data: group }, { data: members }] = await Promise.all([
     supabase.from("groups").select("name").eq("id", groupId).maybeSingle(),
