@@ -349,6 +349,7 @@ export default async function AnalyticsPage({
               .replace("{pct}", String(summary.fillRate))}
           </p>
 
+          <h2 className="pt-1 text-sm font-semibold text-muted">{d.secData}</h2>
           {/* Fill matrix: athlete × day */}
           {!single && days.length <= 31 && (
             <Card>
@@ -543,6 +544,7 @@ export default async function AnalyticsPage({
             </Card>
           )}
 
+          <h2 className="pt-1 text-sm font-semibold text-muted">{d.secLoad}</h2>
           {/* BWF 14-day load wave (peaks 🔴 & deloads 🟢) */}
           {wave14Days.some((d) => d.load > 0) && (
             <Card>
@@ -596,6 +598,7 @@ export default async function AnalyticsPage({
             </Card>
           )}
 
+          <h2 className="pt-1 text-sm font-semibold text-muted">{d.secPain}</h2>
           {!single && ostrcPrev.length > 0 && (
             <Card>
               <CardHeader>
@@ -622,6 +625,7 @@ export default async function AnalyticsPage({
             </Card>
           )}
 
+          <h2 className="pt-1 text-sm font-semibold text-muted">{d.secCompare}</h2>
           {!single && (
             <Card>
               <CardHeader>

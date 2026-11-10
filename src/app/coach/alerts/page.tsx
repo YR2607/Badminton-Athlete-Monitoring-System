@@ -35,9 +35,28 @@ export default async function CoachAlertsPage() {
     .map((a) => ({ id: a.id, name: nameByProfile.get(a.profile_id) ?? a.athlete_code }))
     .sort((x, y) => x.name.localeCompare(y.name));
 
+  // Severity summary strip — priority signals must be visible at a glance.
+  const counts = { priority: 0, review_load: 0, attention: 0, normal: 0 };
+  for (const a of (alerts as Alert[]) ?? []) {
+    if (a.status === "open" && a.severity in counts) counts[a.severity as keyof typeof counts]++;
+  }
+  const sevTone: Record<string, string> = {
+    priority: "text-danger",
+    review_load: "text-warn",
+    attention: "text-accent",
+    normal: "text-muted",
+  };
+
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold">{dict.alerts.title}</h1>
+      <div className="flex flex-wrap gap-3 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm">
+        {(Object.keys(counts) as (keyof typeof counts)[]).map((k) => (
+          <span key={k} className={`font-medium ${sevTone[k]}`}>
+            {dict.alerts.severity[k]}: <b className="tabular-nums">{counts[k]}</b>
+          </span>
+        ))}
+      </div>
       <AlertList alerts={(alerts as Alert[]) ?? []} dict={dict} athletes={options} />
     </div>
   );
