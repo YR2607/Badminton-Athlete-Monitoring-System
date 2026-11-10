@@ -10,7 +10,8 @@ import { dailyReadiness, postsByLocalDate, personalNorm } from "@/lib/readiness"
 import { dailyLoads, loadCoverage, plannedForDate } from "@/lib/load";
 import { attendanceSummary, effectiveAttendance } from "@/lib/attendance";
 import { detectBodyZone } from "@/lib/body-zones";
-import { LoadBarChart } from "@/components/charts/series-chart";
+import { LoadBarChart, SeriesLineChart } from "@/components/charts/series-chart";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PrintButton } from "./print-button";
 import { AIInsightCard } from "@/components/ai/insight-card";
 import { getLatestGroupInsight, type InsightRow } from "@/app/actions/ai-insights";
@@ -56,10 +57,80 @@ export default async function CoachReportPage({
       const r = await getLatestGroupInsight(sp.group);
       if (r.ok) groupInsight = r.data;
     }
+
+    // Visual report: group load wave + average wellness for the period.
+    const { data: gMembers } = await supabase
+      .from("group_memberships")
+      .select("athlete_id")
+      .eq("group_id", sp.group)
+      .is("left_at", null);
+    const memberIds = ((gMembers as { athlete_id: string }[]) ?? []).map((m) => m.athlete_id);
+    const [{ data: gSessions }, { data: gCheckins }] = await Promise.all([
+      supabase
+        .from("training_sessions")
+        .select("started_at,session_load")
+        .in("athlete_id", memberIds.length ? memberIds : ["-"])
+        .gte("started_at", `${range.from}T00:00:00Z`)
+        .lte("started_at", `${range.to}T23:59:59Z`),
+      supabase
+        .from("morning_checkins")
+        .select("checkin_date,sleep_score,recovery_score,fatigue_score,muscle_soreness_score,mood_score")
+        .in("athlete_id", memberIds.length ? memberIds : ["-"])
+        .gte("checkin_date", range.from)
+        .lte("checkin_date", range.to),
+    ]);
+    const auByDate = new Map<string, number>();
+    for (const s of (gSessions as { started_at: string; session_load: number | null }[]) ?? []) {
+      const d = s.started_at.slice(0, 10);
+      auByDate.set(d, (auByDate.get(d) ?? 0) + (s.session_load ?? 0));
+    }
+    const wellByDate = new Map<string, number[]>();
+    for (const c of (gCheckins as { checkin_date: string; sleep_score: number; recovery_score: number; fatigue_score: number; muscle_soreness_score: number; mood_score: number }[]) ?? []) {
+      const w = (c.sleep_score + c.recovery_score + (11 - c.fatigue_score) + (11 - c.muscle_soreness_score) + c.mood_score) / 5;
+      (wellByDate.get(c.checkin_date) ?? wellByDate.set(c.checkin_date, []).get(c.checkin_date)!).push(w);
+    }
+    const periodDays = dateRange(range.from, range.to);
+    const loadData = periodDays.map((d) => ({
+      date: d,
+      load: Math.round((auByDate.get(d) ?? 0) * 10) / 10,
+      state: "full" as const,
+    }));
+    const wellData = periodDays
+      .filter((d) => wellByDate.has(d))
+      .map((d) => ({
+        date: d,
+        wellness: Math.round((wellByDate.get(d)!.reduce((a, b) => a + b, 0) / wellByDate.get(d)!.length) * 10) / 10,
+      }));
+
     return (
       <>
         {aiOn && (
           <AIInsightCard target={{ kind: "group", id: sp.group }} initial={groupInsight} d={dict.ai} />
+        )}
+        {loadData.some((d) => d.load > 0) && (
+          <Card className="mb-4">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">{dict.report.load}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <LoadBarChart data={loadData} label="AU" height={180} />
+            </CardContent>
+          </Card>
+        )}
+        {wellData.length > 0 && (
+          <Card className="mb-4">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">{dict.report.wellness}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <SeriesLineChart
+                data={wellData}
+                series={[{ key: "wellness", label: dict.report.wellness, color: "var(--accent)", fill: true }]}
+                height={180}
+                domain={[0, 10]}
+              />
+            </CardContent>
+          </Card>
         )}
         <GroupReport
         groupId={sp.group}
