@@ -163,5 +163,21 @@ export function parseAIOutput(raw: unknown): AIOutput | null {
     const r = AIInsight.safeParse(obj.insight);
     return r.success ? { insufficient: false, insight: r.data } : null;
   }
+  // Tolerate bare insight objects — some models drop the wrapper.
+  if (typeof obj.observation === "string" && typeof obj.interpretation === "string") {
+    const r = AIInsight.safeParse({
+      title: obj.title ?? "AI analysis",
+      category: obj.category ?? "readiness",
+      severity: obj.severity ?? "info",
+      observation: obj.observation,
+      interpretation: obj.interpretation,
+      evidence: Array.isArray(obj.evidence) ? obj.evidence : [],
+      recommendations: Array.isArray(obj.recommendations) ? obj.recommendations : [],
+      confidence: obj.confidence ?? "low",
+      limitations: Array.isArray(obj.limitations) ? obj.limitations : [],
+      period: obj.period && typeof obj.period === "object" ? obj.period : { from: "", to: "" },
+    });
+    if (r.success) return { insufficient: false, insight: r.data };
+  }
   return null;
 }

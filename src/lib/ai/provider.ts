@@ -91,7 +91,7 @@ export async function callAI(opts: {
     ],
     // No response_format — the target free model rejects unknown params
     // with HTTP 400. Output is validated by Zod on our side instead.
-    max_tokens: opts.maxOutputTokens ?? 1200,
+    max_tokens: opts.maxOutputTokens ?? 2500,
     temperature: 0.2,
   };
 
