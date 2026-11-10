@@ -15,6 +15,8 @@ import { isoWeekMonday } from "@/lib/ostrc";
 import type { TrainingSession } from "@/lib/types";
 import { ageInDays } from "@/lib/athlete-status";
 import { AlertList } from "@/app/coach/athletes/[id]/alert-list";
+import { AIInsightCard } from "@/components/ai/insight-card";
+import { getLatestGroupInsight, type InsightRow } from "@/app/actions/ai-insights";
 import { ChevronDown } from "lucide-react";
 
 export default async function CoachDashboard({
@@ -48,6 +50,13 @@ export default async function CoachDashboard({
   const rows = groupFilter
     ? allRows.filter((r) => r.group?.id === groupFilter)
     : allRows;
+  const aiOn = flagEnabled(flags, "ai", null);
+  const briefGroupId = groupFilter || groups[0]?.id || "";
+  let groupInsight: InsightRow | null = null;
+  if (aiOn && briefGroupId) {
+    const r = await getLatestGroupInsight(briefGroupId);
+    if (r.ok) groupInsight = r.data;
+  }
 
   // Day-overview strip: today's attendance marks, this week's OSTRC survey,
   // today's Academy lesson — each tile deep-links into its section.
@@ -570,6 +579,10 @@ export default async function CoachDashboard({
             </ul>
           </CardContent>
         </Card>
+      )}
+
+      {aiOn && briefGroupId && (
+        <AIInsightCard target={{ kind: "group", id: briefGroupId }} initial={groupInsight} d={dict.ai} />
       )}
 
       {nextTournament && taperDaysLeft !== null && (

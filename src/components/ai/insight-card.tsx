@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { analyzeAthlete, sendInsightFeedback, type InsightRow } from "@/app/actions/ai-insights";
+import { analyzeAthlete, analyzeGroup, sendInsightFeedback, type InsightRow } from "@/app/actions/ai-insights";
 import type { AIInsight } from "@/lib/ai/schema";
 import type { Dictionary } from "@/i18n";
 
@@ -17,11 +17,11 @@ const SEV_TONE: Record<string, "neutral" | "warn" | "danger"> = {
 
 /** AI interpretation card — visually distinct (dashed border, AI badge). */
 export function AIInsightCard({
-  athleteId,
+  target,
   initial,
   d,
 }: {
-  athleteId: string;
+  target: { kind: "athlete" | "group"; id: string };
   initial: InsightRow | null;
   d: Dictionary["ai"];
 }) {
@@ -32,7 +32,7 @@ export function AIInsightCard({
 
   async function refresh() {
     setPending(true);
-    const res = await analyzeAthlete(athleteId);
+    const res = target.kind === "group" ? await analyzeGroup(target.id) : await analyzeAthlete(target.id);
     setPending(false);
     if (res.ok) setRow(res.data);
     else toast.error(res.error);

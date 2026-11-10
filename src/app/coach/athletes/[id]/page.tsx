@@ -609,7 +609,7 @@ export default async function AthleteDetailPage({
       )}
 
       {aiOn && tab === "today" && (
-        <AIInsightCard athleteId={a.id} initial={latestInsight} d={dict.ai} />
+        <AIInsightCard target={{ kind: "athlete", id: a.id }} initial={latestInsight} d={dict.ai} />
       )}
 
       {recsOn && tab === "notes" && <RecList recs={recs} dict={dict} />}

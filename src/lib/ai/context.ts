@@ -171,6 +171,43 @@ export function summarizeAthleteData(input: {
   };
 }
 
+export interface GroupContext {
+  group_name: string;
+  period: { from: string; to: string };
+  athletes: number;
+  with_checkins_14d: number;
+  checkin_coverage_avg_pct: number | null;
+  wellness_avg_7d: number | null;
+  open_alerts: { priority: number; review_load: number; attention: number; normal: number };
+  athletes_with_acute_7d: number;
+  sessions_14d: number;
+  total_au_14d: number;
+}
+
+/** Team-level aggregate over per-athlete contexts (still deterministic). */
+export function summarizeGroup(name: string, ctxs: AthleteContext[]): GroupContext {
+  const sev = { priority: 0, review_load: 0, attention: 0, normal: 0 };
+  for (const c of ctxs)
+    for (const a of c.alerts_open)
+      if (a.severity in sev) sev[a.severity as keyof typeof sev]++;
+  return {
+    group_name: name,
+    period: ctxs[0]?.period ?? { from: "", to: "" },
+    athletes: ctxs.length,
+    with_checkins_14d: ctxs.filter((c) => c.wellbeing.checkins > 0).length,
+    checkin_coverage_avg_pct: avg(
+      ctxs.map((c) => c.wellbeing.coverage_pct).filter((x): x is number => x != null),
+    ),
+    wellness_avg_7d: avg(
+      ctxs.map((c) => c.readiness.score_avg_7d).filter((x): x is number => x != null),
+    ),
+    open_alerts: sev,
+    athletes_with_acute_7d: ctxs.filter((c) => c.acute.pain_reports_7d > 0).length,
+    sessions_14d: ctxs.reduce((a, c) => a + c.load.sessions, 0),
+    total_au_14d: round1(ctxs.reduce((a, c) => a + c.load.total_au, 0)),
+  };
+}
+
 /** Fetch all source rows and build the athlete context (server-side only). */
 export async function fetchAthleteContext(
   supabase: SupabaseClient,
