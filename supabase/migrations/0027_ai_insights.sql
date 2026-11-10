@@ -91,6 +91,9 @@ create policy ai_feedback_staff_update on public.ai_insight_feedback
 create policy ai_usage_staff on public.ai_usage_logs
   for select to authenticated
   using (public.is_admin() or public.current_role() = 'coach');
+create policy ai_usage_staff_insert on public.ai_usage_logs
+  for insert to authenticated
+  with check (public.is_admin() or public.current_role() = 'coach');
 
 -- Feature flag (disabled by default — enable per club when ready).
 insert into public.feature_flags (key, description, enabled, group_ids)

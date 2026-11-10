@@ -10,6 +10,7 @@ import { AI_OUTPUT_JSON_SCHEMA, parseAIOutput } from "@/lib/ai/schema";
 import { SYSTEM_PROMPT, PROMPT_VERSION, buildUserPrompt } from "@/lib/ai/prompt";
 import { verifyEvidence } from "@/lib/ai/verify";
 import { checkRateLimit } from "@/lib/ai/rate-limit";
+import { isUniqueViolation } from "@/lib/ai/guard";
 import { todayInTz } from "@/lib/dates";
 
 export interface InsightRow {
@@ -28,6 +29,37 @@ export interface InsightRow {
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 const err = (e: string): Result<never> => ({ ok: false, error: e });
 
+type Supa = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * Claim a run row atomically. On same-day unique conflict reuse the
+ * existing run (update -> running) instead of silently running untracked.
+ */
+async function claimRun(
+  supabase: Supa,
+  row: { run_date: string; kind: string; subject_type: string; subject_id: string },
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("ai_analysis_runs")
+    .insert({ ...row, status: "running" })
+    .select("id")
+    .single();
+  if (!error && data) return (data as { id: string }).id;
+  if (!isUniqueViolation(error)) return null;
+  const { data: existing } = await supabase
+    .from("ai_analysis_runs")
+    .select("id")
+    .eq("run_date", row.run_date)
+    .eq("kind", row.kind)
+    .eq("subject_type", row.subject_type)
+    .eq("subject_id", row.subject_id)
+    .single();
+  const id = (existing as { id: string } | null)?.id ?? null;
+  if (id)
+    await supabase.from("ai_analysis_runs").update({ status: "running", error: null }).eq("id", id);
+  return id;
+}
+
 async function staffAthlete(athleteId: string) {
   const me = await getCurrentProfile();
   if (!me || (me.role !== "coach" && me.role !== "admin")) return null;
@@ -41,6 +73,7 @@ async function staffAthlete(athleteId: string) {
 export async function getLatestInsight(athleteId: string): Promise<Result<InsightRow | null>> {
   const ctx = await staffAthlete(athleteId);
   if (!ctx) return err("forbidden");
+  if (!(await isFlagEnabled("ai", null))) return err("disabled");
   const { data } = await ctx.supabase
     .from("ai_insights")
     .select("id,category,severity,title,insight,insufficient,reason,model_version,prompt_version,generated_at")
@@ -63,18 +96,12 @@ export async function analyzeAthlete(athleteId: string): Promise<Result<InsightR
   const context = await fetchAthleteContext(ctx.supabase, athleteId, tz, 14);
   if (!context) return err("not_found");
 
-  const { data: run } = await ctx.supabase
-    .from("ai_analysis_runs")
-    .insert({
-      run_date: todayInTz(tz),
-      kind: "athlete_on_demand",
-      subject_type: "athlete",
-      subject_id: athleteId,
-      status: "running",
-    })
-    .select("id")
-    .single();
-  const runId = (run as { id: string } | null)?.id ?? null;
+  const runId = await claimRun(ctx.supabase, {
+    run_date: todayInTz(tz),
+    kind: "athlete_on_demand",
+    subject_type: "athlete",
+    subject_id: athleteId,
+  });
 
   const res = await callAI({
     system: SYSTEM_PROMPT,
@@ -86,8 +113,9 @@ export async function analyzeAthlete(athleteId: string): Promise<Result<InsightR
       await ctx.supabase.from("ai_analysis_runs").update({ status: "error", error: res.error }).eq("id", runId);
     return err(res.error);
   }
+  let usageFailed = false;
   if (res.usage) {
-    await ctx.supabase.from("ai_usage_logs").insert({
+    const { error: uerr } = await ctx.supabase.from("ai_usage_logs").insert({
       run_id: runId,
       profile_id: ctx.me.id,
       provider: "openai",
@@ -96,6 +124,10 @@ export async function analyzeAthlete(athleteId: string): Promise<Result<InsightR
       output_tokens: res.usage.output_tokens,
       endpoint: "actions/analyzeAthlete",
     });
+    if (uerr) {
+      usageFailed = true;
+      console.error("ai_usage_logs insert failed:", uerr.message);
+    }
   }
 
   const parsed = parseAIOutput(res.data);
@@ -129,7 +161,11 @@ export async function analyzeAthlete(athleteId: string): Promise<Result<InsightR
       await ctx.supabase.from("ai_analysis_runs").update({ status: "error", error: "insert_failed" }).eq("id", runId);
     return err("insert_failed");
   }
-  if (runId) await ctx.supabase.from("ai_analysis_runs").update({ status: "ok" }).eq("id", runId);
+  if (runId)
+    await ctx.supabase
+      .from("ai_analysis_runs")
+      .update({ status: "ok", error: usageFailed ? "usage_log_failed" : null })
+      .eq("id", runId);
   return {
     ok: true,
     data: {
@@ -151,6 +187,7 @@ export async function analyzeAthlete(athleteId: string): Promise<Result<InsightR
 export async function getLatestGroupInsight(groupId: string): Promise<Result<InsightRow | null>> {
   const me = await getCurrentProfile();
   if (!me || (me.role !== "coach" && me.role !== "admin")) return err("forbidden");
+  if (!(await isFlagEnabled("ai", null))) return err("disabled");
   const supabase = await createClient();
   const { data } = await supabase
     .from("ai_insights")
@@ -186,18 +223,12 @@ export async function analyzeGroup(groupId: string): Promise<Result<InsightRow>>
   }
   const gctx = summarizeGroup((group as { name: string }).name, contexts);
 
-  const { data: run } = await supabase
-    .from("ai_analysis_runs")
-    .insert({
-      run_date: todayInTz(tz),
-      kind: "group_briefing",
-      subject_type: "group",
-      subject_id: groupId,
-      status: "running",
-    })
-    .select("id")
-    .single();
-  const runId = (run as { id: string } | null)?.id ?? null;
+  const runId = await claimRun(supabase, {
+    run_date: todayInTz(tz),
+    kind: "group_briefing",
+    subject_type: "group",
+    subject_id: groupId,
+  });
 
   const res = await callAI({
     system: SYSTEM_PROMPT,
@@ -209,12 +240,17 @@ export async function analyzeGroup(groupId: string): Promise<Result<InsightRow>>
       await supabase.from("ai_analysis_runs").update({ status: "error", error: res.error }).eq("id", runId);
     return err(res.error);
   }
+  let usageFailed = false;
   if (res.usage) {
-    await supabase.from("ai_usage_logs").insert({
+    const { error: uerr } = await supabase.from("ai_usage_logs").insert({
       run_id: runId, profile_id: me.id, provider: "openai", model: res.usage.model,
       input_tokens: res.usage.input_tokens, output_tokens: res.usage.output_tokens,
       endpoint: "actions/analyzeGroup",
     });
+    if (uerr) {
+      usageFailed = true;
+      console.error("ai_usage_logs insert failed:", uerr.message);
+    }
   }
   const parsed = parseAIOutput(res.data);
   if (!parsed) {
@@ -241,7 +277,11 @@ export async function analyzeGroup(groupId: string): Promise<Result<InsightRow>>
   };
   const { data: inserted, error } = await supabase.from("ai_insights").insert(row).select("id,generated_at").single();
   if (error || !inserted) return err("insert_failed");
-  if (runId) await supabase.from("ai_analysis_runs").update({ status: "ok" }).eq("id", runId);
+  if (runId)
+    await supabase
+      .from("ai_analysis_runs")
+      .update({ status: "ok", error: usageFailed ? "usage_log_failed" : null })
+      .eq("id", runId);
   return { ok: true, data: { id: inserted.id, generated_at: inserted.generated_at, ...row } as InsightRow };
 }
 

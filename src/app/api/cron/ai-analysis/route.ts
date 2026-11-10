@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { flagEnabled, getFeatureFlags } from "@/lib/flags";
 import { todayInTz } from "@/lib/dates";
+import { isUniqueViolation } from "@/lib/ai/guard";
 import { fetchAthleteContext } from "@/lib/ai/context";
 import { callAI } from "@/lib/ai/provider";
 import { AI_OUTPUT_JSON_SCHEMA, parseAIOutput } from "@/lib/ai/schema";
@@ -48,16 +49,23 @@ export async function GET(req: NextRequest) {
 
   const results: { athlete_id: string; status: string }[] = [];
   for (const a of pending) {
-    const { data: run } = await admin
+    // Atomic dedup: the run-row insert IS the lock. Under concurrent cron
+    // invocations only one transaction wins the unique constraint; losers
+    // get 23505 and skip — no duplicate insights can be produced.
+    const { data: run, error: runErr } = await admin
       .from("ai_analysis_runs")
       .insert({ run_date: today, kind: "athlete_daily", subject_type: "athlete", subject_id: a.id, status: "running" })
       .select("id")
       .single();
-    const runId = (run as { id: string } | null)?.id ?? null;
+    if (runErr) {
+      if (!isUniqueViolation(runErr)) results.push({ athlete_id: a.id, status: "run_insert_failed" });
+      continue;
+    }
+    const runId = (run as { id: string }).id;
 
     const context = await fetchAthleteContext(admin, a.id, TZ, 14);
     if (!context) {
-      if (runId) await admin.from("ai_analysis_runs").update({ status: "error", error: "no athlete" }).eq("id", runId);
+      await admin.from("ai_analysis_runs").update({ status: "error", error: "no athlete" }).eq("id", runId);
       results.push({ athlete_id: a.id, status: "no_athlete" });
       continue;
     }
@@ -68,30 +76,34 @@ export async function GET(req: NextRequest) {
       jsonSchema: AI_OUTPUT_JSON_SCHEMA,
     });
     if (!res.ok) {
-      if (runId) await admin.from("ai_analysis_runs").update({ status: "error", error: res.error }).eq("id", runId);
+      await admin.from("ai_analysis_runs").update({ status: "error", error: res.error }).eq("id", runId);
       results.push({ athlete_id: a.id, status: res.error });
       continue;
     }
+    let usageFailed = false;
     if (res.usage) {
-      await admin.from("ai_usage_logs").insert({
+      const { error: uerr } = await admin.from("ai_usage_logs").insert({
         run_id: runId, provider: "openai", model: res.usage.model,
         input_tokens: res.usage.input_tokens, output_tokens: res.usage.output_tokens,
         endpoint: "cron/ai-analysis",
       });
+      if (uerr) {
+        usageFailed = true;
+        console.error("ai_usage_logs insert failed:", uerr.message);
+      }
     }
 
     const parsed = parseAIOutput(res.data);
     if (!parsed) {
-      if (runId) await admin.from("ai_analysis_runs").update({ status: "error", error: "schema_invalid" }).eq("id", runId);
+      await admin.from("ai_analysis_runs").update({ status: "error", error: "schema_invalid" }).eq("id", runId);
       results.push({ athlete_id: a.id, status: "schema_invalid" });
       continue;
     }
     if (!parsed.insufficient) {
       const v = verifyEvidence(parsed.insight, context);
       if (!v.ok) {
-        if (runId)
-          await admin
-            .from("ai_analysis_runs")
+        await admin
+          .from("ai_analysis_runs")
             .update({ status: "error", error: `unverified_evidence:${v.unverified.map((u) => u.metric).join(",")}` })
             .eq("id", runId);
         results.push({ athlete_id: a.id, status: "unverified_evidence" });
@@ -112,7 +124,10 @@ export async function GET(req: NextRequest) {
       model_version: res.usage?.model ?? "unknown",
       prompt_version: PROMPT_VERSION,
     });
-    if (runId) await admin.from("ai_analysis_runs").update({ status: "ok" }).eq("id", runId);
+    await admin
+      .from("ai_analysis_runs")
+      .update({ status: "ok", error: usageFailed ? "usage_log_failed" : null })
+      .eq("id", runId);
     results.push({ athlete_id: a.id, status: parsed.insufficient ? "insufficient" : "ok" });
   }
 
