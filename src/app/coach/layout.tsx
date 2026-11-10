@@ -10,7 +10,7 @@ export default async function CoachLayout({ children }: { children: React.ReactN
   const pushOn = await isFlagEnabled("push", null);
   return (
     <I18nProvider dict={dict} locale={profile.preferred_language}>
-      <AppShell role={profile.role === "admin" ? "admin" : "coach"} displayName={profile.display_name} dict={dict} pushEnabled={pushOn}>
+      <AppShell role="coach" displayName={profile.display_name} dict={dict} pushEnabled={pushOn} isAdmin={profile.role === "admin"}>
         {children}
       </AppShell>
     </I18nProvider>

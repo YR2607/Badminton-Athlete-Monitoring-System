@@ -103,6 +103,7 @@ const ru = {
     overview: "Обзор",
     configuration: "Конфигурация",
     coachWorkspace: "Режим тренера",
+    adminWorkspace: "Режим админа",
   },
   athleteHome: {
     greeting: "Привет",
