@@ -123,6 +123,13 @@ export default async function CoachReportPage({
     for (const a of att) attGrid.set(`${a.athlete_id}:${a.att_date}`, a.status);
     const gridDays = periodDays.slice(-14);
     const gridAthletes = allAthletes.filter((a) => memberIds.includes(a.id));
+    const { data: nameRows } = await supabase
+      .from("profiles")
+      .select("id,display_name")
+      .in("id", gridAthletes.map((a) => a.profile_id));
+    const nameByProfile = new Map(
+      ((nameRows as { id: string; display_name: string }[]) ?? []).map((p) => [p.id, p.display_name]),
+    );
 
     return (
       <>
@@ -154,7 +161,7 @@ export default async function CoachReportPage({
                 <tbody>
                   {gridAthletes.map((a) => (
                     <tr key={a.id}>
-                      <td className="w-24 truncate text-xs text-muted">{a.athlete_code}</td>
+                      <td className="w-32 truncate text-xs">{nameByProfile.get(a.profile_id) ?? a.athlete_code}</td>
                       {gridDays.map((d) => {
                         const st = attGrid.get(`${a.id}:${d}`);
                         const bg =
@@ -171,16 +178,6 @@ export default async function CoachReportPage({
                   </tr>
                 </tbody>
               </table>
-            </CardContent>
-          </Card>
-        )}
-        {loadData.some((d) => d.load > 0) && (
-          <Card className="mb-4">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base">{dict.report.load}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <LoadBarChart data={loadData} label="AU" height={180} />
             </CardContent>
           </Card>
         )}

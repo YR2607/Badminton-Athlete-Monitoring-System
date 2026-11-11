@@ -169,7 +169,7 @@ export async function GroupReport({
   const colsParam = [...cols].join(",");
 
   return (
-    <main className="mx-auto max-w-4xl space-y-4 p-4 print:p-0">
+    <main className="mx-auto max-w-6xl space-y-4 p-4 print:p-0">
       <div className="flex flex-wrap items-center justify-between gap-2 print:hidden">
         <a href="/coach/report" className="text-sm text-accent">← {d.changeFilter}</a>
         <PrintButton label={d.print} />
