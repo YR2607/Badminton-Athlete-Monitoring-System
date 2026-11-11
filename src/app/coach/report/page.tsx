@@ -102,10 +102,77 @@ export default async function CoachReportPage({
         wellness: Math.round((wellByDate.get(d)!.reduce((a, b) => a + b, 0) / wellByDate.get(d)!.length) * 10) / 10,
       }));
 
+    const [{ data: gAtt }, { data: gAlerts }] = await Promise.all([
+      supabase
+        .from("attendance")
+        .select("athlete_id,att_date,status")
+        .in("athlete_id", memberIds.length ? memberIds : ["-"])
+        .gte("att_date", range.from)
+        .lte("att_date", range.to),
+      supabase.from("alerts").select("id").in("athlete_id", memberIds.length ? memberIds : ["-"]).eq("status", "open"),
+    ]);
+    const att = (gAtt as { athlete_id: string; att_date: string; status: string }[]) ?? [];
+    const attPresent = att.filter((a) => a.status === "present").length;
+    const attPct = att.length ? Math.round((attPresent / att.length) * 100) : null;
+    const totalAu = Math.round(loadData.reduce((a, d) => a + (d.load as number), 0));
+    const avgWell = wellData.length
+      ? Math.round((wellData.reduce((a, d) => a + d.wellness, 0) / wellData.length) * 10) / 10
+      : null;
+    const openAlerts = ((gAlerts as { id: string }[]) ?? []).length;
+    const attGrid = new Map<string, string>();
+    for (const a of att) attGrid.set(`${a.athlete_id}:${a.att_date}`, a.status);
+    const gridDays = periodDays.slice(-14);
+    const gridAthletes = allAthletes.filter((a) => memberIds.includes(a.id));
+
     return (
       <>
         {aiOn && (
           <AIInsightCard target={{ kind: "group", id: sp.group }} initial={groupInsight} d={dict.ai} />
+        )}
+        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { l: dict.nav.attendance, v: attPct !== null ? `${attPct}%` : "—" },
+            { l: dict.report.wellness, v: avgWell ?? "—" },
+            { l: dict.report.load, v: `${totalAu} AU` },
+            { l: dict.alerts.open, v: openAlerts },
+          ].map((t) => (
+            <Card key={t.l}>
+              <CardContent className="py-3">
+                <p className="text-xs text-muted">{t.l}</p>
+                <p className="text-xl font-semibold">{t.v}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        {gridAthletes.length > 0 && (
+          <Card className="mb-4">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">{dict.nav.attendance}</CardTitle>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <table className="w-full border-separate" style={{ borderSpacing: 2 }}>
+                <tbody>
+                  {gridAthletes.map((a) => (
+                    <tr key={a.id}>
+                      <td className="w-24 truncate text-xs text-muted">{a.athlete_code}</td>
+                      {gridDays.map((d) => {
+                        const st = attGrid.get(`${a.id}:${d}`);
+                        const bg =
+                          st === "present" ? "var(--ok)" : st === "absent" ? "var(--danger)" : st === "excused" ? "var(--warn)" : "var(--border)";
+                        return <td key={d} title={`${d} ${st ?? ""}`} style={{ background: bg, width: 14, height: 14 }} />;
+                      })}
+                    </tr>
+                  ))}
+                  <tr>
+                    <td />
+                    {gridDays.map((d) => (
+                      <td key={d} className="text-[8px] text-muted">{d.slice(8)}</td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
         )}
         {loadData.some((d) => d.load > 0) && (
           <Card className="mb-4">
