@@ -35,10 +35,13 @@ export function AIInsightCard({
   target,
   initial,
   d,
+  names,
 }: {
   target: { kind: "athlete" | "group"; id: string };
   initial: InsightRow | null;
   d: Dictionary["ai"];
+  /** athlete_code → display name; model sees codes only, UI resolves them. */
+  names?: Record<string, string>;
 }) {
   const [row, setRow] = useState(initial);
   const [pending, setPending] = useState(false);
@@ -49,6 +52,11 @@ export function AIInsightCard({
     return p.from === range.from && p.to === range.to;
   });
   const insight = row && !row.insufficient ? (row.insight as AIInsight) : null;
+  const codes = Object.keys(names ?? {});
+  const codeRe = codes.length ? new RegExp(`\\b(${codes.join("|")})\\b`, "g") : null;
+  const nameify = (s: string) => (codeRe ? s.replace(codeRe, (m) => names![m] ?? m) : s);
+  const areaLabel = (a: string) =>
+    (d[`area_${a}` as keyof typeof d] as string | undefined) ?? a;
   const sections = insight?.sections ?? [];
   const watch = insight?.watch ?? [];
   const positives = insight?.positives ?? [];
@@ -77,7 +85,7 @@ export function AIInsightCard({
       <CardHeader className="pb-2">
         <CardTitle className="flex flex-wrap items-center gap-2 text-base">
           <Badge tone="accent">{d.badge}</Badge>
-          <span className="flex-1">{insight ? insight.title : d.title}</span>
+          <span className="flex-1">{insight ? nameify(insight.title) : d.title}</span>
           {insight && <Badge tone={SEV_TONE[insight.severity] ?? "neutral"}>{d[`sev_${insight.severity}` as keyof typeof d]}</Badge>}
           <Button size="sm" variant="secondary" disabled={pending} onClick={refresh}>
             {pending ? "…" : row ? d.refresh : d.generate}
@@ -123,8 +131,8 @@ export function AIInsightCard({
           ) : insight ? (
             <>
               <div>
-                <p className="font-medium">{insight.observation}</p>
-                <p className="mt-0.5 text-muted">{insight.interpretation}</p>
+                <p className="font-medium">{nameify(insight.observation)}</p>
+                <p className="mt-0.5 text-muted">{nameify(insight.interpretation)}</p>
               </div>
               {sections.length > 0 && (
                 <div>
@@ -132,7 +140,8 @@ export function AIInsightCard({
                   <ul className="mt-0.5 space-y-0.5">
                     {sections.map((s, i) => (
                       <li key={i}>
-                        <span className="font-medium">{s.area}:</span> {s.finding}
+                        <span className="font-medium">{areaLabel(s.area)}:</span>{" "}
+                        {nameify(s.finding)}
                       </li>
                     ))}
                   </ul>
@@ -144,8 +153,10 @@ export function AIInsightCard({
                   <ul className="mt-0.5 list-disc space-y-0.5 pl-5">
                     {watch.map((w, i) => (
                       <li key={i}>
-                        <span className="font-medium">{w.subject}</span>
-                        {w.reason ? <span className="text-muted"> — {w.reason}</span> : null}
+                        <span className="font-medium">{nameify(w.subject)}</span>
+                        {w.reason ? (
+                          <span className="text-muted"> — {nameify(w.reason)}</span>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
@@ -156,7 +167,7 @@ export function AIInsightCard({
                   <p className="text-xs font-medium text-muted">{d.positives}</p>
                   <ul className="mt-0.5 list-disc space-y-0.5 pl-5">
                     {positives.map((p, i) => (
-                      <li key={i}>{p}</li>
+                      <li key={i}>{nameify(p)}</li>
                     ))}
                   </ul>
                 </div>
@@ -166,7 +177,7 @@ export function AIInsightCard({
                   <p className="text-xs font-medium text-muted">{d.questions}</p>
                   <ul className="mt-0.5 list-disc space-y-0.5 pl-5">
                     {questions.map((q, i) => (
-                      <li key={i}>{q}</li>
+                      <li key={i}>{nameify(q)}</li>
                     ))}
                   </ul>
                 </div>
@@ -192,8 +203,8 @@ export function AIInsightCard({
                   <ul className="mt-0.5 list-disc space-y-0.5 pl-5">
                     {insight.recommendations.map((r, i) => (
                       <li key={i}>
-                        {r.action}
-                        <span className="text-muted"> — {r.rationale}</span>
+                        {nameify(r.action)}
+                        <span className="text-muted"> — {nameify(r.rationale)}</span>
                       </li>
                     ))}
                   </ul>

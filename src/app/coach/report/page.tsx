@@ -130,11 +130,14 @@ export default async function CoachReportPage({
     const nameByProfile = new Map(
       ((nameRows as { id: string; display_name: string }[]) ?? []).map((p) => [p.id, p.display_name]),
     );
+    const aiNames = Object.fromEntries(
+      gridAthletes.map((a) => [a.athlete_code, nameByProfile.get(a.profile_id) ?? a.athlete_code]),
+    );
 
     return (
       <>
         {aiOn && (
-          <AIInsightCard target={{ kind: "group", id: sp.group }} initial={groupInsight} d={dict.ai} />
+          <AIInsightCard target={{ kind: "group", id: sp.group }} initial={groupInsight} d={dict.ai} names={aiNames} />
         )}
         <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[

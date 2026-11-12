@@ -582,7 +582,12 @@ export default async function CoachDashboard({
       )}
 
       {aiOn && briefGroupId && (
-        <AIInsightCard target={{ kind: "group", id: briefGroupId }} initial={groupInsight} d={dict.ai} />
+        <AIInsightCard
+          target={{ kind: "group", id: briefGroupId }}
+          initial={groupInsight}
+          d={dict.ai}
+          names={Object.fromEntries(rows.map((r) => [r.athlete.athlete_code, nameOf(r)]))}
+        />
       )}
 
       {nextTournament && taperDaysLeft !== null && (
