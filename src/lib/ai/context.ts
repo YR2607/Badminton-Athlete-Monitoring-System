@@ -175,13 +175,25 @@ export interface GroupContext {
   group_name: string;
   period: { from: string; to: string };
   athletes: number;
-  with_checkins_14d: number;
+  with_checkins: number;
   checkin_coverage_avg_pct: number | null;
   wellness_avg_7d: number | null;
   open_alerts: { priority: number; review_load: number; attention: number; normal: number };
   athletes_with_acute_7d: number;
-  sessions_14d: number;
-  total_au_14d: number;
+  sessions_total: number;
+  total_au: number;
+  /** Compact per-athlete rollup — lets the model name who to watch. */
+  roster: {
+    code: string;
+    checkins: number;
+    coverage_pct: number | null;
+    wellness_7d: number | null;
+    acute_7d: number;
+    max_pain_7d: number | null;
+    open_alerts: number;
+    sessions: number;
+    total_au: number;
+  }[];
 }
 
 /** Team-level aggregate over per-athlete contexts (still deterministic). */
@@ -194,7 +206,7 @@ export function summarizeGroup(name: string, ctxs: AthleteContext[]): GroupConte
     group_name: name,
     period: ctxs[0]?.period ?? { from: "", to: "" },
     athletes: ctxs.length,
-    with_checkins_14d: ctxs.filter((c) => c.wellbeing.checkins > 0).length,
+    with_checkins: ctxs.filter((c) => c.wellbeing.checkins > 0).length,
     checkin_coverage_avg_pct: avg(
       ctxs.map((c) => c.wellbeing.coverage_pct).filter((x): x is number => x != null),
     ),
@@ -203,21 +215,38 @@ export function summarizeGroup(name: string, ctxs: AthleteContext[]): GroupConte
     ),
     open_alerts: sev,
     athletes_with_acute_7d: ctxs.filter((c) => c.acute.pain_reports_7d > 0).length,
-    sessions_14d: ctxs.reduce((a, c) => a + c.load.sessions, 0),
-    total_au_14d: round1(ctxs.reduce((a, c) => a + c.load.total_au, 0)),
+    sessions_total: ctxs.reduce((a, c) => a + c.load.sessions, 0),
+    total_au: round1(ctxs.reduce((a, c) => a + c.load.total_au, 0)),
+    roster: ctxs.map((c) => ({
+      code: c.athlete_code,
+      checkins: c.wellbeing.checkins,
+      coverage_pct: c.wellbeing.coverage_pct,
+      wellness_7d: c.readiness.score_avg_7d,
+      acute_7d: c.acute.pain_reports_7d + c.acute.swelling_7d + c.acute.movement_limitation_7d,
+      max_pain_7d: c.acute.max_pain_severity_7d,
+      open_alerts: c.alerts_open.length,
+      sessions: c.load.sessions,
+      total_au: c.load.total_au,
+    })),
   };
 }
 
-/** Fetch all source rows and build the athlete context (server-side only). */
+/**
+ * Fetch all source rows and build the athlete context (server-side only).
+ * Default period: last `days` days ending today; `range` overrides both ends.
+ */
 export async function fetchAthleteContext(
   supabase: SupabaseClient,
   athleteId: string,
   tz: string,
   days = 14,
+  range?: { from: string; to: string },
 ): Promise<AthleteContext | null> {
-  const to = todayInTz(tz);
-  const from = addDays(to, -(days - 1));
-  const since40 = addDays(to, -40);
+  const to = range?.to ?? todayInTz(tz);
+  const from = range?.from ?? addDays(to, -(days - 1));
+  const spanDays = Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000) + 1;
+  // Prev-week headroom keeps score_avg_prev_7d meaningful on short ranges.
+  const since = addDays(from, -7);
 
   const [
     { data: athlete },
@@ -242,18 +271,18 @@ export async function fetchAthleteContext(
       .from("morning_checkins")
       .select("*")
       .eq("athlete_id", athleteId)
-      .gte("checkin_date", since40)
+      .gte("checkin_date", since)
       .order("checkin_date", { ascending: false }),
     supabase
       .from("training_sessions")
       .select("*")
       .eq("athlete_id", athleteId)
-      .gte("started_at", `${since40}T00:00:00Z`),
+      .gte("started_at", `${since}T00:00:00Z`),
     supabase
       .from("post_training_checkins")
       .select("*")
       .eq("athlete_id", athleteId)
-      .gte("submitted_at", `${since40}T00:00:00Z`),
+      .gte("submitted_at", `${since}T00:00:00Z`),
     supabase
       .from("readiness_snapshots")
       .select("*")
@@ -266,7 +295,8 @@ export async function fetchAthleteContext(
       .from("attendance")
       .select("*")
       .eq("athlete_id", athleteId)
-      .gte("att_date", addDays(to, -30)),
+      .gte("att_date", from)
+      .lte("att_date", to),
     supabase
       .from("field_test_results")
       .select("*")
@@ -300,7 +330,7 @@ export async function fetchAthleteContext(
       .filter((x): x is string => Boolean(x)),
     from,
     to,
-    days,
+    days: spanDays,
     checkins: ck,
     sessions: ss,
     posts: ps,

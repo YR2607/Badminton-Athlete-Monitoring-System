@@ -7,6 +7,10 @@ const validInsight = {
   severity: "attention",
   observation: "Load rose sharply",
   interpretation: "May need a lighter day",
+  sections: [{ area: "load", finding: "420 AU over the period" }],
+  watch: [{ subject: "recovery", reason: "load rising faster than wellness" }],
+  positives: ["No acute signals"],
+  questions: ["Any extra sessions outside the plan?"],
   evidence: [{ metric: "total_au", value: 420, period: "14d", source: "load.total_au" }],
   recommendations: [{ action: "Plan an easy day", rationale: "Peak without recovery" }],
   confidence: "medium",
@@ -67,5 +71,58 @@ describe("bare insight tolerance", () => {
     });
     expect(r && !r.insufficient && r.insight.observation).toBe("Load rose");
     expect(r && !r.insufficient && r.insight.confidence).toBe("low");
+  });
+
+  it("accepts a bare object without interpretation (prod failure mode)", () => {
+    const r = parseAIOutput({ observation: "Pain signals present", title: "Alert" });
+    expect(r && !r.insufficient && r.insight.observation).toBe("Pain signals present");
+  });
+
+  it("unwraps nested wrappers and top-level arrays", () => {
+    expect(
+      parseAIOutput({ result: { insufficient: false, insight: validInsight } }),
+    ).not.toBeNull();
+    expect(parseAIOutput([{ insufficient: false, insight: validInsight }])).not.toBeNull();
+    expect(
+      parseAIOutput({ data: { insight: validInsight } }),
+    ).not.toBeNull();
+  });
+
+  it("coerces a string insufficient flag", () => {
+    expect(parseAIOutput({ insufficient: "true", reason: "r", missing: [] })).toEqual({
+      insufficient: true,
+      reason: "r",
+      missing: [],
+    });
+  });
+
+  it("defaults new blocks when the model omits them", () => {
+    const legacy = { ...validInsight };
+    delete (legacy as Record<string, unknown>).sections;
+    delete (legacy as Record<string, unknown>).watch;
+    delete (legacy as Record<string, unknown>).positives;
+    delete (legacy as Record<string, unknown>).questions;
+    const r = parseAIOutput({ insufficient: false, insight: legacy });
+    expect(r && !r.insufficient && r.insight.sections).toEqual([]);
+    expect(r && !r.insufficient && r.insight.watch).toEqual([]);
+  });
+
+  it("coerces loose watch/section shapes", () => {
+    const r = parseAIOutput({
+      insufficient: false,
+      insight: {
+        ...validInsight,
+        sections: ["load is high", { area: "recovery", finding: "sleep dropped" }],
+        watch: ["A-01", { subject: "A-02", reason: "pain reports" }],
+      },
+    });
+    expect(r && !r.insufficient && r.insight.sections).toEqual([
+      { area: "general", finding: "load is high" },
+      { area: "recovery", finding: "sleep dropped" },
+    ]);
+    expect(r && !r.insufficient && r.insight.watch).toEqual([
+      { subject: "A-01", reason: "" },
+      { subject: "A-02", reason: "pain reports" },
+    ]);
   });
 });

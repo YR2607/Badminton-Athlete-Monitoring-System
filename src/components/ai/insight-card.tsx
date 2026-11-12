@@ -4,8 +4,14 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { analyzeAthlete, analyzeGroup, sendInsightFeedback, type InsightRow } from "@/app/actions/ai-insights";
+import {
+  analyzeAthlete,
+  analyzeGroup,
+  sendInsightFeedback,
+  type InsightRow,
+} from "@/app/actions/ai-insights";
 import type { AIInsight } from "@/lib/ai/schema";
 import type { Dictionary } from "@/i18n";
 
@@ -13,6 +19,15 @@ const SEV_TONE: Record<string, "neutral" | "warn" | "danger"> = {
   info: "neutral",
   attention: "warn",
   important: "danger",
+};
+
+const iso = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const presetRange = (days: number) => {
+  const to = new Date();
+  const from = new Date();
+  from.setDate(from.getDate() - (days - 1));
+  return { from: iso(from), to: iso(to) };
 };
 
 /** AI interpretation card — visually distinct (dashed border, AI badge). */
@@ -28,11 +43,23 @@ export function AIInsightCard({
   const [row, setRow] = useState(initial);
   const [pending, setPending] = useState(false);
   const [rated, setRated] = useState<1 | -1 | 0>(0);
+  const [range, setRange] = useState<{ from: string; to: string }>(() => presetRange(14));
+  const activePreset = [7, 14, 30].find((n) => {
+    const p = presetRange(n);
+    return p.from === range.from && p.to === range.to;
+  });
   const insight = row && !row.insufficient ? (row.insight as AIInsight) : null;
+  const sections = insight?.sections ?? [];
+  const watch = insight?.watch ?? [];
+  const positives = insight?.positives ?? [];
+  const questions = insight?.questions ?? [];
 
   async function refresh() {
     setPending(true);
-    const res = target.kind === "group" ? await analyzeGroup(target.id) : await analyzeAthlete(target.id);
+    const res =
+      target.kind === "group"
+        ? await analyzeGroup(target.id, range)
+        : await analyzeAthlete(target.id, range);
     setPending(false);
     if (res.ok) setRow(res.data);
     else toast.error(res.error);
@@ -56,6 +83,34 @@ export function AIInsightCard({
             {pending ? "…" : row ? d.refresh : d.generate}
           </Button>
         </CardTitle>
+        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+          {[7, 14, 30].map((n) => (
+            <Button
+              key={n}
+              size="sm"
+              variant={activePreset === n ? "default" : "secondary"}
+              onClick={() => setRange(presetRange(n))}
+            >
+              {n} {d.days}
+            </Button>
+          ))}
+          <Input
+            type="date"
+            value={range.from}
+            max={range.to}
+            onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))}
+            className="h-9 min-h-9 w-auto px-2 py-1 text-xs"
+          />
+          <span className="text-xs text-muted">–</span>
+          <Input
+            type="date"
+            value={range.to}
+            min={range.from}
+            max={iso(new Date())}
+            onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}
+            className="h-9 min-h-9 w-auto px-2 py-1 text-xs"
+          />
+        </div>
         <p className="text-xs text-muted">{d.disclaimer}</p>
       </CardHeader>
       {row && (
@@ -71,6 +126,51 @@ export function AIInsightCard({
                 <p className="font-medium">{insight.observation}</p>
                 <p className="mt-0.5 text-muted">{insight.interpretation}</p>
               </div>
+              {sections.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted">{d.sections}</p>
+                  <ul className="mt-0.5 space-y-0.5">
+                    {sections.map((s, i) => (
+                      <li key={i}>
+                        <span className="font-medium">{s.area}:</span> {s.finding}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {watch.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted">{d.watch}</p>
+                  <ul className="mt-0.5 list-disc space-y-0.5 pl-5">
+                    {watch.map((w, i) => (
+                      <li key={i}>
+                        <span className="font-medium">{w.subject}</span>
+                        {w.reason ? <span className="text-muted"> — {w.reason}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {positives.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted">{d.positives}</p>
+                  <ul className="mt-0.5 list-disc space-y-0.5 pl-5">
+                    {positives.map((p, i) => (
+                      <li key={i}>{p}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {questions.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-muted">{d.questions}</p>
+                  <ul className="mt-0.5 list-disc space-y-0.5 pl-5">
+                    {questions.map((q, i) => (
+                      <li key={i}>{q}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               {insight.evidence.length > 0 && (
                 <details>
                   <summary className="cursor-pointer text-xs font-medium text-muted">
@@ -108,6 +208,7 @@ export function AIInsightCard({
                     · {d.limits}: {insight.limitations.length}
                   </span>
                 )}
+                <span>· {d.period}: {insight.period.from} — {insight.period.to}</span>
                 <span className="ml-auto">
                   {d.updated} {row.generated_at.slice(0, 10)}
                 </span>

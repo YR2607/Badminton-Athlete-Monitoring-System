@@ -1284,6 +1284,12 @@ const en: Dictionary = {
     conf_low: "low",
     conf_medium: "medium",
     conf_high: "high",
+    days: "days",
+    period: "Period",
+    sections: "By area",
+    watch: "Watch",
+    positives: "Positives",
+    questions: "Clarify",
   },
   academy: {
     title: "Badminton Academy",

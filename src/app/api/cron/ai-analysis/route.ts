@@ -83,6 +83,7 @@ export async function GET(req: NextRequest) {
       system: SYSTEM_PROMPT,
       user: buildUserPrompt(context, "ru"),
       jsonSchema: AI_OUTPUT_JSON_SCHEMA,
+      validate: (d) => parseAIOutput(d) !== null,
     });
     await settleBudget(
       admin,
