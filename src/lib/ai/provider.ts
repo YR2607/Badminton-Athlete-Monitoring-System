@@ -22,6 +22,18 @@ const TIMEOUT_MS = 45_000;
 const RETRYABLE = new Set([429, 500, 502, 503, 504]);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** Provider-specific body extras via env, e.g. NIM thinking switch:
+ * AI_EXTRA_BODY={"chat_template_kwargs":{"enable_thinking":false}} */
+function extraBody(): Record<string, unknown> {
+  try {
+    const raw = process.env.AI_EXTRA_BODY;
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
 export function aiConfigured(): boolean {
   return Boolean(process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY);
 }
@@ -101,6 +113,7 @@ export async function callAI(opts: {
       // with HTTP 400. Output is validated by Zod on our side instead.
       max_tokens: opts.maxOutputTokens ?? 4000,
       temperature: 0.2,
+      ...extraBody(),
     };
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
