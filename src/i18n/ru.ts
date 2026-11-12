@@ -1286,6 +1286,12 @@ const ru = {
     conf_low: "низкая",
     conf_medium: "средняя",
     conf_high: "высокая",
+    days: "дней",
+    period: "Период",
+    sections: "По областям",
+    watch: "Отследить",
+    positives: "Позитив",
+    questions: "Уточнить",
   },
   academy: {
     title: "Академия бадминтона",

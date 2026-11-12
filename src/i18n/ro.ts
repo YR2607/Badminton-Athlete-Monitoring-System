@@ -1284,6 +1284,12 @@ const ro: Dictionary = {
     conf_low: "scăzută",
     conf_medium: "medie",
     conf_high: "ridicată",
+    days: "zile",
+    period: "Perioadă",
+    sections: "Pe domenii",
+    watch: "De urmărit",
+    positives: "Pozitiv",
+    questions: "De clarificat",
   },
   academy: {
     title: "Academia de Badminton",

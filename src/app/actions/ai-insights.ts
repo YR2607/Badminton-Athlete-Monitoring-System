@@ -30,6 +30,27 @@ export interface InsightRow {
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
 const err = (e: string): Result<never> => ({ ok: false, error: e });
 
+export interface AnalysisRange {
+  from: string;
+  to: string;
+}
+
+const MAX_SPAN_DAYS = 60;
+
+/** Validate/clamp a client-supplied period; null = invalid input. */
+function validRange(range: AnalysisRange, tz: string): AnalysisRange | null {
+  const re = /^\d{4}-\d{2}-\d{2}$/;
+  if (!re.test(range.from) || !re.test(range.to)) return null;
+  let { from, to } = range;
+  if (from > to) [from, to] = [to, from];
+  const today = todayInTz(tz);
+  if (to > today) to = today;
+  const span =
+    Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400000) + 1;
+  if (span < 1 || span > MAX_SPAN_DAYS) return null;
+  return { from, to };
+}
+
 type Supa = Awaited<ReturnType<typeof createClient>>;
 
 /**
@@ -118,24 +139,27 @@ async function cachedInsight(
 }
 
 /** On-demand analysis: context → provider → validate → verify → persist. */
-export async function analyzeAthlete(athleteId: string): Promise<Result<InsightRow>> {
+export async function analyzeAthlete(
+  athleteId: string,
+  range?: AnalysisRange,
+): Promise<Result<InsightRow>> {
   const ctx = await staffAthlete(athleteId);
   if (!ctx) return err("forbidden");
   if (!(await isFlagEnabled("ai", null))) return err("disabled");
   if (!(await rateCheck(ctx.supabase, `ai:analyze:${ctx.me.id}`, 10))) return err("rate_limited");
-  const tzEarly = ctx.me.timezone ?? "UTC";
-  const cached = await cachedInsight(
-    ctx.supabase, "athlete_on_demand", "athlete", athleteId, todayInTz(tzEarly),
-  );
+  const tz = ctx.me.timezone ?? "UTC";
+  const period = range ? (validRange(range, tz) ?? undefined) : undefined;
+  if (range && !period) return err("invalid_range");
+  const kind = period ? `athlete_on_demand:${period.from}:${period.to}` : "athlete_on_demand";
+  const cached = await cachedInsight(ctx.supabase, kind, "athlete", athleteId, todayInTz(tz));
   if (cached) return { ok: true, data: cached };
 
-  const tz = ctx.me.timezone ?? "UTC";
-  const context = await fetchAthleteContext(ctx.supabase, athleteId, tz, 14);
+  const context = await fetchAthleteContext(ctx.supabase, athleteId, tz, 14, period);
   if (!context) return err("not_found");
 
   const runId = await claimRun(ctx.supabase, {
     run_date: todayInTz(tz),
-    kind: "athlete_on_demand",
+    kind,
     subject_type: "athlete",
     subject_id: athleteId,
   });
@@ -151,6 +175,7 @@ export async function analyzeAthlete(athleteId: string): Promise<Result<InsightR
     system: SYSTEM_PROMPT,
     user: buildUserPrompt(context, ctx.me.preferred_language),
     jsonSchema: AI_OUTPUT_JSON_SCHEMA,
+    validate: (d) => parseAIOutput(d) !== null,
   });
   await settleBudget(
     ctx.supabase,
@@ -250,7 +275,10 @@ export async function getLatestGroupInsight(groupId: string): Promise<Result<Ins
 }
 
 /** On-demand team briefing: group context → provider → validate → persist. */
-export async function analyzeGroup(groupId: string): Promise<Result<InsightRow>> {
+export async function analyzeGroup(
+  groupId: string,
+  range?: AnalysisRange,
+): Promise<Result<InsightRow>> {
   const me = await getCurrentProfile();
   if (!me || (me.role !== "coach" && me.role !== "admin")) return err("forbidden");
   if (!(await isFlagEnabled("ai", null))) return err("disabled");
@@ -258,7 +286,10 @@ export async function analyzeGroup(groupId: string): Promise<Result<InsightRow>>
   if (!(await rateCheck(supa0, `ai:analyze:${me.id}`, 10))) return err("rate_limited");
   const supabase = await createClient();
   const tz = me.timezone ?? "UTC";
-  const cached = await cachedInsight(supabase, "group_briefing", "group", groupId, todayInTz(tz));
+  const period = range ? (validRange(range, tz) ?? undefined) : undefined;
+  if (range && !period) return err("invalid_range");
+  const kind = period ? `group_briefing:${period.from}:${period.to}` : "group_briefing";
+  const cached = await cachedInsight(supabase, kind, "group", groupId, todayInTz(tz));
   if (cached) return { ok: true, data: cached };
 
   const [{ data: group }, { data: members }] = await Promise.all([
@@ -270,14 +301,14 @@ export async function analyzeGroup(groupId: string): Promise<Result<InsightRow>>
   const scoped = await scopedAthleteIds(supabase);
   const contexts = [];
   for (const id of ids.filter((x) => scoped.includes(x)).slice(0, 30)) {
-    const c = await fetchAthleteContext(supabase, id, tz, 14);
+    const c = await fetchAthleteContext(supabase, id, tz, 14, period);
     if (c) contexts.push(c);
   }
   const gctx = summarizeGroup((group as { name: string }).name, contexts);
 
   const runId = await claimRun(supabase, {
     run_date: todayInTz(tz),
-    kind: "group_briefing",
+    kind,
     subject_type: "group",
     subject_id: groupId,
   });
@@ -293,6 +324,7 @@ export async function analyzeGroup(groupId: string): Promise<Result<InsightRow>>
     system: SYSTEM_PROMPT,
     user: buildUserPrompt(gctx, me.preferred_language),
     jsonSchema: AI_OUTPUT_JSON_SCHEMA,
+    validate: (d) => parseAIOutput(d) !== null,
   });
   await settleBudget(
     supabase,
