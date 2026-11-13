@@ -85,9 +85,7 @@ export default async function TrainingPage() {
 
   const rows = (schedules as TrainingSchedule[] | null) ?? [];
   const overrides = (planOverrides as PlanOverride[] | null) ?? [];
-  const todayPlan = plannedForDate(today, rows, overrides);
   const yesterdayPlan = plannedForDate(yesterday, rows, overrides);
-  const defaultMinutes = todayPlan.planned_minutes ?? undefined;
 
   const [todayStatus] = dayStatuses({
     days: [today],
@@ -156,7 +154,6 @@ export default async function TrainingPage() {
           },
         }}
         srpe={srpe}
-        defaultMinutes={defaultMinutes}
         allowYesterday={yesterdayPlan.scheduled}
         tournamentMode={Boolean(activeTournament)}
       />

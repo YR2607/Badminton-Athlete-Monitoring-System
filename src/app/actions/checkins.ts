@@ -9,6 +9,7 @@ import { addDays, localDate, localDayUtcBounds } from "@/lib/dates";
 import { isFlagEnabled } from "@/lib/flags";
 import { morningCheckinSchema, postTrainingSchema } from "@/lib/validation";
 import { detectBodyZone } from "@/lib/body-zones";
+import { plannedForDate, type PlanOverride, type ScheduleInput } from "@/lib/load";
 
 export type ActionResult = { ok?: boolean; error?: string };
 
@@ -149,7 +150,11 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
         .from("training_sessions")
         .update({
           session_rpe: srpeOn ? (parsed.data.session_rpe ?? null) : null,
-          duration_minutes: srpeOn ? (parsed.data.session_minutes ?? null) : null,
+          // Duration stays with the coach's session — only overwrite when
+          // the athlete explicitly reported minutes (match logging).
+          ...(parsed.data.session_minutes != null
+            ? { duration_minutes: parsed.data.session_minutes }
+            : {}),
           focus_tags: parsed.data.focus_tags ?? [],
         })
         .eq("id", recentPost.training_session_id)
@@ -192,7 +197,7 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
     ? { data: null }
     : await supabase
         .from("training_sessions")
-        .select("id")
+        .select("id, duration_minutes")
         .eq("athlete_id", athlete.id)
         .is("session_rpe", null)
         .is("match_discipline", null)
@@ -202,7 +207,30 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
         .limit(1)
         .maybeSingle();
 
-  let session = (emptySession as { id: string } | null) ?? null;
+  // The coach's weekly plan is the source of truth for training duration —
+  // athletes only report minutes when logging a match, which has no plan.
+  let plannedMinutes: number | null = null;
+  if (srpeOn && parsed.data.session_minutes == null && membership?.group_id) {
+    const [{ data: sch }, { data: ov }] = await Promise.all([
+      supabase
+        .from("training_schedules")
+        .select("weekday, planned_minutes, planned_rpe")
+        .eq("group_id", membership.group_id)
+        .eq("active", true),
+      supabase
+        .from("session_plan_overrides")
+        .select("plan_date, cancelled, planned_minutes, planned_rpe")
+        .eq("group_id", membership.group_id)
+        .eq("plan_date", sessionDate),
+    ]);
+    plannedMinutes = plannedForDate(
+      sessionDate,
+      (sch ?? []) as ScheduleInput[],
+      (ov ?? []) as PlanOverride[],
+    ).planned_minutes;
+  }
+
+  let session = (emptySession as { id: string; duration_minutes?: number | null } | null) ?? null;
   if (session) {
     // Admin client: sessions_update_today RLS only allows same-day updates, so
     // a backfilled check-in (yesterday's session) would silently match 0 rows.
@@ -210,7 +238,9 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
       .from("training_sessions")
       .update({
         session_rpe: srpeOn ? (parsed.data.session_rpe ?? null) : null,
-        duration_minutes: srpeOn ? (parsed.data.session_minutes ?? null) : null,
+        duration_minutes: srpeOn
+          ? (parsed.data.session_minutes ?? session.duration_minutes ?? plannedMinutes)
+          : null,
         focus_tags: parsed.data.focus_tags ?? [],
         match_discipline: parsed.data.match_discipline ?? null,
         match_result: parsed.data.match_result ?? null,
@@ -226,7 +256,9 @@ export async function submitEveningCheckin(input: unknown): Promise<ActionResult
         group_id: membership?.group_id ?? null,
         started_at: startedAt,
         session_rpe: srpeOn ? (parsed.data.session_rpe ?? null) : null,
-        duration_minutes: srpeOn ? (parsed.data.session_minutes ?? null) : null,
+        duration_minutes: srpeOn
+          ? (parsed.data.session_minutes ?? plannedMinutes)
+          : null,
         focus_tags: parsed.data.focus_tags ?? [],
         match_discipline: parsed.data.match_discipline ?? null,
         match_result: parsed.data.match_result ?? null,

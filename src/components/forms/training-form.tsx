@@ -73,15 +73,12 @@ const DISCIPLINES = ["MS", "WS", "MD", "WD", "XD"] as const;
 export function TrainingForm({
   dict,
   srpe,
-  defaultMinutes,
   allowYesterday,
   tournamentMode = false,
 }: {
   dict: TrainingFormDict;
-  /** sRPE feature flag: show RPE + minutes fields */
+  /** sRPE feature flag: show the session RPE field */
   srpe: boolean;
-  /** Prefill from the group schedule */
-  defaultMinutes?: number;
   /** Yesterday was a scheduled training day → allow backfilling it */
   allowYesterday?: boolean;
   /** Today has a tournament event — pre-enable match logging */
@@ -99,13 +96,9 @@ export function TrainingForm({
       pain_triggers: [],
       focus_tags: [],
       session_day: "today",
-      // Prefill from the plan so the athlete only adjusts, not invents —
-      // rounded to a selectable 15-min step.
-      session_minutes: tournamentMode
-        ? 40
-        : defaultMinutes != null
-          ? Math.min(300, Math.max(15, Math.round(defaultMinutes / 15) * 15))
-          : 60,
+      // Session minutes are only asked for matches — regular training
+      // duration is owned by the coach's plan/attendance session.
+      session_minutes: tournamentMode ? 40 : undefined,
     },
   });
 
@@ -261,19 +254,24 @@ export function TrainingForm({
                 </p>
               )}
             </div>
-            <div>
-              <p className="mb-2 text-sm font-medium">{d.minutes}</p>
-              <Select
-                {...register("session_minutes", { valueAsNumber: true })}
-                className="w-full"
-              >
-                {Array.from({ length: 20 }, (_, i) => (i + 1) * 15).map((m) => (
-                  <option key={m} value={m}>
-                    {m} {d.minutesUnit}
-                  </option>
-                ))}
-              </Select>
-            </div>
+            {/* Match duration is asked only for matches — they are not in
+                the group's weekly plan, so the coach's session has no
+                planned_minutes to fall back on. */}
+            {isMatch && (
+              <div>
+                <p className="mb-2 text-sm font-medium">{d.minutes}</p>
+                <Select
+                  {...register("session_minutes", { valueAsNumber: true })}
+                  className="w-full"
+                >
+                  {Array.from({ length: 20 }, (_, i) => (i + 1) * 15).map((m) => (
+                    <option key={m} value={m}>
+                      {m} {d.minutesUnit}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
 
             <div>
               <p className="mb-2 text-sm font-medium">{dict.pro.focusLabel}</p>
