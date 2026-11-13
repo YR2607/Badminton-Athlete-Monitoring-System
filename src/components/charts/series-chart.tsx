@@ -30,6 +30,8 @@ export interface SeriesDef {
   dash?: boolean;
   /** Soft gradient fill under this line. */
   fill?: boolean;
+  /** Unit suffix in tooltips, e.g. "AU" or "/10". */
+  unit?: string;
 }
 
 /** Horizontal shaded zone (e.g. the ACWR sweet spot). */
@@ -46,25 +48,41 @@ const fmtDate = (v: unknown) => {
   return parts.length >= 2 ? `${parts.at(-1)}.${parts.at(-2)}` : String(v);
 };
 
+/** Tooltip header: ISO dates get the weekday so a coach reads "пт 24.10". */
+const fmtTooltipLabel = (v: unknown) => {
+  const s = String(v);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    const wd = new Date(`${s}T00:00:00`).toLocaleDateString(undefined, { weekday: "short" });
+    return `${wd} ${fmtDate(s)}`;
+  }
+  return fmtDate(s);
+};
+
 /** Fully opaque tooltip — default recharts styling can blend into content below. */
 function ChartTooltip({
   active,
   payload,
   label,
+  units,
 }: {
   active?: boolean;
-  payload?: { name?: string; value?: number | string; color?: string; dataKey?: string }[];
+  payload?: { name?: string; value?: number | string; color?: string; dataKey?: string | number }[];
   label?: string | number;
+  units?: Record<string, string>;
 }) {
   if (!active || !payload?.length) return null;
   return (
     <div className="max-w-60 rounded-lg border border-border bg-surface px-3 py-2 text-xs shadow-md">
-      <p className="mb-1 font-semibold">{fmtDate(label)}</p>
-      {payload.map((p) => (
-        <p key={String(p.dataKey ?? p.name)} style={{ color: p.color }}>
-          {p.name} : {p.value}
-        </p>
-      ))}
+      <p className="mb-1 font-semibold">{fmtTooltipLabel(label)}</p>
+      {payload.map((p) => {
+        const u = units?.[String(p.dataKey ?? "")] ?? "";
+        return (
+          <p key={String(p.dataKey ?? p.name)} style={{ color: p.color }}>
+            {p.name}: <b className="tabular-nums">{p.value}</b>
+            {u ? <span className="text-muted"> {u}</span> : null}
+          </p>
+        );
+      })}
     </div>
   );
 }
@@ -78,6 +96,7 @@ export function SeriesLineChart({
   markers,
   band,
   zones,
+  connectNulls = false,
 }: {
   data: SeriesPoint[];
   series: SeriesDef[];
@@ -90,6 +109,9 @@ export function SeriesLineChart({
   band?: { low: string; high: string; color?: string };
   /** Horizontal shaded zones (e.g. optimal range). */
   zones?: Zone[];
+  /** Bridge gaps between measured points — default false so missing
+   *  observations read as gaps, not as smooth continuity. */
+  connectNulls?: boolean;
 }) {
   if (data.length === 0) return null;
   const rows = band
@@ -149,7 +171,13 @@ export function SeriesLineChart({
           axisLine={false}
           tickLine={false}
         />
-        <Tooltip content={<ChartTooltip />} />
+        <Tooltip
+          content={
+            <ChartTooltip
+              units={Object.fromEntries(series.map((s) => [s.key, s.unit ?? ""]))}
+            />
+          }
+        />
         {series.length > 1 ? (
           <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} iconSize={10} />
         ) : null}
@@ -220,7 +248,7 @@ export function SeriesLineChart({
               strokeDasharray={s.dash ? "5 4" : undefined}
               fill={`url(#grad-${s.key})`}
               dot={{ r: 2.5, fill: s.color, strokeWidth: 0 }}
-              connectNulls
+              connectNulls={connectNulls}
               isAnimationActive={false}
             />
           ) : (
@@ -233,7 +261,7 @@ export function SeriesLineChart({
               strokeWidth={s.dash ? 1.5 : 2}
               strokeDasharray={s.dash ? "5 4" : undefined}
               dot={{ r: 2.5, fill: s.color, strokeWidth: 0 }}
-              connectNulls
+              connectNulls={connectNulls}
               isAnimationActive={false}
             />
           ),
@@ -248,11 +276,14 @@ export function LoadBarChart({
   height = 220,
   label,
   plannedLabel,
+  unit = "AU",
 }: {
   data: SeriesPoint[];
   height?: number;
   label: string;
   plannedLabel?: string;
+  /** Unit suffix shown in the tooltip. */
+  unit?: string;
 }) {
   if (data.length === 0) return null;
   const hasWave = data.some((d) => d.wave === "peak" || d.wave === "recovery");
@@ -298,7 +329,10 @@ export function LoadBarChart({
           axisLine={false}
           tickLine={false}
         />
-        <Tooltip content={<ChartTooltip />} cursor={{ fill: "var(--border)", fillOpacity: 0.3 }} />
+        <Tooltip
+          content={<ChartTooltip units={{ load: unit, planned: unit }} />}
+          cursor={{ fill: "var(--border)", fillOpacity: 0.3 }}
+        />
         {plannedLabel ? (
           <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} iconSize={10} />
         ) : null}
