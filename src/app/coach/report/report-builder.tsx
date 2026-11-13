@@ -97,11 +97,11 @@ export function ReportBuilder({
           ))}
         </div>
         {period === "custom" && (
-          <div className="flex items-center gap-2 pt-1">
-            <span className="text-xs text-muted">{d.fromLabel}</span>
-            <input type="date" className={input} value={from} onChange={(e) => setFrom(e.target.value)} />
-            <span className="text-xs text-muted">{d.toLabel}</span>
-            <input type="date" className={input} value={to} onChange={(e) => setTo(e.target.value)} />
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <span className="shrink-0 text-xs text-muted">{d.fromLabel}</span>
+            <input type="date" className={`${input} min-w-0 flex-1 sm:flex-none`} value={from} onChange={(e) => setFrom(e.target.value)} />
+            <span className="shrink-0 text-xs text-muted">{d.toLabel}</span>
+            <input type="date" className={`${input} min-w-0 flex-1 sm:flex-none`} value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
         )}
       </div>

@@ -698,23 +698,23 @@ export default async function AthleteDetailPage({
               {dict.ranges[k]}
             </a>
           ))}
-          <form method="get" action={`/coach/athletes/${a.id}`} className="flex items-center gap-1 text-xs">
+          <form method="get" action={`/coach/athletes/${a.id}`} className="flex flex-wrap items-center gap-1 text-xs">
             <input type="hidden" name="tab" value="load" />
             <input type="hidden" name="range" value="custom" />
             <input
               type="date"
               name="from"
               defaultValue={range.from}
-              className="rounded-lg border border-border bg-surface px-2 py-1 text-xs"
+              className="w-28 min-w-0 rounded-lg border border-border bg-surface px-2 py-1 text-xs"
             />
-            <span className="text-muted">→</span>
+            <span className="shrink-0 text-muted">→</span>
             <input
               type="date"
               name="to"
               defaultValue={range.to}
-              className="rounded-lg border border-border bg-surface px-2 py-1 text-xs"
+              className="w-28 min-w-0 rounded-lg border border-border bg-surface px-2 py-1 text-xs"
             />
-            <button type="submit" className="rounded-lg bg-accent px-2.5 py-1.5 font-medium text-white">
+            <button type="submit" className="shrink-0 rounded-lg bg-accent px-2.5 py-1.5 font-medium text-white">
               {dict.report.applyDates}
             </button>
           </form>

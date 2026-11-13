@@ -102,22 +102,24 @@ export function AIInsightCard({
               {n} {d.days}
             </Button>
           ))}
-          <Input
-            type="date"
-            value={range.from}
-            max={range.to}
-            onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))}
-            className="h-9 min-h-9 w-auto px-2 py-1 text-xs"
-          />
-          <span className="text-xs text-muted">–</span>
-          <Input
-            type="date"
-            value={range.to}
-            min={range.from}
-            max={iso(new Date())}
-            onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}
-            className="h-9 min-h-9 w-auto px-2 py-1 text-xs"
-          />
+          <div className="flex min-w-0 basis-full items-center gap-1.5 sm:basis-auto">
+            <Input
+              type="date"
+              value={range.from}
+              max={range.to}
+              onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))}
+              className="h-9 min-h-9 w-full min-w-0 flex-1 px-2 py-1 text-xs sm:w-40 sm:flex-none"
+            />
+            <span className="shrink-0 text-xs text-muted">–</span>
+            <Input
+              type="date"
+              value={range.to}
+              min={range.from}
+              max={iso(new Date())}
+              onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))}
+              className="h-9 min-h-9 w-full min-w-0 flex-1 px-2 py-1 text-xs sm:w-40 sm:flex-none"
+            />
+          </div>
         </div>
         <p className="text-xs text-muted">{d.disclaimer}</p>
       </CardHeader>

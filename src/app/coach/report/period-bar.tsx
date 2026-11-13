@@ -48,24 +48,24 @@ export function PeriodBar({
           {p.label}
         </a>
       ))}
-      <div className="flex items-center gap-1">
+      <div className="flex min-w-0 basis-full items-center gap-1 sm:basis-auto">
         <input
           type="date"
           value={f}
           onChange={(e) => setF(e.target.value)}
-          className="rounded-lg border border-border bg-surface px-2 py-1 text-xs"
+          className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 py-1 text-xs sm:w-28 sm:flex-none"
         />
-        <span className="text-muted">→</span>
+        <span className="shrink-0 text-muted">→</span>
         <input
           type="date"
           value={t}
           onChange={(e) => setT(e.target.value)}
-          className="rounded-lg border border-border bg-surface px-2 py-1 text-xs"
+          className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 py-1 text-xs sm:w-28 sm:flex-none"
         />
         <button
           type="button"
           onClick={applyCustom}
-          className="rounded-lg bg-accent px-2.5 py-1.5 font-medium text-white"
+          className="shrink-0 rounded-lg bg-accent px-2.5 py-1.5 font-medium text-white"
         >
           {d.applyDates}
         </button>
