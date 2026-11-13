@@ -44,7 +44,7 @@ export function KPIStat({
 }) {
   return (
     <div title={hint} className={cn("rounded-xl border p-3", TONES[tone], className)}>
-      <p className={cn("text-lg font-bold tabular-nums", VALUE_TONES[tone])}>
+      <p className={cn("text-2xl font-bold tabular-nums leading-none", VALUE_TONES[tone])}>
         {value} {delta}
       </p>
       <p className="text-xs text-muted">{label}</p>
