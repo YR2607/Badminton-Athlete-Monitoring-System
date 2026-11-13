@@ -3,6 +3,7 @@ import { getDictionary } from "@/i18n";
 import { createClient } from "@/lib/supabase/server";
 import { coachDashboard } from "@/lib/coach-data";
 import { CoachTable } from "../table";
+import { PageHeader } from "@/components/ui/page-header";
 
 /** Athlete roster — search, filters and sorting over the shared CoachTable. */
 export default async function CoachAthletesPage() {
@@ -13,7 +14,7 @@ export default async function CoachAthletesPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">{dict.nav.athletes}</h1>
+      <PageHeader title={dict.nav.athletes} subtitle={dict.coach.dashboardHint} />
       <CoachTable
         rows={rows}
         groups={groups}

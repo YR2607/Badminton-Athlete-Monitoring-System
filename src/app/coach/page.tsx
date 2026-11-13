@@ -8,10 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { GroupBodyHeatmap, type GroupPainEntry } from "@/components/forms/body-map";
-import { LoadBarChart } from "@/components/charts/series-chart";
+import { LoadBarChart, SeriesLineChart } from "@/components/charts/series-chart";
+import { KPIStat } from "@/components/ui/kpi-stat";
+import { AthleteAvatar } from "@/components/ui/athlete-avatar";
+import { DataCoverageIndicator } from "@/components/ui/states";
+import { avatarPublicUrl } from "@/lib/avatars";
 import { addDays, dateRange, localDate, todayInTz } from "@/lib/dates";
 import { analyzeLoadWave, plannedForDate, weekdayOf, type PlanOverride, type ScheduleInput } from "@/lib/load";
-import { isoWeekMonday } from "@/lib/ostrc";
 import type { TrainingSession } from "@/lib/types";
 import { ageInDays } from "@/lib/athlete-status";
 import { AlertList } from "@/app/coach/athletes/[id]/alert-list";
@@ -62,29 +65,14 @@ export default async function CoachDashboard({
   // today's Academy lesson — each tile deep-links into its section.
   const admin = createAdminClient();
   const athleteIds = rows.map((r) => r.athlete.id);
-  const [{ data: attRows }, { data: ostrcRows }, { data: acadRows }] =
-    athleteIds.length
-      ? await Promise.all([
-          admin
-            .from("attendance")
-            .select("athlete_id")
-            .eq("att_date", coachToday)
-            .in("athlete_id", athleteIds),
-          admin
-            .from("ostrc_responses")
-            .select("athlete_id")
-            .eq("week_start_date", isoWeekMonday(coachToday))
-            .in("athlete_id", athleteIds),
-          admin
-            .from("academy_responses")
-            .select("athlete_id")
-            .eq("assigned_date", coachToday)
-            .in("athlete_id", athleteIds),
-        ])
-      : [{ data: [] }, { data: [] }, { data: [] }];
+  const { data: attRows } = athleteIds.length
+    ? await admin
+        .from("attendance")
+        .select("athlete_id")
+        .eq("att_date", coachToday)
+        .in("athlete_id", athleteIds)
+    : { data: [] };
   const attMarked = new Set(((attRows ?? []) as { athlete_id: string }[]).map((r) => r.athlete_id)).size;
-  const ostrcFilled = new Set(((ostrcRows ?? []) as { athlete_id: string }[]).map((r) => r.athlete_id)).size;
-  const acadDone = new Set(((acadRows ?? []) as { athlete_id: string }[]).map((r) => r.athlete_id)).size;
 
   // Is any of the coach's groups scheduled to train today (template or override)?
   const groupIds = groups.map((g) => g.id);
@@ -220,7 +208,6 @@ export default async function CoachDashboard({
       name: r.profile?.display_name ?? r.athlete.athlete_code,
     }))
     .sort((x, y) => x.name.localeCompare(y.name));
-  const priority = rows.filter((r) => r.status === "needs_check").length;
 
   const sorted = [...rows].sort((a, b) =>
     (a.profile?.display_name ?? a.athlete.athlete_code).localeCompare(
@@ -235,6 +222,28 @@ export default async function CoachDashboard({
   const briefReduce = sorted.filter((r) => r.priority.category === "review");
   const briefAsk = sorted.filter((r) => r.priority.category === "missing");
   const briefReady = sorted.filter((r) => r.priority.category === "none");
+
+  // ── KPI strip (spec §4.1): attention · morning readiness · today load ·
+  // questionnaire completion. Missing data stays visibly missing, never 0.
+  const attentionCount = briefCheck.length + briefReduce.length;
+  const scoredToday = rows.filter((r) => r.todayScore !== null);
+  const avgReadiness = scoredToday.length
+    ? Math.round(scoredToday.reduce((a, r) => a + (r.todayScore ?? 0), 0) / scoredToday.length)
+    : null;
+  const completionPct = rows.length ? Math.round((filled / rows.length) * 100) : 0;
+  const todayWave = wave14Days.at(-1);
+
+  // Secondary analytics: 7-day group readiness trend — mean morning score
+  // over athletes who reported that day; gaps stay gaps (connectNulls off).
+  const readinessTrend = dateRange(addDays(coachToday, -6), coachToday).map((dt) => {
+    const vals = rows
+      .map((r) => r.series.find((p) => p.date === dt)?.score)
+      .filter((v): v is number => v != null);
+    return {
+      date: dt.slice(5),
+      score: vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : null,
+    };
+  });
 
   const reasonText = (r: (typeof rows)[number]): string => {
     switch (r.priority.reason) {
@@ -280,6 +289,14 @@ export default async function CoachDashboard({
       severity: pe.severity,
       dominantHit: pe.dominantHit,
     })),
+  );
+
+  const avatarOf = (r: (typeof rows)[number]) => (
+    <AthleteAvatar
+      name={nameOf(r)}
+      src={r.athlete.photo_path ? avatarPublicUrl(r.athlete.photo_path) : null}
+      size="sm"
+    />
   );
 
   // Tapering countdown for the nearest tournament within 14 days.
@@ -361,50 +378,51 @@ export default async function CoachDashboard({
         </Card>
       )}
 
-      {/* Day overview — one-glance links into the daily sections. */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          {
-            href: "/coach/athletes",
-            value: `${filled}/${rows.length}`,
-            valueClass: filled === rows.length ? "text-ok" : "",
-            label: d.tileCheckins,
-            sub: d.tileCheckinsSub
-              .replace("{p}", String(priority))
-              .replace("{o}", `${ostrcFilled}/${rows.length}`),
-          },
-          {
-            href: "/coach/attendance",
-            value: `${attMarked}/${rows.length}`,
-            valueClass: "",
-            label: dict.nav.attendance,
-            sub: d.quickAttSub,
-          },
-          {
-            href: "/coach/academy",
-            value: `${acadDone}/${rows.length}`,
-            valueClass: "",
-            label: dict.nav.academy,
-            sub: d.quickAcadSub,
-          },
-          {
-            href: "/coach/alerts",
-            value: String(openAlerts.length),
-            valueClass: openAlerts.length > 0 ? "text-danger" : "",
-            label: dict.nav.alerts,
-            sub: d.quickAlertsSub,
-          },
-        ].map((t) => (
-          <Link key={t.href} href={t.href}>
-            <Card className="h-full transition-colors hover:border-accent/50">
-              <CardContent className="pt-4">
-                <p className={`text-2xl font-bold tabular-nums ${t.valueClass}`}>{t.value}</p>
-                <p className="text-xs font-medium">{t.label} →</p>
-                <p className="text-[11px] text-muted">{t.sub}</p>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+      {/* KPI strip — attention, morning readiness, today's load, completion. */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Link href="/coach/athletes">
+          <KPIStat
+            tone={attentionCount > 0 ? "danger" : "ok"}
+            value={attentionCount}
+            label={d.kpiAttention}
+            sub={`${briefCheck.length} · ${briefReduce.length}`}
+            hint={d.briefingHint}
+            className="h-full transition-colors hover:border-accent/40"
+          />
+        </Link>
+        <Link href="/analytics">
+          <KPIStat
+            tone={avgReadiness === null ? "neutral" : avgReadiness >= 70 ? "ok" : avgReadiness >= 45 ? "warn" : "danger"}
+            value={avgReadiness ?? "—"}
+            label={d.kpiReadiness}
+            sub={d.kpiReadinessSub.replace("{n}", String(scoredToday.length))}
+            hint={dict.common.readinessHint}
+            className="h-full transition-colors hover:border-accent/40"
+          />
+        </Link>
+        <Link href="/analytics">
+          <KPIStat
+            value={todayWave && todayWave.load > 0 ? `${todayWave.load} AU` : "—"}
+            label={d.kpiLoad}
+            sub={
+              todayWave?.planned != null
+                ? d.kpiLoadPlan.replace("{p}", String(todayWave.planned))
+                : todayWave && todayWave.n > 0
+                  ? `n=${todayWave.n}`
+                  : d.noTrainingToday
+            }
+            className="h-full transition-colors hover:border-accent/40"
+          />
+        </Link>
+        <Link href="/coach/attendance">
+          <div className="h-full rounded-xl border border-border bg-surface p-3 transition-colors hover:border-accent/40">
+            <p className="text-lg font-bold tabular-nums">
+              {filled}/{rows.length}
+            </p>
+            <p className="text-xs text-muted">{d.kpiCoverage}</p>
+            <DataCoverageIndicator pct={completionPct} className="mt-1" />
+          </div>
+        </Link>
       </div>
 
       {rows.length > 0 && (
@@ -439,18 +457,21 @@ export default async function CoachDashboard({
                         <li key={r.athlete.id}>
                           <Link
                             href={`/coach/athletes/${r.athlete.id}`}
-                            className="block rounded-lg border border-danger/40 bg-surface px-2 py-1.5 text-xs hover:bg-danger/10"
+                            className="flex items-center gap-2 rounded-lg border border-danger/40 bg-surface px-2 py-1.5 text-xs hover:bg-danger/10"
                           >
-                            <span className="flex items-center justify-between gap-2 font-medium">
-                              <span className="truncate">{nameOf(r)}</span>
-                              {r.todayScore !== null && (
-                                <span className="tabular-nums text-muted">{Math.round(r.todayScore)}</span>
-                              )}
+                            {avatarOf(r)}
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-center justify-between gap-2 font-medium">
+                                <span className="truncate">{nameOf(r)}</span>
+                                {r.todayScore !== null && (
+                                  <span className="tabular-nums text-muted">{Math.round(r.todayScore)}</span>
+                                )}
+                              </span>
+                              <span className="mt-0.5 block truncate text-[11px] text-danger">
+                                {reasonText(r)}{r.todayCheckin?.pain_location ? ` · ${r.todayCheckin.pain_location}` : ""}
+                              </span>
+                              <span className="block truncate text-[11px] text-muted">→ {actionText(r)}</span>
                             </span>
-                            <span className="mt-0.5 block truncate text-[11px] text-danger">
-                              {reasonText(r)}{r.todayCheckin?.pain_location ? ` · ${r.todayCheckin.pain_location}` : ""}
-                            </span>
-                            <span className="block truncate text-[11px] text-muted">→ {actionText(r)}</span>
                           </Link>
                         </li>
                       ))}
@@ -472,23 +493,26 @@ export default async function CoachDashboard({
                         <li key={r.athlete.id}>
                           <Link
                             href={`/coach/athletes/${r.athlete.id}`}
-                            className="block rounded-lg border border-warn/40 bg-surface px-2 py-1.5 text-xs hover:bg-warn/10"
+                            className="flex items-center gap-2 rounded-lg border border-warn/40 bg-surface px-2 py-1.5 text-xs hover:bg-warn/10"
                           >
-                            <span className="flex items-center justify-between gap-2 font-medium">
-                              <span className="truncate">{nameOf(r)}</span>
-                              {r.todayScore !== null && (
-                                <span className="tabular-nums text-muted">
-                                  {Math.round(r.todayScore)}
-                                  {r.readinessDelta !== null && r.readinessDelta !== 0 && (
-                                    <span className={r.readinessDelta < 0 ? "text-warn" : "text-ok"}>
-                                      {" "}({r.readinessDelta > 0 ? "+" : ""}{r.readinessDelta})
-                                    </span>
-                                  )}
-                                </span>
-                              )}
+                            {avatarOf(r)}
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-center justify-between gap-2 font-medium">
+                                <span className="truncate">{nameOf(r)}</span>
+                                {r.todayScore !== null && (
+                                  <span className="tabular-nums text-muted">
+                                    {Math.round(r.todayScore)}
+                                    {r.readinessDelta !== null && r.readinessDelta !== 0 && (
+                                      <span className={r.readinessDelta < 0 ? "text-warn" : "text-ok"}>
+                                        {" "}({r.readinessDelta > 0 ? "+" : ""}{r.readinessDelta})
+                                      </span>
+                                    )}
+                                  </span>
+                                )}
+                              </span>
+                              <span className="mt-0.5 block truncate text-[11px] text-warn">{reasonText(r)}</span>
+                              <span className="block truncate text-[11px] text-muted">→ {actionText(r)}</span>
                             </span>
-                            <span className="mt-0.5 block truncate text-[11px] text-warn">{reasonText(r)}</span>
-                            <span className="block truncate text-[11px] text-muted">→ {actionText(r)}</span>
                           </Link>
                         </li>
                       ))}
@@ -510,11 +534,14 @@ export default async function CoachDashboard({
                         <li key={r.athlete.id}>
                           <Link
                             href={`/coach/athletes/${r.athlete.id}`}
-                            className="block rounded-lg border border-border bg-surface px-2 py-1.5 text-xs hover:bg-foreground/5"
+                            className="flex items-center gap-2 rounded-lg border border-border bg-surface px-2 py-1.5 text-xs hover:bg-foreground/5"
                           >
-                            <span className="block truncate font-medium">{nameOf(r)}</span>
-                            <span className="mt-0.5 block truncate text-[11px] text-muted">{reasonText(r)}</span>
-                            <span className="block truncate text-[11px] text-muted">→ {actionText(r)}</span>
+                            {avatarOf(r)}
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate font-medium">{nameOf(r)}</span>
+                              <span className="mt-0.5 block truncate text-[11px] text-muted">{reasonText(r)}</span>
+                              <span className="block truncate text-[11px] text-muted">→ {actionText(r)}</span>
+                            </span>
                           </Link>
                         </li>
                       ))}
@@ -625,27 +652,9 @@ export default async function CoachDashboard({
         </Card>
       )}
 
-      <Link href="/coach/athletes">
-        <Card className="transition-colors hover:border-accent/50">
-          <CardContent className="flex items-center justify-between pt-4">
-            <span className="font-medium">{dict.nav.athletes}</span>
-            <span className="text-sm text-muted">
-              {rows.length} →
-            </span>
-          </CardContent>
-        </Card>
-      </Link>
-
-      <details className="group rounded-xl border border-border bg-surface">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-4">
-          <span className="text-base font-semibold">📊 {d.groupHealthTitle}</span>
-          <span className="flex items-center gap-2 text-xs text-muted">
-            {d.groupHealthHint}
-            <ChevronDown size={16} className="transition-transform group-open:rotate-180" />
-          </span>
-        </summary>
-        <div className="space-y-4 px-4 pb-4">
-          {/* 14-day BWF load wave (peaks 🔴 & deloads 🟢) */}
+      {/* Secondary analytics — load wave + group readiness trend. */}
+      {rows.length > 0 && (wave14Days.some((day) => day.load > 0) || readinessTrend.some((p) => p.score !== null)) && (
+        <div className="grid gap-4 lg:grid-cols-2">
           {wave14Days.some((day) => day.load > 0) && (
             <Card>
               <CardHeader className="pb-2">
@@ -663,16 +672,12 @@ export default async function CoachDashboard({
                   plannedLabel={dict.dashboard.plan}
                 />
                 <p className="text-[11px] text-muted">{dict.dashboard.waveLegend}</p>
-                <p
-                  className={`text-[11px] ${
-                    waveCoveragePct < 60 ? "font-medium text-warn" : "text-muted"
-                  }`}
-                >
-                  {dict.dashboard.waveCoverage
+                <DataCoverageIndicator
+                  pct={waveCoveragePct}
+                  label={dict.dashboard.waveCoverageShort
                     .replace("{n}", String(waveMaxN))
-                    .replace("{total}", String(waveAthletes))
-                    .replace("{pct}", String(waveCoveragePct))}
-                </p>
+                    .replace("{total}", String(waveAthletes))}
+                />
                 {wave14.status !== "insufficient" && (
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
                     <span
@@ -695,7 +700,42 @@ export default async function CoachDashboard({
             </Card>
           )}
 
-          {groupPainEntries.length > 0 && (
+          {readinessTrend.some((p) => p.score !== null) && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">{d.readinessTrendTitle}</CardTitle>
+                <p className="text-xs text-muted">{d.readinessTrendHint}</p>
+              </CardHeader>
+              <CardContent>
+                <SeriesLineChart
+                  data={readinessTrend}
+                  series={[
+                    {
+                      key: "score",
+                      label: dict.history.readiness,
+                      color: "var(--chart-1)",
+                      fill: true,
+                    },
+                  ]}
+                  domain={[0, 100]}
+                  height={180}
+                />
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {groupPainEntries.length > 0 && (
+        <details className="group rounded-xl border border-border bg-surface">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-5 py-4">
+            <span className="text-base font-semibold">📊 {d.groupHealthTitle}</span>
+            <span className="flex items-center gap-2 text-xs text-muted">
+              {d.groupHealthHint}
+              <ChevronDown size={16} className="transition-transform group-open:rotate-180" />
+            </span>
+          </summary>
+          <div className="space-y-4 px-4 pb-4">
             <Card>
               <CardHeader>
                 <CardTitle>{dict.pro.bodyMapGroupTitle}</CardTitle>
@@ -704,15 +744,9 @@ export default async function CoachDashboard({
                 <GroupBodyHeatmap entries={groupPainEntries} dict={dict} />
               </CardContent>
             </Card>
-          )}
-        </div>
-      </details>
-
-      <p className="text-xs text-muted">
-        <Link href="/coach/alerts" className="underline">
-          {dict.nav.alerts}
-        </Link>
-      </p>
+          </div>
+        </details>
+      )}
     </div>
   );
 }

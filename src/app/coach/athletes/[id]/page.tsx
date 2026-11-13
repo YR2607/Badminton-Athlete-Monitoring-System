@@ -24,6 +24,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart } from "@/components/charts/series-chart";
 import { EmptyChart } from "@/components/charts/chart-ui";
+import { AthleteAvatar } from "@/components/ui/athlete-avatar";
+import { Breadcrumbs } from "@/components/ui/section-header";
 import { CoachNotes } from "./notes";
 import { AlertList } from "./alert-list";
 import { AIInsightCard } from "@/components/ai/insight-card";
@@ -287,12 +289,25 @@ export default async function AthleteDetailPage({
         )
       : null;
 
+  const athleteName = (aProfile as Profile | null)?.display_name ?? a.athlete_code;
   return (
     <div className="space-y-4">
+      <Breadcrumbs
+        items={[
+          { label: dict.nav.athletes, href: "/coach/athletes" },
+          { label: athleteName },
+        ]}
+      />
       <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-bold">
-            {(aProfile as Profile | null)?.display_name ?? a.athlete_code}
+        <div className="flex items-start gap-3">
+          <AthleteAvatar
+            name={athleteName}
+            src={a.photo_path ? avatarPublicUrl(a.photo_path) : null}
+            size="lg"
+          />
+          <div>
+          <h1 className="text-xl font-bold md:text-2xl">
+            {athleteName}
           </h1>
           <p className="text-sm text-muted">
             {a.athlete_code} · {dict.common.group}: {groupName}
@@ -315,6 +330,7 @@ export default async function AthleteDetailPage({
               )}
             </div>
           )}
+          </div>
         </div>
         {navAthletes.length > 1 && (
           <AthleteSwitcher athletes={navAthletes} currentId={a.id} label={dd.profile} />

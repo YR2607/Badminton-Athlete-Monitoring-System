@@ -7,6 +7,8 @@ import type { CoachAthleteRow } from "@/lib/coach-data";
 import { STATUS_ORDER, type AthleteStatus } from "@/lib/athlete-status";
 import { Badge } from "@/components/ui/badge";
 import { Input, Select } from "@/components/ui/input";
+import { AthleteAvatar } from "@/components/ui/athlete-avatar";
+import { EmptyState } from "@/components/ui/states";
 import { Sparkline } from "@/components/charts/sparkline";
 import { avatarPublicUrl, getAvatarPreset } from "@/lib/avatars";
 import { cn } from "@/lib/utils";
@@ -190,15 +192,14 @@ export function CoachTable({
 
               <div className="flex items-start justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2">
-                  {preset && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={avatarPublicUrl(r.athlete.photo_path!)}
-                      alt=""
-                      referrerPolicy="no-referrer"
-                      className="h-9 w-9 shrink-0 rounded-full border border-border object-cover"
-                    />
-                  )}
+                  <AthleteAvatar
+                    name={name}
+                    src={
+                      r.athlete.photo_path
+                        ? avatarPublicUrl(r.athlete.photo_path)
+                        : null
+                    }
+                  />
                   <div className="min-w-0">
                     <p className="truncate font-medium">{name}</p>
                     <p className="truncate text-xs text-muted">
@@ -298,7 +299,9 @@ export function CoachTable({
           );
         })}
         {filtered.length === 0 && (
-          <p className="col-span-full py-8 text-center text-muted">{dict.common.noData}</p>
+          <div className="col-span-full">
+            <EmptyState kind="filtered" title={dict.common.noResults} />
+          </div>
         )}
       </div>
     </div>
