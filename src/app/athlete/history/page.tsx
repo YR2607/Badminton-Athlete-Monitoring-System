@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart } from "@/components/charts/series-chart";
 import { EmptyChart } from "@/components/charts/chart-ui";
+import { EmptyState } from "@/components/ui/states";
 import type { MorningCheckin, PostTrainingCheckin, TrainingSession } from "@/lib/types";
 
 function avg(nums: number[]): number | null {
@@ -169,7 +170,7 @@ export default async function HistoryPage({
         </CardHeader>
         <CardContent>
           {ss.length === 0 ? (
-            <p className="text-sm text-muted">{dict.common.noData}</p>
+            <EmptyState compact title={dict.common.noData} />
           ) : (
             <ul className="divide-y divide-border text-sm">
               {ss
