@@ -3,6 +3,9 @@ import { getCurrentProfile } from "@/lib/auth";
 import { getDictionary } from "@/i18n";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { KPIStat } from "@/components/ui/kpi-stat";
+import { PageHeader } from "@/components/ui/page-header";
+import { EmptyState } from "@/components/ui/states";
 import Link from "next/link";
 
 /** Club management overview — counters, org issues, quick actions, groups. */
@@ -93,17 +96,17 @@ export default async function AdminHome() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">{dict.nav.overview}</h1>
+      <PageHeader title={dict.nav.overview} subtitle={dd.hint} />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {tiles.map((t) => (
           <Link key={t.href + t.label} href={t.href}>
-            <Card className="h-full hover:bg-foreground/[0.02]">
-              <CardContent className="pt-4">
-                <p className="text-2xl font-bold tabular-nums">{t.v}</p>
-                <p className="text-xs text-muted">{t.label}</p>
-              </CardContent>
-            </Card>
+            <KPIStat
+              value={t.v}
+              label={t.label}
+              tone={t.label === dict.alerts.open && Number(t.v) > 0 ? "warn" : "neutral"}
+              className="h-full transition-colors hover:border-accent/40"
+            />
           </Link>
         ))}
       </div>
@@ -152,7 +155,7 @@ export default async function AdminHome() {
         </CardHeader>
         <CardContent>
           {groupsList.length === 0 ? (
-            <p className="text-sm text-muted">{dd.noIssues}</p>
+            <EmptyState compact title={dd.noIssues} />
           ) : (
             <ul className="divide-y divide-border/60 text-sm">
               {groupsList.map((g) => (

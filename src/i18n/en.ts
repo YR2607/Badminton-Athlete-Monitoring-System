@@ -1061,6 +1061,7 @@ const en: Dictionary = {
       },
     },
     dash: {
+      hint: "Club operational health — roster, groups, alerts and activity",
       needsAttention: "Needs attention",
       noIssues: "No organisational issues",
       athletesNoGroup: "Athletes without a group: {n}",

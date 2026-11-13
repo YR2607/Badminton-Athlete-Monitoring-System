@@ -1061,6 +1061,7 @@ const ro: Dictionary = {
       },
     },
     dash: {
+      hint: "Sănătatea operațională a clubului — efectiv, grupe, alerte și activitate",
       needsAttention: "Necesită atenție",
       noIssues: "Nu există probleme organizaționale",
       athletesNoGroup: "Sportivi fără grupă: {n}",
