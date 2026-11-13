@@ -23,6 +23,7 @@ import {
   type AiBatchPayload,
   type GroupTopicErrorStat,
 } from "@/lib/academy";
+import { addDays } from "@/lib/dates";
 import { TacticalCourtDiagram } from "@/components/academy/tactical-court";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -200,6 +201,36 @@ export function CoachAcademyClient({
     l.push(r);
     responsesByItem.set(r.item_id, l);
   }
+  // Participation report: which athletes answered anything on each of the
+  // last 14 days — a day counts when ≥1 response carries its assigned_date.
+  const partDays = Array.from({ length: 14 }, (_, i) => addDays(today, i - 13));
+  const partStart = partDays[0];
+  const respDatesByAthlete = new Map<string, Set<string>>();
+  const lastRespByAthlete = new Map<string, string>();
+  for (const r of responses) {
+    if (!r.assigned_date) continue;
+    const prev = lastRespByAthlete.get(r.athlete_id);
+    if (!prev || r.assigned_date > prev) lastRespByAthlete.set(r.athlete_id, r.assigned_date);
+    if (r.assigned_date < partStart || r.assigned_date > today) continue;
+    const s = respDatesByAthlete.get(r.athlete_id) ?? new Set<string>();
+    s.add(r.assigned_date);
+    respDatesByAthlete.set(r.athlete_id, s);
+  }
+  const participationRows = athleteRows
+    .map((r) => ({
+      row: r,
+      days: respDatesByAthlete.get(r.id) ?? new Set<string>(),
+      last: lastRespByAthlete.get(r.id) ?? null,
+    }))
+    // Non-responders first — they are the ones needing attention.
+    .sort(
+      (x, y) =>
+        x.days.size - y.days.size ||
+        (x.last ?? "").localeCompare(y.last ?? "") ||
+        x.row.name.localeCompare(y.row.name),
+    );
+  const answeredToday = participationRows.filter((p) => p.days.has(today)).length;
+
   const groupByDate = (list: AcademyItem[]) => {
     const m = new Map<string, AcademyItem[]>();
     for (const i of list) {
@@ -1151,6 +1182,64 @@ export function CoachAcademyClient({
       {/* TAB 4: GROUP ERROR ANALYTICS & ATHLETE LEVELS */}
       {tab === "analytics" && (
         <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <CardTitle className="text-base">🙋 {c.participationTitle}</CardTitle>
+                <p className="text-xs text-muted">
+                  {c.participationToday
+                    .replace("{x}", String(answeredToday))
+                    .replace("{n}", String(participationRows.length))}
+                </p>
+              </div>
+              <p className="text-xs text-muted">{c.participationHint}</p>
+            </CardHeader>
+            <CardContent className="space-y-1.5">
+              {participationRows.map(({ row, days, last }) => (
+                <div
+                  key={row.id}
+                  className="flex flex-wrap items-center gap-2 rounded-lg border border-border/50 px-2.5 py-1.5 text-xs"
+                >
+                  <span className="min-w-28 truncate font-medium">{row.name}</span>
+                  <span className="flex gap-0.5" aria-hidden>
+                    {partDays.map((dt) => (
+                      <span
+                        key={dt}
+                        title={dt}
+                        className={cn(
+                          "h-3 w-3 rounded-[3px]",
+                          days.has(dt)
+                            ? "bg-ok"
+                            : "bg-foreground/10",
+                          dt === today && "ring-1 ring-accent",
+                        )}
+                      />
+                    ))}
+                  </span>
+                  <span className="ml-auto flex items-baseline gap-2 tabular-nums">
+                    <span
+                      className={cn(
+                        "font-semibold",
+                        days.size === 0
+                          ? "text-danger"
+                          : days.size <= 4
+                            ? "text-warn"
+                            : "text-ok",
+                      )}
+                    >
+                      {c.participationDays
+                        .replace("{x}", String(days.size))
+                        .replace("{n}", String(partDays.length))}
+                    </span>
+                    <span className="text-muted">
+                      {c.lastAnswerLabel}: {last ?? c.noAnswersYet}
+                    </span>
+                  </span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">📊 {c.errorHotspotsTitle}</CardTitle>
