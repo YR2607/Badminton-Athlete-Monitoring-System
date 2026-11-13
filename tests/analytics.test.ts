@@ -95,8 +95,9 @@ describe("periodSummary", () => {
     const b = athleteStats("a2", days, [mkCheckin("2026-10-20")], [], [mkAlert("2026-10-21")]);
     const s = periodSummary([a, b]);
     expect(s.athletes).toBe(2);
-    expect(s.checkinsFilled).toBe(4);
-    expect(s.checkinsExpected).toBe(7);
+    // a: 2.5 filled days (session day with morning only = 0.5); b: 1.
+    expect(s.checkinsFilled).toBe(3.5);
+    expect(s.checkinsExpected).toBe(6);
     // a: day completeness (0.5 + 1 + 1)/3 ≈ 83 — session day missing evening;
     // b: (1 + 0 + 0)/3 ≈ 33. Group rate = mean of athlete rates.
     expect(s.fillRate).toBe(58);

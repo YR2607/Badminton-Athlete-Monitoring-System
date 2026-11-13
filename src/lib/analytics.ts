@@ -18,7 +18,7 @@ export interface DayCell {
 
 export interface AthletePeriodStats {
   athleteId: string;
-  filled: number; // check-ins submitted in range
+  filled: number; // day-completeness sum in range (fractional, day = 1)
   expected: number; // days in range
   rate: number; // 0..100
   avgSleep: number | null;
@@ -85,24 +85,22 @@ export function athleteStats(
 
   // Day-level completeness: every day counts as 100%, made of its required
   // questionnaires — morning always, evening only on session days. A
-  // morning-only day with a session = 50%, never an invisible "item".
-  const sessionDays = cells.filter((c) => c.hadSession).length;
-  const eveningFilled = cells.filter((c) => c.evening).length;
-  const expectedItems = days.length + sessionDays;
-  const filledItems = checkins.length + eveningFilled;
+  // morning-only day with a session = 50% of that day. `filled` is the sum
+  // of day completeness (may be fractional), `expected` is the day count.
   const dayCompleteness = cells.map((c) => {
     const expected = 1 + (c.hadSession ? 1 : 0);
     const filled = (c.filled ? 1 : 0) + (c.evening ? 1 : 0);
     return Math.min(1, filled / expected);
   });
+  const filledDays = dayCompleteness.reduce((a, b) => a + b, 0);
   const rate = dayCompleteness.length
-    ? Math.round((dayCompleteness.reduce((a, b) => a + b, 0) / dayCompleteness.length) * 100)
+    ? Math.round((filledDays / dayCompleteness.length) * 100)
     : 0;
 
   return {
     athleteId,
-    filled: filledItems,
-    expected: expectedItems,
+    filled: Math.round(filledDays * 10) / 10,
+    expected: days.length,
     rate,
     avgSleep: avg(checkins.map((c) => c.sleep_score)),
     avgRecovery: avg(checkins.map((c) => c.recovery_score)),
@@ -124,7 +122,9 @@ export function periodSummary(stats: AthletePeriodStats[]): PeriodSummary {
   return {
     athletes: stats.length,
     athletesWithData: stats.filter((s) => s.filled > 0).length,
-    checkinsFilled: filled,
+    // Filled/expected are in DAY units — a day = 100% of its required
+    // questionnaires, not a questionnaire item count.
+    checkinsFilled: Math.round(filled * 10) / 10,
     checkinsExpected: expected,
     // Group fill rate mirrors the per-athlete day-level completeness
     // (each day = 100%), averaged across athletes.
