@@ -12,6 +12,9 @@ import { CompareChart, type CompareAthlete } from "@/app/coach/compare";
 import { LoadReadinessQuadrant, type QuadrantPoint } from "@/app/coach/quadrant";
 import { LoadBarChart } from "@/components/charts/series-chart";
 import { InsightLine, StatCard } from "@/components/charts/chart-ui";
+import { PageHeader } from "@/components/ui/page-header";
+import { SectionHeader } from "@/components/ui/section-header";
+import { EmptyState } from "@/components/ui/states";
 import { PrevalenceBars } from "@/components/charts/prevalence-bars";
 import type { Athlete, Alert, Group, MorningCheckin, OstrcZone, PostTrainingCheckin, Profile, TrainingSession } from "@/lib/types";
 import { AnalyticsFilters, type AthleteOption } from "./filters";
@@ -302,10 +305,7 @@ export default async function AnalyticsPage({
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-xl font-bold">{d.title}</h1>
-        <p className="text-sm text-muted">{d.hint}</p>
-      </div>
+<PageHeader title={d.title} subtitle={d.hint} />
 
       <AnalyticsFilters
         dict={dict}
@@ -321,7 +321,7 @@ export default async function AnalyticsPage({
       />
 
       {scoped.length === 0 ? (
-        <p className="text-sm text-muted">{d.noAthletes}</p>
+        <EmptyState title={d.noAthletes} />
       ) : (
         <>
           {/* Summary */}
@@ -350,7 +350,7 @@ export default async function AnalyticsPage({
               .replace("{pct}", String(summary.fillRate))}
           </p>
 
-          <h2 className="pt-1 text-sm font-semibold text-muted">{d.secData}</h2>
+          <SectionHeader title={d.secData} className="pt-1" />
           {/* Fill matrix: athlete × day */}
           {!single && days.length <= 31 && (
             <Card>
@@ -429,7 +429,7 @@ export default async function AnalyticsPage({
           {/* Per-athlete cards (multi) */}
           {!single && (
             <div className="space-y-2">
-              <h2 className="text-sm font-semibold text-muted">{d.byAthlete}</h2>
+              <SectionHeader title={d.byAthlete} />
               {stats.map((s) => {
                 const prev = prevStats.find((p) => p.athleteId === s.athleteId);
                 const a = scoped.find((x) => x.id === s.athleteId)!;
@@ -545,7 +545,7 @@ export default async function AnalyticsPage({
             </Card>
           )}
 
-          <h2 className="pt-1 text-sm font-semibold text-muted">{d.secLoad}</h2>
+          <SectionHeader title={d.secLoad} className="pt-1" />
           {/* BWF 14-day load wave (peaks 🔴 & deloads 🟢) */}
           {wave14Days.some((d) => d.load > 0) && (
             <Card>
@@ -599,7 +599,7 @@ export default async function AnalyticsPage({
             </Card>
           )}
 
-          <h2 className="pt-1 text-sm font-semibold text-muted">{d.secPain}</h2>
+          <SectionHeader title={d.secPain} className="pt-1" />
           {!single && ostrcPrev.length > 0 && (
             <Card>
               <CardHeader>
@@ -612,7 +612,7 @@ export default async function AnalyticsPage({
             </Card>
           )}
 
-          <h2 className="pt-1 text-sm font-semibold text-muted">{d.secCompare}</h2>
+          <SectionHeader title={d.secCompare} className="pt-1" />
           {!single && (
             <Card>
               <CardHeader>
