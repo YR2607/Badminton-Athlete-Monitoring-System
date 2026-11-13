@@ -426,16 +426,16 @@ export default async function CoachDashboard({
       </div>
 
       {rows.length > 0 && (
-        <Card className="border-0 bg-navy text-white shadow-md">
+        <Card>
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <CardTitle className="text-white">{d.briefingTitle}</CardTitle>
-                <p className="text-xs text-white/60">{d.briefingHint}</p>
+                <CardTitle>{d.briefingTitle}</CardTitle>
+                <p className="text-xs text-muted">{d.briefingHint}</p>
               </div>
               <div className="flex gap-2">
                 <Link href="/coach/attendance">
-                  <Button size="sm" variant="secondary" title={dict.pro.attendanceBtnHint} className="bg-white/10 text-white hover:bg-white/20">
+                  <Button size="sm" variant="secondary" title={dict.pro.attendanceBtnHint}>
                     ✅ {dict.nav.attendance}
                   </Button>
                 </Link>
@@ -444,13 +444,13 @@ export default async function CoachDashboard({
           </CardHeader>
           <CardContent>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-xl border border-danger/40 bg-danger/15 p-3">
-                <p className="text-xs font-semibold text-red-300" title={d.bucketTipCheck}>
+              <div className="rounded-xl border border-danger/30 bg-danger/5 p-3">
+                <p className="text-xs font-semibold text-danger" title={d.bucketTipCheck}>
                   🔴 {d.briefingCheck} ({briefCheck.length})
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {briefCheck.length === 0 ? (
-                    <span className="text-xs text-white/50">{d.briefingNone}</span>
+                    <span className="text-xs text-muted">{d.briefingNone}</span>
                   ) : (
                     <ul className="w-full space-y-1.5">
                       {briefCheck.map((r) => (
@@ -480,13 +480,13 @@ export default async function CoachDashboard({
                 </div>
               </div>
 
-              <div className="rounded-xl border border-warn/40 bg-warn/15 p-3">
-                <p className="text-xs font-semibold text-amber-300" title={d.bucketTipReduce}>
+              <div className="rounded-xl border border-warn/30 bg-warn/5 p-3">
+                <p className="text-xs font-semibold text-warn" title={d.bucketTipReduce}>
                   🟡 {d.briefingReduce} ({briefReduce.length})
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {briefReduce.length === 0 ? (
-                    <span className="text-xs text-white/50">{d.briefingNone}</span>
+                    <span className="text-xs text-muted">{d.briefingNone}</span>
                   ) : (
                     <ul className="w-full space-y-1.5">
                       {briefReduce.map((r) => (
@@ -521,13 +521,13 @@ export default async function CoachDashboard({
                 </div>
               </div>
 
-              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                <p className="text-xs font-semibold text-white/60" title={d.bucketTipAsk}>
+              <div className="rounded-xl border border-border bg-foreground/[0.02] p-3">
+                <p className="text-xs font-semibold text-muted" title={d.bucketTipAsk}>
                   ⚪ {d.briefingAsk} ({briefAsk.length})
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {briefAsk.length === 0 ? (
-                    <span className="text-xs text-white/50">{d.briefingNone}</span>
+                    <span className="text-xs text-muted">{d.briefingNone}</span>
                   ) : (
                     <ul className="w-full space-y-1.5">
                       {briefAsk.map((r) => (
@@ -550,13 +550,13 @@ export default async function CoachDashboard({
                 </div>
               </div>
 
-              <div className="rounded-xl border border-ok/40 bg-ok/15 p-3">
-                <p className="text-xs font-semibold text-emerald-300" title={d.bucketTipReady}>
+              <div className="rounded-xl border border-ok/30 bg-ok/5 p-3">
+                <p className="text-xs font-semibold text-ok" title={d.bucketTipReady}>
                   🟢 {d.briefingReady} ({briefReady.length})
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {briefReady.length === 0 ? (
-                    <span className="text-xs text-white/50">{d.briefingNone}</span>
+                    <span className="text-xs text-muted">{d.briefingNone}</span>
                   ) : (
                     <div className="flex flex-wrap gap-1.5">
                       {briefReady.map((r) => (
