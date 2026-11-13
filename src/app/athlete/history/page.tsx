@@ -7,6 +7,7 @@ import { dailyReadiness } from "@/lib/readiness";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart } from "@/components/charts/series-chart";
+import { EmptyChart } from "@/components/charts/chart-ui";
 import type { MorningCheckin, PostTrainingCheckin, TrainingSession } from "@/lib/types";
 
 function avg(nums: number[]): number | null {
@@ -128,7 +129,7 @@ export default async function HistoryPage({
         </CardHeader>
         <CardContent>
           {readinessSeries.length === 0 ? (
-            <p className="text-sm text-muted">{dict.common.noData}</p>
+            <EmptyChart text={dict.common.noData} />
           ) : (
             <SeriesLineChart
               data={readinessSeries}
@@ -147,14 +148,14 @@ export default async function HistoryPage({
         </CardHeader>
         <CardContent>
           {wellbeingSeries.length === 0 ? (
-            <p className="text-sm text-muted">{dict.common.noData}</p>
+            <EmptyChart text={dict.common.noData} />
           ) : (
             <SeriesLineChart
               data={wellbeingSeries}
               series={[
-                { key: "sleep", label: h.sleep, color: "var(--accent)" },
-                { key: "fatigue", label: h.fatigue, color: "var(--warn)" },
-                { key: "soreness", label: h.soreness, color: "var(--danger)" },
+                { key: "sleep", label: h.sleep, color: "var(--accent)", unit: "/10" },
+                { key: "fatigue", label: h.fatigue, color: "var(--warn)", unit: "/10" },
+                { key: "soreness", label: h.soreness, color: "var(--danger)", unit: "/10" },
               ]}
               domain={[1, 10]}
             />

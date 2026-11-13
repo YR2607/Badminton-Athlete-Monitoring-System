@@ -23,6 +23,7 @@ import { AthleteSwitcher } from "./athlete-switcher";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart } from "@/components/charts/series-chart";
+import { EmptyChart } from "@/components/charts/chart-ui";
 import { CoachNotes } from "./notes";
 import { AlertList } from "./alert-list";
 import { AIInsightCard } from "@/components/ai/insight-card";
@@ -937,7 +938,7 @@ export default async function AthleteDetailPage({
           </CardHeader>
           <CardContent>
             {inRangeSeries.length === 0 ? (
-              <p className="text-sm text-muted">{dict.common.noData}</p>
+              <EmptyChart text={dict.common.noData} />
             ) : (
               <SeriesLineChart
                 data={inRangeSeries}
@@ -956,14 +957,14 @@ export default async function AthleteDetailPage({
           </CardHeader>
           <CardContent>
             {wellbeing.length === 0 ? (
-              <p className="text-sm text-muted">{dict.common.noData}</p>
+              <EmptyChart text={dict.common.noData} />
             ) : (
               <SeriesLineChart
                 data={wellbeing}
                 series={[
-                  { key: "sleep", label: dict.history.sleep, color: "var(--accent)" },
-                  { key: "fatigue", label: dict.history.fatigue, color: "var(--warn)" },
-                  { key: "soreness", label: dict.history.soreness, color: "var(--danger)" },
+                  { key: "sleep", label: dict.history.sleep, color: "var(--accent)", unit: "/10" },
+                  { key: "fatigue", label: dict.history.fatigue, color: "var(--warn)", unit: "/10" },
+                  { key: "soreness", label: dict.history.soreness, color: "var(--danger)", unit: "/10" },
                 ]}
                 domain={[1, 10]}
               />

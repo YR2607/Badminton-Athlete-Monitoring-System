@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SeriesLineChart } from "@/components/charts/series-chart";
+import { EmptyChart } from "@/components/charts/chart-ui";
 import { TodayChecklist } from "@/components/today-checklist";
 import { PushReminderCard } from "@/components/push-subscribe";
 import { ChevronDown } from "lucide-react";
@@ -453,7 +454,7 @@ export default async function AthleteHome() {
         </CardHeader>
         <CardContent>
           {chart7.length === 0 ? (
-            <p className="text-sm text-muted">{dict.common.noData}</p>
+            <EmptyChart text={dict.common.noData} />
           ) : (
             <SeriesLineChart
               data={chart7}
