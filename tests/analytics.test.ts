@@ -97,7 +97,9 @@ describe("periodSummary", () => {
     expect(s.athletes).toBe(2);
     expect(s.checkinsFilled).toBe(4);
     expect(s.checkinsExpected).toBe(7);
-    expect(s.fillRate).toBe(57);
+    // a: day completeness (0.5 + 1 + 1)/3 ≈ 83 — session day missing evening;
+    // b: (1 + 0 + 0)/3 ≈ 33. Group rate = mean of athlete rates.
+    expect(s.fillRate).toBe(58);
     expect(s.sessions).toBe(1);
     expect(s.alerts).toBe(1);
   });

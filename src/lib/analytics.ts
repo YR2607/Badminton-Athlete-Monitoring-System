@@ -83,18 +83,27 @@ export function athleteStats(
 
   const scores = dailyReadiness(checkins);
 
-  // Fill rate counts BOTH questionnaires: morning every day, evening on
-  // days a session was recorded — a 100% rate requires both.
+  // Day-level completeness: every day counts as 100%, made of its required
+  // questionnaires — morning always, evening only on session days. A
+  // morning-only day with a session = 50%, never an invisible "item".
   const sessionDays = cells.filter((c) => c.hadSession).length;
   const eveningFilled = cells.filter((c) => c.evening).length;
   const expectedItems = days.length + sessionDays;
   const filledItems = checkins.length + eveningFilled;
+  const dayCompleteness = cells.map((c) => {
+    const expected = 1 + (c.hadSession ? 1 : 0);
+    const filled = (c.filled ? 1 : 0) + (c.evening ? 1 : 0);
+    return Math.min(1, filled / expected);
+  });
+  const rate = dayCompleteness.length
+    ? Math.round((dayCompleteness.reduce((a, b) => a + b, 0) / dayCompleteness.length) * 100)
+    : 0;
 
   return {
     athleteId,
     filled: filledItems,
     expected: expectedItems,
-    rate: expectedItems ? Math.round((filledItems / expectedItems) * 100) : 0,
+    rate,
     avgSleep: avg(checkins.map((c) => c.sleep_score)),
     avgRecovery: avg(checkins.map((c) => c.recovery_score)),
     avgFatigue: avg(checkins.map((c) => c.fatigue_score)),
@@ -117,7 +126,11 @@ export function periodSummary(stats: AthletePeriodStats[]): PeriodSummary {
     athletesWithData: stats.filter((s) => s.filled > 0).length,
     checkinsFilled: filled,
     checkinsExpected: expected,
-    fillRate: expected ? Math.round((filled / expected) * 100) : 0,
+    // Group fill rate mirrors the per-athlete day-level completeness
+    // (each day = 100%), averaged across athletes.
+    fillRate: stats.length
+      ? Math.round(stats.reduce((a, s) => a + s.rate, 0) / stats.length)
+      : 0,
     sessions: stats.reduce((a, s) => a + s.sessions, 0),
     avgReadiness: avg(stats.flatMap((s) => (s.avgReadiness !== null ? [s.avgReadiness] : []))),
     alerts: stats.reduce((a, s) => a + s.alerts, 0),

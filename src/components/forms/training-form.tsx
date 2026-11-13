@@ -11,7 +11,7 @@ import { ScaleInput } from "@/components/forms/scale-input";
 import { BodyMapPicker } from "@/components/forms/body-map";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input, Label, Textarea } from "@/components/ui/input";
+import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const schema = z.object({
@@ -99,7 +99,13 @@ export function TrainingForm({
       pain_triggers: [],
       focus_tags: [],
       session_day: "today",
-      session_minutes: tournamentMode ? 40 : defaultMinutes,
+      // Prefill from the plan so the athlete only adjusts, not invents —
+      // rounded to a selectable 15-min step.
+      session_minutes: tournamentMode
+        ? 40
+        : defaultMinutes != null
+          ? Math.min(300, Math.max(15, Math.round(defaultMinutes / 15) * 15))
+          : 60,
     },
   });
 
@@ -255,9 +261,19 @@ export function TrainingForm({
                 </p>
               )}
             </div>
-            {/* Duration is marked by the coach (attendance/schedule); the form
-                still submits planned_minutes via defaultValues so sRPE load
-                (rpe x min) keeps working without asking the athlete. */}
+            <div>
+              <p className="mb-2 text-sm font-medium">{d.minutes}</p>
+              <Select
+                {...register("session_minutes", { valueAsNumber: true })}
+                className="w-full"
+              >
+                {Array.from({ length: 20 }, (_, i) => (i + 1) * 15).map((m) => (
+                  <option key={m} value={m}>
+                    {m} {d.minutesUnit}
+                  </option>
+                ))}
+              </Select>
+            </div>
 
             <div>
               <p className="mb-2 text-sm font-medium">{dict.pro.focusLabel}</p>
