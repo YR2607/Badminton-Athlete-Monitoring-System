@@ -14,14 +14,17 @@ export interface QuadrantPoint {
  * 2D Load × Readiness quadrant (Kitman / Smartabase style).
  * X = 7-day sRPE load (AU), split at group median (or 1500 AU fallback).
  * Y = readiness 0..100, split at 65 (good/moderate boundary).
- * Zone captions live in a clean 2×2 legend below so mobile screens never clip
- * or overlap text inside the plot; nearby points are nudged apart.
+ * Zone names sit inside the plot corners; stale check-ins render as
+ * hollow dashed pills so "no fresh data" never reads as "healthy".
  */
 export function LoadReadinessQuadrant({
   points,
+  missing = 0,
   dict,
 }: {
   points: QuadrantPoint[];
+  /** Scoped athletes with no usable readiness point at all. */
+  missing?: number;
   dict: Dictionary;
 }) {
   const d = dict.coach;
@@ -55,6 +58,8 @@ export function LoadReadinessQuadrant({
     placed.push({ p, x, y });
   }
 
+  const corner = "pointer-events-none absolute max-w-[46%] truncate px-1.5 py-0.5 text-[10px] font-medium";
+
   return (
     <div className="space-y-2.5">
       <div className="relative h-64 w-full overflow-hidden rounded-xl border border-border bg-surface">
@@ -86,11 +91,19 @@ export function LoadReadinessQuadrant({
           style={{ top: `${splitY}%` }}
         />
 
-        {/* Compact axis badges (never collide with athlete pills) */}
-        <span className="pointer-events-none absolute top-1.5 left-2 rounded bg-surface/80 px-1.5 py-0.5 text-[10px] text-muted">
+        {/* Zone names inside the plot corners — the eye learns the map in one glance */}
+        <span className={`${corner} top-1.5 left-2 text-accent/80`}>{d.quadrantZoneFresh}</span>
+        <span className={`${corner} top-1.5 right-2 text-right text-ok`}>{d.quadrantZonePeak}</span>
+        <span className={`${corner} bottom-1.5 left-2 text-warn`}>{d.quadrantZoneLow}</span>
+        <span className={`${corner} right-2 bottom-1.5 text-right text-danger`}>
+          {d.quadrantZoneOverreach}
+        </span>
+
+        {/* Axis captions */}
+        <span className="pointer-events-none absolute top-6 left-2 rounded bg-surface/80 px-1.5 py-0.5 text-[10px] text-muted">
           ↑ {d.quadrantReadinessAxis} · 65
         </span>
-        <span className="pointer-events-none absolute right-2 bottom-1.5 rounded bg-surface/80 px-1.5 py-0.5 text-[10px] text-muted">
+        <span className="pointer-events-none absolute right-2 bottom-6 rounded bg-surface/80 px-1.5 py-0.5 text-[10px] text-muted">
           {d.quadrantLoadAxis} →
         </span>
 
@@ -108,10 +121,14 @@ export function LoadReadinessQuadrant({
               key={p.id}
               href={`/coach/athletes/${p.id}`}
               style={{ left: `${x}%`, top: `${y}%` }}
-              title={`${p.name} · ${d.quadrantReadinessAxis}: ${Math.round(p.readiness)} · ${d.quadrantLoadAxis}: ${p.load}`}
-              className="group absolute -translate-x-1/2 -translate-y-1/2"
+              title={`${p.name} · ${d.quadrantReadinessAxis}: ${Math.round(p.readiness)} · ${d.quadrantLoadAxis}: ${p.load}${p.isToday ? "" : ` · ${d.quadrantStale}`}`}
+              className={`group absolute -translate-x-1/2 -translate-y-1/2 ${p.isToday ? "" : "opacity-60"}`}
             >
-              <span className="flex items-center gap-1 rounded-full border border-border bg-surface/95 px-2 py-0.5 text-[11px] font-medium shadow-sm transition-transform group-hover:scale-110">
+              <span
+                className={`flex items-center gap-1 rounded-full border bg-surface/95 px-2 py-0.5 text-[11px] font-medium shadow-sm transition-transform group-hover:scale-110 ${
+                  p.isToday ? "border-border" : "border-dashed border-muted/50"
+                }`}
+              >
                 <span className={`h-2 w-2 shrink-0 rounded-full ring-2 ${dotCls}`} />
                 <span className="max-w-20 truncate sm:max-w-28">{p.name}</span>
                 <span className="text-[10px] text-muted tabular-nums">
@@ -123,25 +140,12 @@ export function LoadReadinessQuadrant({
         })}
       </div>
 
-      {/* Clean 2×2 legend below — readable on any phone width */}
-      <div className="grid grid-cols-2 gap-1.5 text-[11px]">
-        <div className="flex items-center gap-1.5 rounded-lg border border-border/60 bg-accent/5 px-2 py-1 text-muted">
-          <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />
-          <span className="truncate">{d.quadrantZoneFresh}</span>
-        </div>
-        <div className="flex items-center gap-1.5 rounded-lg border border-ok/30 bg-ok/10 px-2 py-1 text-ok">
-          <span className="h-2 w-2 shrink-0 rounded-full bg-ok" />
-          <span className="truncate">{d.quadrantZonePeak}</span>
-        </div>
-        <div className="flex items-center gap-1.5 rounded-lg border border-warn/30 bg-warn/8 px-2 py-1 text-warn">
-          <span className="h-2 w-2 shrink-0 rounded-full bg-warn" />
-          <span className="truncate">{d.quadrantZoneLow}</span>
-        </div>
-        <div className="flex items-center gap-1.5 rounded-lg border border-danger/30 bg-danger/12 px-2 py-1 text-danger">
-          <span className="h-2 w-2 shrink-0 rounded-full bg-danger" />
-          <span className="truncate">{d.quadrantZoneOverreach}</span>
-        </div>
-      </div>
+      <p className="text-[11px] text-muted">
+        {d.quadrantPlotted
+          .replace("{n}", String(points.length))
+          .replace("{m}", String(missing))}
+        {missing > 0 ? ` · ${d.quadrantStale}` : ""}
+      </p>
     </div>
   );
 }

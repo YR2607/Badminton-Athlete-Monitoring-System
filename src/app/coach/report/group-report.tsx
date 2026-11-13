@@ -6,6 +6,7 @@ import { plannedForDate, type PlanOverride } from "@/lib/load";
 import { attendanceSummary } from "@/lib/attendance";
 import { detectBodyZone } from "@/lib/body-zones";
 import { LoadBarChart } from "@/components/charts/series-chart";
+import { EmptyChart, InsightLine, StatCard } from "@/components/charts/chart-ui";
 import { PrintButton } from "./print-button";
 import { PeriodBar } from "./period-bar";
 import type { Dictionary } from "@/i18n";
@@ -166,6 +167,14 @@ export async function GroupReport({
   const avgAttRate = attRates.length
     ? Math.round(attRates.reduce((a, b) => a + b, 0) / attRates.length)
     : null;
+  // Needs-attention = pain report, open alert, or a low average score.
+  const needAttention = rowsOut.filter(
+    (r) => r.pain > 0 || r.openAlerts > 0 || (r.st.avgReadiness !== null && r.st.avgReadiness < 45),
+  ).length;
+  const fillExpected = rowsOut.reduce((a, r) => a + r.st.expected, 0);
+  const fillPct = fillExpected
+    ? Math.round((rowsOut.reduce((a, r) => a + r.st.filled, 0) / fillExpected) * 100)
+    : null;
   const colsParam = [...cols].join(",");
 
   return (
@@ -188,23 +197,48 @@ export async function GroupReport({
         <p className="text-sm text-muted">{from} → {to}</p>
       </header>
 
-      <section className="rounded-xl border border-border p-4 text-sm">
-        <b>{d.groupSummary}:</b>{" "}
-        {d.groupAvgScore}: <b>{avgGroupScore ?? "—"}</b>
-        {" · "}{d.groupAvgLoad}: <b>{avgGroupAU}</b> / {plannedTotal || "—"} AU
-        {avgAttRate != null ? <> · {d.groupAttRate}: <b>{avgAttRate}%</b></> : null}
-        <p className="mt-1 text-xs text-muted">AU — {d.auExplain}</p>
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatCard
+          label={d.groupAvgScore}
+          value={avgGroupScore ?? "—"}
+          hint={dict.common.readinessHint}
+          tone={avgGroupScore === null ? "neutral" : avgGroupScore >= 70 ? "ok" : avgGroupScore >= 45 ? "warn" : "danger"}
+        />
+        <StatCard
+          label={d.groupAvgLoad}
+          value={`${avgGroupAU} / ${plannedTotal || "—"} AU`}
+          hint={d.auExplain}
+        />
+        <StatCard
+          label={d.groupAttRate}
+          value={avgAttRate != null ? `${avgAttRate}%` : "—"}
+        />
+        <StatCard
+          label={d.groupAttention}
+          value={`${needAttention} / ${rowsOut.length}`}
+          tone={needAttention === 0 ? "ok" : needAttention <= Math.ceil(rowsOut.length / 4) ? "warn" : "danger"}
+        />
       </section>
+      {fillPct !== null && fillPct < 60 && (
+        <InsightLine tone="warn">
+          {d.groupLowCoverage.replace("{pct}", String(fillPct))}
+        </InsightLine>
+      )}
 
       {cols.has("au") && (
         <section className="rounded-xl border border-border p-4 print:hidden">
-          <h2 className="mb-2 text-sm font-semibold">{d.loadChartTitle}</h2>
-          <LoadBarChart
-            data={chartData}
-            height={170}
-            label={dict.dashboard.fact}
-            plannedLabel={dict.dashboard.plan}
-          />
+          <h2 className="text-sm font-semibold">{d.loadChartTitle}</h2>
+          <p className="mb-2 text-xs text-muted">{d.auExplain}</p>
+          {chartData.every((x) => x.load === 0 && (x.planned == null || x.planned === 0)) ? (
+            <EmptyChart text={dict.common.noData} height={120} />
+          ) : (
+            <LoadBarChart
+              data={chartData}
+              height={170}
+              label={dict.dashboard.fact}
+              plannedLabel={dict.dashboard.plan}
+            />
+          )}
         </section>
       )}
 
@@ -241,7 +275,21 @@ export async function GroupReport({
                 {cols.has("fill") && (
                   <td className="p-2.5 tabular-nums">{r.st.filled}/{r.st.expected} ({r.st.rate}%)</td>
                 )}
-                {cols.has("score") && <td className="p-2.5 tabular-nums">{r.st.avgReadiness ?? "—"}</td>}
+                {cols.has("score") && (
+                  <td
+                    className={`p-2.5 tabular-nums font-semibold ${
+                      r.st.avgReadiness === null
+                        ? "text-muted"
+                        : r.st.avgReadiness >= 70
+                          ? "text-ok"
+                          : r.st.avgReadiness >= 45
+                            ? "text-warn"
+                            : "text-danger"
+                    }`}
+                  >
+                    {r.st.avgReadiness ?? "—"}
+                  </td>
+                )}
                 {cols.has("au") && (
                   <td className="p-2.5 tabular-nums">
                     {r.avgRpe ?? "—"} / {plannedAvgRpe ?? "—"}
@@ -255,12 +303,25 @@ export async function GroupReport({
                 )}
                 {cols.has("pain") && (
                   <td className="p-2.5">
-                    {r.pain === 0
-                      ? "—"
-                      : `${r.pain}${r.maxSev >= 7 ? " ⚠️" : ""}${r.topZone ? ` (${zoneOf(r.topZone)})` : ""}`}
+                    {r.pain === 0 ? (
+                      "—"
+                    ) : (
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                          r.maxSev >= 7 ? "bg-danger/15 text-danger" : "bg-warn/15 text-warn"
+                        }`}
+                      >
+                        {r.pain}
+                        {r.topZone ? ` · ${zoneOf(r.topZone)}` : ""}
+                      </span>
+                    )}
                   </td>
                 )}
-                {cols.has("alerts") && <td className="p-2.5 tabular-nums">{r.openAlerts || "—"}</td>}
+                {cols.has("alerts") && (
+                  <td className={`p-2.5 tabular-nums ${r.openAlerts > 0 ? "font-semibold text-warn" : ""}`}>
+                    {r.openAlerts || "—"}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

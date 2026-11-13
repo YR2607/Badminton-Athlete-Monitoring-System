@@ -35,8 +35,29 @@ export function OstrcHeatmap({
     return "bg-danger/50";
   };
 
+  const legend: [string, string][] = [
+    ["bg-foreground/5", d.legNoData],
+    ["bg-ok/20", d.legOk],
+    ["bg-warn/30", d.legMild],
+    ["bg-warn/60", d.legMod],
+    ["bg-danger/50", d.legSev],
+  ];
+
   return (
     <div className="overflow-x-auto">
+      <div className="mb-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-muted">
+        {legend.map(([cls, label]) => (
+          <span key={label} className="flex items-center gap-1">
+            <span className={`h-3 w-4 rounded ${cls}`} /> {label}
+          </span>
+        ))}
+        <span className="flex items-center gap-1">
+          <span className="flex h-3 w-4 items-center justify-center rounded bg-danger/50 text-[9px] font-bold text-danger">
+            !
+          </span>{" "}
+          {d.legSub}
+        </span>
+      </div>
       <table className="w-full border-separate text-xs" style={{ borderSpacing: 2 }}>
         <thead>
           <tr>

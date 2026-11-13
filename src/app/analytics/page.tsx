@@ -11,6 +11,8 @@ import { getFeatureFlags, flagEnabled } from "@/lib/flags";
 import { CompareChart, type CompareAthlete } from "@/app/coach/compare";
 import { LoadReadinessQuadrant, type QuadrantPoint } from "@/app/coach/quadrant";
 import { LoadBarChart } from "@/components/charts/series-chart";
+import { InsightLine, StatCard } from "@/components/charts/chart-ui";
+import { PrevalenceBars } from "@/components/charts/prevalence-bars";
 import type { Athlete, Alert, Group, MorningCheckin, OstrcZone, PostTrainingCheckin, Profile, TrainingSession } from "@/lib/types";
 import { AnalyticsFilters, type AthleteOption } from "./filters";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -325,14 +327,13 @@ export default async function AnalyticsPage({
           {/* Summary */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {statCards.map(([label, value, dl, invert, hint]) => (
-              <Card key={label as string}>
-                <CardContent className="pt-3 pb-3">
-                  <p className="text-lg font-bold tabular-nums">
-                    {value} <Delta d={dl} invert={invert} />
-                  </p>
-                  <p className="text-xs text-muted" title={hint}>{label}</p>
-                </CardContent>
-              </Card>
+              <StatCard
+                key={label as string}
+                label={label as string}
+                value={value}
+                hint={hint}
+                delta={<Delta d={dl} invert={invert} />}
+              />
             ))}
           </div>
           {/* Sample size — averages mean little without it */}
@@ -562,24 +563,20 @@ export default async function AnalyticsPage({
                 />
                 <p className="text-[11px] text-muted">{dict.dashboard.waveLegend}</p>
                 {wave14.status !== "insufficient" && (
-                  <div
-                    className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs ${
-                      wave14.status === "monotonous"
-                        ? "border-warn/40 bg-warn/10 text-warn"
-                        : "border-ok/30 bg-ok/5 text-ok"
-                    }`}
+                  <InsightLine
+                    tone={wave14.status === "monotonous" ? "warn" : "ok"}
+                    right={
+                      <>
+                        {dict.dashboard.wavePeaks.replace("{p}", String(wave14.peaks))} ·{" "}
+                        {dict.dashboard.waveRecoveries.replace("{r}", String(wave14.recoveries))} ·{" "}
+                        {dict.dashboard.waveAvg.replace("{m}", String(wave14.meanActive))}
+                      </>
+                    }
                   >
-                    <span className="font-medium">
-                      {wave14.status === "monotonous"
-                        ? `⚠️ ${dict.dashboard.waveMonotonous}`
-                        : `✅ ${dict.dashboard.waveGood}`}
-                    </span>
-                    <span className="text-muted">
-                      {dict.dashboard.wavePeaks.replace("{p}", String(wave14.peaks))} ·{" "}
-                      {dict.dashboard.waveRecoveries.replace("{r}", String(wave14.recoveries))} ·{" "}
-                      {dict.dashboard.waveAvg.replace("{m}", String(wave14.meanActive))}
-                    </span>
-                  </div>
+                    {wave14.status === "monotonous"
+                      ? `⚠️ ${dict.dashboard.waveMonotonous}`
+                      : `✅ ${dict.dashboard.waveGood}`}
+                  </InsightLine>
                 )}
               </CardContent>
             </Card>
@@ -593,7 +590,11 @@ export default async function AnalyticsPage({
                 <p className="text-xs text-muted">{dict.coach.quadrantHint}</p>
               </CardHeader>
               <CardContent>
-                <LoadReadinessQuadrant points={quadrantPoints} dict={dict} />
+                <LoadReadinessQuadrant
+                  points={quadrantPoints}
+                  missing={scoped.length - quadrantPoints.length}
+                  dict={dict}
+                />
               </CardContent>
             </Card>
           )}
@@ -606,21 +607,7 @@ export default async function AnalyticsPage({
                 <p className="text-xs text-muted">{dict.ostrc.prevHint}</p>
               </CardHeader>
               <CardContent>
-                <div className="flex flex-wrap gap-3">
-                  {ostrcPrev.map((z) => (
-                    <div key={z.zone} className="rounded-lg border border-border/60 px-3 py-2 text-sm">
-                      <p className="font-medium">{z.name}</p>
-                      <p className="text-xs text-muted">
-                        {dict.ostrc.anyProblem}:{" "}
-                        <b className={z.anyPct ? "text-warn" : ""}>{z.anyPct}%</b>
-                        {" · "}
-                        {dict.ostrc.substantialCap}:{" "}
-                        <b className={z.subPct ? "text-danger" : ""}>{z.subPct}%</b>
-                        {" · "}n={z.n}
-                      </p>
-                    </div>
-                  ))}
-                </div>
+                <PrevalenceBars rows={ostrcPrev} d={dict.ostrc} />
               </CardContent>
             </Card>
           )}
