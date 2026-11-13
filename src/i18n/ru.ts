@@ -103,6 +103,8 @@ const ru = {
     overview: "Обзор",
     configuration: "Конфигурация",
     coachWorkspace: "Режим тренера",
+    collapse: "Свернуть меню",
+    expand: "Развернуть меню",
     adminWorkspace: "Режим админа",
   },
   athleteHome: {

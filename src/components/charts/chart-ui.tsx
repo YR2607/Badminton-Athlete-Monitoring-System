@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { KPIStat } from "@/components/ui/kpi-stat";
 
 /**
  * Shared visualization primitives — keep every chart framed the same way:
@@ -48,32 +49,13 @@ export function InsightLine({
   );
 }
 
-/** KPI tile: value + label + optional delta chip + hint on hover. */
-export function StatCard({
-  label,
-  value,
-  hint,
-  delta,
-  tone = "neutral",
-}: {
+/** KPI tile — delegates to the shared KPIStat primitive. */
+export function StatCard(props: {
   label: string;
   value: ReactNode;
   hint?: string;
   delta?: ReactNode;
   tone?: "neutral" | "ok" | "warn" | "danger";
 }) {
-  return (
-    <div
-      title={hint}
-      className={cn(
-        "rounded-xl border p-3",
-        tone === "neutral" ? "border-border" : TONES[tone],
-      )}
-    >
-      <p className="text-lg font-bold tabular-nums">
-        {value} {delta}
-      </p>
-      <p className="text-xs text-muted">{label}</p>
-    </div>
-  );
+  return <KPIStat {...props} />;
 }

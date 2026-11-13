@@ -5,14 +5,13 @@ import type { Dictionary } from "@/i18n";
 import type { AppRole } from "@/lib/types";
 import { exitImpersonation, signOut } from "@/app/actions/auth";
 import { NotificationsBell } from "@/components/layout/notifications-bell";
-import { NavOverflow } from "@/components/layout/nav-overflow";
-import { NavLinks } from "@/components/layout/nav-links";
+import { Sidebar } from "@/components/layout/sidebar";
 import { BottomNav, type NavItem } from "@/components/layout/bottom-nav";
 import { PushSubscribe } from "@/components/push-subscribe";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TopProgress } from "@/components/layout/top-progress";
 
-/** primary — mobile bottom tabs; overflow — inside the "More" sheet */
+/** primary — main nav; overflow — secondary section. */
 export function navGroups(role: AppRole, d: Dictionary, isAdmin = false): { primary: NavItem[]; overflow: NavItem[] } {
   if (role === "athlete") {
     return {
@@ -35,15 +34,15 @@ export function navGroups(role: AppRole, d: Dictionary, isAdmin = false): { prim
       primary: [
         { href: "/coach", label: d.nav.today },
         { href: "/coach/athletes", label: d.nav.athletes },
-        { href: "/coach/attendance", label: d.nav.attendance },
-        { href: "/coach/alerts", label: d.nav.alerts },
         { href: "/analytics", label: d.analytics.title },
+        { href: "/coach/report", label: d.nav.reports },
+        { href: "/coach/attendance", label: d.nav.attendance },
       ],
       overflow: [
+        { href: "/coach/alerts", label: d.nav.alerts },
         { href: "/coach/academy", label: d.nav.academy },
         { href: "/coach/tests", label: d.nav.tests },
         { href: "/coach/tournaments", label: d.nav.tournaments },
-        { href: "/coach/report", label: d.nav.reports },
         { href: "/coach/guide", label: d.nav.guide },
         ...(isAdmin ? [{ href: "/admin", label: d.nav.adminWorkspace }] : []),
       ],
@@ -55,10 +54,11 @@ export function navGroups(role: AppRole, d: Dictionary, isAdmin = false): { prim
       { href: "/admin", label: d.nav.overview },
       { href: "/admin/users", label: d.nav.users },
       { href: "/admin/groups", label: d.nav.groups },
+      { href: "/analytics", label: d.analytics.title },
       { href: "/admin/config", label: d.nav.configuration },
-      { href: "/admin/audit", label: d.nav.audit },
     ],
     overflow: [
+      { href: "/admin/audit", label: d.nav.audit },
       { href: "/coach", label: d.nav.coachWorkspace },
       { href: "/coach/tournaments", label: d.nav.tournaments },
       { href: "/coach/report", label: d.nav.reports },
@@ -85,55 +85,68 @@ export async function AppShell({
   children: React.ReactNode;
 }) {
   const { primary, overflow } = navGroups(role, dict, isAdmin);
-  const impersonating = (await cookies()).has("rm-impersonating");
+  const cookieStore = await cookies();
+  const impersonating = cookieStore.has("rm-impersonating");
+  const navCollapsed = cookieStore.get("rm-nav-collapsed")?.value === "1";
   return (
-    <div className="min-h-full flex flex-col">
+    <div className="min-h-full">
       <TopProgress />
-      <header className="sticky top-0 z-30 border-b border-border bg-surface/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
-          <Link href="/" className="font-bold tracking-tight">
-            {dict.app.name}
-          </Link>
-          <nav className="hidden md:flex items-center gap-1 ml-4">
-            <NavLinks items={primary} />
-            <NavOverflow items={overflow} label={dict.nav.more} />
-          </nav>
-          <div className="ml-auto flex items-center gap-2">
-            <ThemeToggle label={dict.common.theme} />
-            <NotificationsBell />
-            <span className="hidden sm:block text-sm text-muted">{displayName}</span>
-            <form
-              action={async () => {
-                "use server";
-                await signOut();
-                redirect("/login");
-              }}
-            >
-              <button className="rounded-lg px-3 py-2 text-sm text-muted hover:bg-foreground/5 hover:text-foreground">
-                {dict.common.signOut}
-              </button>
-            </form>
-          </div>
+      <div className="flex min-h-screen">
+        <Sidebar
+          primary={primary}
+          overflow={overflow}
+          moreLabel={dict.nav.more}
+          brand={dict.app.name}
+          collapseLabel={dict.nav.collapse}
+          expandLabel={dict.nav.expand}
+          defaultCollapsed={navCollapsed}
+        />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-30 border-b border-border bg-surface/95 backdrop-blur">
+            <div className="flex h-14 items-center gap-3 px-4 md:px-8">
+              <Link href="/" className="font-bold tracking-tight md:hidden">
+                {dict.app.name}
+              </Link>
+              <div className="ml-auto flex items-center gap-2">
+                <ThemeToggle label={dict.common.theme} />
+                <NotificationsBell />
+                <span className="hidden text-sm text-muted sm:block">{displayName}</span>
+                <form
+                  action={async () => {
+                    "use server";
+                    await signOut();
+                    redirect("/login");
+                  }}
+                >
+                  <button className="rounded-lg px-3 py-2 text-sm text-muted hover:bg-foreground/5 hover:text-foreground">
+                    {dict.common.signOut}
+                  </button>
+                </form>
+              </div>
+            </div>
+          </header>
+          {impersonating && (
+            <div className="border-b border-accent/30 bg-accent/10">
+              <div className="flex items-center justify-between gap-3 px-4 py-2 text-sm md:px-8">
+                <span className="truncate">
+                  {dict.common.impersonatingBanner} <b>{displayName}</b>
+                </span>
+                <form action={exitImpersonation}>
+                  <button
+                    type="submit"
+                    className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground"
+                  >
+                    {dict.common.exitImpersonation}
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+          <main className="mx-auto w-full max-w-[1440px] flex-1 px-4 py-6 pb-28 md:px-8 md:pb-8">
+            {children}
+          </main>
         </div>
-      </header>
-      {impersonating && (
-        <div className="border-b border-accent/30 bg-accent/10">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-2 text-sm">
-            <span className="truncate">
-              {dict.common.impersonatingBanner} <b>{displayName}</b>
-            </span>
-            <form action={exitImpersonation}>
-              <button
-                type="submit"
-                className="shrink-0 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-foreground"
-              >
-                {dict.common.exitImpersonation}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 pb-28 md:pb-6">{children}</main>
+      </div>
 
       {/* Mobile bottom tab bar */}
       <BottomNav primary={primary} overflow={overflow} moreLabel={dict.nav.more} />

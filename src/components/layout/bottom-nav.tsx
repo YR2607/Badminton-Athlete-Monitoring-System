@@ -23,6 +23,10 @@ const ICONS: Record<string, string> = {
   tournaments:
     "M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22M18 2H6v7a6 6 0 0 0 12 0V2z",
   features: "M4 6h4v4H4zM4 14h4v4H4zM12 6h8M12 10h8M12 14h8M12 18h8",
+  report: "M6 3h9l4 4v14H6zM9 12h6M9 16h6M9 8h3",
+  tests: "M9 3h6M10 3v6l-5 9a3 3 0 0 0 2.6 4h8.8a3 3 0 0 0 2.6-4l-5-9V3M8 15h8",
+  guide: "M12 6.5A5 5 0 0 0 7.5 3H4v15h3.5a5 5 0 0 1 4.5 2.8A5 5 0 0 1 16.5 18H20V3h-3.5A5 5 0 0 0 12 6.5zM12 6.5v14",
+  admin: "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4",
   more: "M5 6h14M5 12h14M5 18h14",
 };
 
@@ -44,10 +48,14 @@ export function iconKey(href: string): string {
   if (href.includes("academy")) return "academy";
   if (href.includes("attendance")) return "attendance";
   if (href.includes("tournaments")) return "tournaments";
+  if (href.includes("report")) return "report";
+  if (href.includes("tests")) return "tests";
+  if (href.includes("guide")) return "guide";
+  if (href === "/admin") return "admin";
   return "home";
 }
 
-function NavIcon({ href, className }: { href: string; className?: string }) {
+export function NavIcon({ href, className }: { href: string; className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"

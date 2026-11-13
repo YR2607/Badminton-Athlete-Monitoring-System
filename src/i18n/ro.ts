@@ -102,6 +102,8 @@ const ro: Dictionary = {
     overview: "Prezentare",
     configuration: "Configurare",
     coachWorkspace: "Mod antrenor",
+    collapse: "Restrânge meniul",
+    expand: "Extinde meniul",
     adminWorkspace: "Mod admin",
   },
   athleteHome: {
