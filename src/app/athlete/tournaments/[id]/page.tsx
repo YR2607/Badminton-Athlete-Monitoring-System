@@ -37,7 +37,14 @@ export default async function AthleteTournamentPage({
         ← {d.back}
       </Link>
       <div>
-        <h1 className="text-xl font-bold">{tournament.title}</h1>
+        <h1 className="text-xl font-bold">
+          {tournament.title}
+          {tournament.format !== "singles" && (
+            <span className="ml-2 rounded-full bg-accent/10 px-2 py-0.5 align-middle text-[11px] font-semibold uppercase tracking-wide text-accent">
+              {tournament.format === "doubles" ? d.formatDoubles : d.formatMixed}
+            </span>
+          )}
+        </h1>
         <p className="text-sm text-muted">{tournament.played_on}</p>
       </div>
       <TournamentMatrixView

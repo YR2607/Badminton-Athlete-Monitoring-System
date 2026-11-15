@@ -12,6 +12,7 @@ import {
 import {
   deleteTournamentAction,
   importTournamentJsonAction,
+  linkPartnerAthleteAction,
   linkPlayerAthleteAction,
   saveMatchScoreAction,
 } from "@/app/actions/tournaments";
@@ -73,7 +74,9 @@ export function TournamentMatrixView({
   const leaders = standings.filter((s) => s.wins === maxWins && maxWins > 0);
   const rounds = bergerRounds(n);
   const mySeed = myAthleteId
-    ? (sortedPlayers.find((p) => p.athlete_id === myAthleteId)?.seed ?? null)
+    ? (sortedPlayers.find(
+        (p) => p.athlete_id === myAthleteId || p.partner_athlete_id === myAthleteId,
+      )?.seed ?? null)
     : null;
 
   const getScore = (i: number, j: number) => {
@@ -526,29 +529,56 @@ export function TournamentMatrixView({
                 <span className="font-medium">
                   #{p.seed + 1} · {p.display_name}
                 </span>
-                <select
-                  defaultValue={p.athlete_id ?? ""}
-                  onChange={(e) => {
-                    const val = e.target.value || null;
-                    startTransition(async () => {
-                      await linkPlayerAthleteAction({
-                        playerId: p.id,
-                        tournamentId: tournament.id,
-                        athleteId: val,
+                <span className="flex items-center gap-1.5">
+                  <select
+                    defaultValue={p.athlete_id ?? ""}
+                    onChange={(e) => {
+                      const val = e.target.value || null;
+                      startTransition(async () => {
+                        await linkPlayerAthleteAction({
+                          playerId: p.id,
+                          tournamentId: tournament.id,
+                          athleteId: val,
+                        });
+                        setStatusMsg(d.linkSaved.replace("{name}", p.display_name));
+                        router.refresh();
                       });
-                      setStatusMsg(d.linkSaved.replace("{name}", p.display_name));
-                      router.refresh();
-                    });
-                  }}
-                  className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs"
-                >
-                  <option value="">{d.guest}</option>
-                  {athletes.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
+                    }}
+                    className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs"
+                  >
+                    <option value="">{d.guest}</option>
+                    {athletes.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                  {tournament.format !== "singles" && (
+                    <select
+                      defaultValue={p.partner_athlete_id ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value || null;
+                        startTransition(async () => {
+                          await linkPartnerAthleteAction({
+                            playerId: p.id,
+                            tournamentId: tournament.id,
+                            partnerAthleteId: val,
+                          });
+                          setStatusMsg(d.linkSaved.replace("{name}", p.display_name));
+                          router.refresh();
+                        });
+                      }}
+                      className="rounded-lg border border-border bg-surface px-3 py-1.5 text-xs"
+                    >
+                      <option value="">{d.noPartnerLink}</option>
+                      {athletes.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </span>
               </div>
             ))}
           </div>

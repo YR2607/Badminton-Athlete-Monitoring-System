@@ -447,11 +447,14 @@ export interface AcademyResponse {
   completed_at: string;
 }
 
+export type TournamentFormat = "singles" | "doubles" | "mixed";
+
 export interface Tournament {
   id: string;
   title: string;
   played_on: string;
   courts: number;
+  format: TournamentFormat;
   status: "active" | "completed";
   created_by: string | null;
   created_at: string;
@@ -463,6 +466,8 @@ export interface TournamentPlayer {
   seed: number;
   display_name: string;
   athlete_id: string | null;
+  /** Second club athlete in a doubles/mixed pair (null = guest or singles). */
+  partner_athlete_id: string | null;
 }
 
 export interface TournamentMatch {

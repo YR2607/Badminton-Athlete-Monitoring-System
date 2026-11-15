@@ -9,15 +9,27 @@ export async function createTournamentAction(input: {
   title: string;
   playedOn: string;
   courts: number;
-  participants: { displayName: string; athleteId: string | null }[];
+  format?: "singles" | "doubles" | "mixed";
+  participants: {
+    displayName: string;
+    athleteId: string | null;
+    partnerAthleteId?: string | null;
+  }[];
 }): Promise<{ ok: true; id: string } | { ok: false; error: string }> {
   const me = await requireRole(["coach", "admin"]);
   const clean = input.participants
-    .map((p) => ({ displayName: p.displayName.trim(), athleteId: p.athleteId || null }))
+    .map((p) => ({
+      displayName: p.displayName.trim(),
+      athleteId: p.athleteId || null,
+      partnerAthleteId: p.partnerAthleteId || null,
+    }))
     .filter((p) => p.displayName.length > 0);
   if (clean.length < 2) {
     return { ok: false, error: "min_players" };
   }
+  const format = ["singles", "doubles", "mixed"].includes(input.format ?? "")
+    ? input.format!
+    : "singles";
   const supabase = await createClient();
   const { data: t, error: tErr } = await supabase
     .from("tournaments")
@@ -25,6 +37,7 @@ export async function createTournamentAction(input: {
       title: input.title.trim() || "Мини-турнир",
       played_on: input.playedOn,
       courts: Math.max(1, Math.min(12, input.courts || 4)),
+      format,
       created_by: me.id,
     })
     .select("id")
@@ -36,6 +49,7 @@ export async function createTournamentAction(input: {
     seed: idx,
     display_name: p.displayName,
     athlete_id: p.athleteId,
+    partner_athlete_id: format === "singles" ? null : p.partnerAthleteId,
   }));
   const { error: pErr } = await supabase.from("tournament_players").insert(playerRows);
   if (pErr) return { ok: false, error: pErr.message };
@@ -99,6 +113,22 @@ export async function linkPlayerAthleteAction(input: {
   await supabase
     .from("tournament_players")
     .update({ athlete_id: input.athleteId || null })
+    .eq("id", input.playerId);
+  revalidatePath(`/coach/tournaments/${input.tournamentId}`);
+  revalidatePath("/athlete/tournaments");
+  return { ok: true };
+}
+
+export async function linkPartnerAthleteAction(input: {
+  playerId: string;
+  tournamentId: string;
+  partnerAthleteId: string | null;
+}): Promise<{ ok: boolean }> {
+  await requireRole(["coach", "admin"]);
+  const supabase = await createClient();
+  await supabase
+    .from("tournament_players")
+    .update({ partner_athlete_id: input.partnerAthleteId || null })
     .eq("id", input.playerId);
   revalidatePath(`/coach/tournaments/${input.tournamentId}`);
   revalidatePath("/athlete/tournaments");

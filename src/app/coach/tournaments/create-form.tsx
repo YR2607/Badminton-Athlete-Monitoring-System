@@ -4,10 +4,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createTournamentAction } from "@/app/actions/tournaments";
 import type { Dictionary } from "@/i18n";
+import type { TournamentFormat } from "@/lib/types";
 
 interface Participant {
   name: string;
   athleteId: string | null;
+  partnerAthleteId: string | null;
 }
 
 export function TournamentCreateForm({
@@ -25,12 +27,26 @@ export function TournamentCreateForm({
   const [title, setTitle] = useState("");
   const [date, setDate] = useState(today);
   const [courts, setCourts] = useState(4);
+  const [format, setFormat] = useState<TournamentFormat>("singles");
   const [parts, setParts] = useState<Participant[]>(() =>
-    Array.from({ length: 8 }, () => ({ name: "", athleteId: null })),
+    Array.from({ length: 8 }, () => ({ name: "", athleteId: null, partnerAthleteId: null })),
   );
+
+  const isPair = format !== "singles";
 
   const setPart = (idx: number, patch: Partial<Participant>) =>
     setParts((prev) => prev.map((p, i) => (i === idx ? { ...p, ...patch } : p)));
+
+  const nameOf = (id: string | null) => athletes.find((a) => a.id === id)?.name ?? "";
+
+  // A pair's label composes itself from both linked athletes; the coach can
+  // still type free text for pairs with guest players.
+  const pairLabel = (p: Participant) => {
+    const n1 = nameOf(p.athleteId);
+    const n2 = nameOf(p.partnerAthleteId);
+    if (n1 && n2) return `${n1} / ${n2}`;
+    return p.name;
+  };
 
   const submit = () => {
     setError(null);
@@ -39,7 +55,12 @@ export function TournamentCreateForm({
         title,
         playedOn: date,
         courts,
-        participants: parts.map((p) => ({ displayName: p.name, athleteId: p.athleteId })),
+        format,
+        participants: parts.map((p) => ({
+          displayName: isPair ? pairLabel(p) : p.name,
+          athleteId: p.athleteId,
+          partnerAthleteId: isPair ? p.partnerAthleteId : null,
+        })),
       });
       if (res.ok) {
         router.push(`/coach/tournaments/${res.id}`);
@@ -48,6 +69,37 @@ export function TournamentCreateForm({
       }
     });
   };
+
+  const athleteSelect = (
+    idx: number,
+    field: "athleteId" | "partnerAthleteId",
+    ph: string,
+    linked: string | null,
+  ) => (
+    <select
+      value={linked ?? ""}
+      onChange={(e) => {
+        const id = e.target.value || null;
+        const p = parts[idx];
+        const next: Partial<Participant> = { [field]: id };
+        // Keep the free-text label in sync while it still looks auto-generated.
+        const n1 = field === "athleteId" ? nameOf(id) : nameOf(p.athleteId);
+        const n2 = field === "partnerAthleteId" ? nameOf(id) : nameOf(p.partnerAthleteId);
+        if (isPair && n1 && n2) next.name = `${n1} / ${n2}`;
+        else if (!isPair && !p.name) next.name = nameOf(id);
+        setPart(idx, next);
+      }}
+      title={field === "athleteId" ? d.linkAthlete : d.linkPartner}
+      className="w-36 shrink-0 rounded-lg border border-border bg-surface px-2 py-1.5 text-xs"
+    >
+      <option value="">{ph}</option>
+      {athletes.map((a) => (
+        <option key={a.id} value={a.id}>
+          {a.name}
+        </option>
+      ))}
+    </select>
+  );
 
   return (
     <div className="space-y-3">
@@ -84,7 +136,35 @@ export function TournamentCreateForm({
       </div>
 
       <div>
-        <div className="mb-1 text-xs text-muted">{d.fieldPlayers}</div>
+        <span className="mb-1 block text-xs text-muted">{d.fieldFormat}</span>
+        <div className="flex gap-1.5">
+          {(
+            [
+              ["singles", d.formatSingles],
+              ["doubles", d.formatDoubles],
+              ["mixed", d.formatMixed],
+            ] as [TournamentFormat, string][]
+          ).map(([f, label]) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setFormat(f)}
+              className={
+                format === f
+                  ? "rounded-lg border border-accent bg-accent px-3 py-1.5 text-xs font-semibold text-accent-foreground"
+                  : "rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium hover:bg-foreground/5"
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-1 text-xs text-muted">
+          {isPair ? d.fieldPairs : d.fieldPlayers}
+        </div>
         <div className="grid gap-1.5 sm:grid-cols-2">
           {parts.map((p, i) => (
             <div key={i} className="flex items-center gap-1.5">
@@ -92,38 +172,22 @@ export function TournamentCreateForm({
               <input
                 value={p.name}
                 onChange={(e) => setPart(i, { name: e.target.value })}
-                placeholder={d.playerNamePh}
+                placeholder={isPair ? d.pairNamePh : d.playerNamePh}
                 className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-2.5 py-1.5 text-sm"
               />
-              <select
-                value={p.athleteId ?? ""}
-                onChange={(e) => {
-                  const athleteId = e.target.value || null;
-                  const a = athletes.find((x) => x.id === athleteId);
-                  setPart(i, {
-                    athleteId,
-                    name: p.name || a?.name || "",
-                  });
-                }}
-                title={d.linkAthlete}
-                className="w-36 shrink-0 rounded-lg border border-border bg-surface px-2 py-1.5 text-xs"
-              >
-                <option value="">{d.noAthleteLink}</option>
-                {athletes.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
+              {athleteSelect(i, "athleteId", d.noAthleteLink, p.athleteId)}
+              {isPair && athleteSelect(i, "partnerAthleteId", d.noPartnerLink, p.partnerAthleteId)}
             </div>
           ))}
         </div>
         <button
           type="button"
-          onClick={() => setParts((prev) => [...prev, { name: "", athleteId: null }])}
+          onClick={() =>
+            setParts((prev) => [...prev, { name: "", athleteId: null, partnerAthleteId: null }])
+          }
           className="mt-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs font-medium"
         >
-          {d.addPlayer}
+          {isPair ? d.addPair : d.addPlayer}
         </button>
       </div>
 

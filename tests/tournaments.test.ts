@@ -74,6 +74,7 @@ const players = (names: string[]): TournamentPlayer[] =>
     seed: i,
     display_name: name,
     athlete_id: null,
+    partner_athlete_id: null,
   }));
 
 const match = (a: number, b: number, sa: number, sb: number): TournamentMatch => ({
@@ -121,6 +122,7 @@ describe("summarizeAthleteTournaments", () => {
     title: "T2",
     played_on: "2026-11-01",
     courts: 4,
+    format: "singles",
     status: "active",
     created_by: null,
     created_at: "",
@@ -128,14 +130,14 @@ describe("summarizeAthleteTournaments", () => {
 
   it("aggregates record, win rate and best place across tournaments", () => {
     const tourneys: Tournament[] = [
-      { id: "t1", title: "T1", played_on: "2026-10-01", courts: 4, status: "completed", created_by: null, created_at: "" },
+      { id: "t1", title: "T1", played_on: "2026-10-01", courts: 4, format: "singles", status: "completed", created_by: null, created_at: "" },
       t2,
     ];
     const ps: TournamentPlayer[] = [
       ...players(["Me", "B", "C"]),
-      { id: "q0", tournament_id: "t2", seed: 0, display_name: "Me", athlete_id: "ath1" },
-      { id: "q1", tournament_id: "t2", seed: 1, display_name: "D", athlete_id: null },
-      { id: "q2", tournament_id: "t2", seed: 2, display_name: "E", athlete_id: null },
+      { id: "q0", tournament_id: "t2", seed: 0, display_name: "Me", athlete_id: "ath1", partner_athlete_id: null },
+      { id: "q1", tournament_id: "t2", seed: 1, display_name: "D", athlete_id: null, partner_athlete_id: null },
+      { id: "q2", tournament_id: "t2", seed: 2, display_name: "E", athlete_id: null, partner_athlete_id: null },
     ];
     ps[0].athlete_id = "ath1";
     const ms: TournamentMatch[] = [

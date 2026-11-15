@@ -173,7 +173,10 @@ export function summarizeAthleteTournaments(
   players: TournamentPlayer[],
   matches: TournamentMatch[],
 ): AthleteTournamentSummary {
-  const mySlots = players.filter((p) => p.athlete_id === athleteId);
+  // In doubles/mixed a seed is a pair — the athlete may occupy either slot.
+  const mySlots = players.filter(
+    (p) => p.athlete_id === athleteId || p.partner_athlete_id === athleteId,
+  );
   const tById = new Map(tournaments.map((t) => [t.id, t]));
   const placements: AthleteTournamentSummary["placements"] = [];
   const matchRows: AthleteMatchRow[] = [];

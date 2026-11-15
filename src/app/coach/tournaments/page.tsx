@@ -83,9 +83,18 @@ export default async function CoachTournamentsPage() {
                   className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-surface px-4 py-3 transition-colors hover:border-accent/50"
                 >
                   <div>
-                    <div className="font-semibold">{t.title}</div>
+                    <div className="font-semibold">
+                      {t.title}
+                      {t.format !== "singles" && (
+                        <span className="ml-1.5 rounded-full bg-accent/10 px-2 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-accent">
+                          {t.format === "doubles" ? d.formatDoubles : d.formatMixed}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-muted">
-                      {t.played_on} · {n} {d.playersCount} · {done}/{total} {d.matchesOf}
+                      {t.played_on} · {n}{" "}
+                      {t.format === "singles" ? d.playersCount : d.pairsCount} ·{" "}
+                      {done}/{total} {d.matchesOf}
                     </div>
                   </div>
                   <span
