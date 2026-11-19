@@ -18,7 +18,7 @@ export type AIResult =
 
 export const DEFAULT_MODEL = "google/gemma-4-31b-it:free";
 const DEFAULT_BASE = "https://openrouter.ai/api/v1";
-const TIMEOUT_MS = 45_000;
+const TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS) || 90_000;
 const RETRYABLE = new Set([429, 500, 502, 503, 504]);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -125,7 +125,7 @@ export async function callAI(opts: {
         ...(withSchema
           ? { response_format: { type: "json_schema", json_schema: opts.jsonSchema } }
           : {}),
-        max_tokens: opts.maxOutputTokens ?? 4000,
+        max_tokens: opts.maxOutputTokens ?? 2500,
         temperature: 0.2,
         ...extraBody(),
       };
@@ -179,7 +179,10 @@ export async function callAI(opts: {
         }
         return { ok: true, data, usage };
       } catch {
-        if (attempt === 0) continue;
+        if (attempt === 0) {
+          // Retry once on timeout/network drop — free models can be slow.
+          continue;
+        }
         return { ok: false, error: "provider timeout/network error" };
       }
     }
