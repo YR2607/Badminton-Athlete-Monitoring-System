@@ -35,7 +35,7 @@ function extraBody(): Record<string, unknown> {
 }
 
 export function aiConfigured(): boolean {
-  return Boolean(process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY);
+  return Boolean(process.env.AI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim());
 }
 
 export function aiModel(): string {
@@ -107,7 +107,9 @@ export async function callAI(opts: {
   /** When set, a parseable-but-invalid reply triggers one corrective re-ask. */
   validate?: (data: unknown) => boolean;
 }): Promise<AIResult> {
-  const key = process.env.AI_API_KEY ?? process.env.OPENAI_API_KEY;
+  // Vercel/env pastes sometimes carry stray whitespace or a trailing newline —
+  // a whitespace-only key reaches the provider as `Bearer ` → 401.
+  const key = process.env.AI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim();
   if (!key) return { ok: false, error: "AI API key not configured" };
   const model = opts.model ?? aiModel();
   const base = (process.env.AI_BASE_URL ?? DEFAULT_BASE).replace(/\/$/, "");
