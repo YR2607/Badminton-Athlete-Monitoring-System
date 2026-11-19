@@ -39,6 +39,8 @@ export interface AthleteContext {
     score_avg_7d: number | null;
     score_avg_prev_7d: number | null;
   };
+  /** 0-100 data-quality confidence for the coach (weighted survey coverage + baseline history). */
+  data_confidence_pct: number | null;
   wellbeing: {
     checkins: number;
     coverage_pct: number | null;
@@ -93,6 +95,12 @@ export function summarizeAthleteData(input: {
 }): AthleteContext {
   const ck = input.checkins;
   const recent7 = ck.filter((c) => c.checkin_date >= addDays(input.to, -6));
+  const baselineHistoryPct = Math.min((input.snapshot?.input_data_count ?? 0) / 14, 1) * 100;
+  const confidencePct = Math.round(
+    pct(ck.length, input.days)! * 0.5 +
+      pct(input.posts.length, input.days)! * 0.2 +
+      baselineHistoryPct * 0.3,
+  );
   const prev7 = ck.filter(
     (c) => c.checkin_date >= addDays(input.to, -13) && c.checkin_date <= addDays(input.to, -7),
   );
@@ -119,6 +127,7 @@ export function summarizeAthleteData(input: {
       score_avg_7d: avg(recent7.map(wellness)),
       score_avg_prev_7d: avg(prev7.map(wellness)),
     },
+    data_confidence_pct: confidencePct,
     wellbeing: {
       checkins: ck.length,
       coverage_pct: pct(ck.length, input.days),

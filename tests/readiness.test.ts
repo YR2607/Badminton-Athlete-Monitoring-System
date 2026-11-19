@@ -168,6 +168,33 @@ describe("morning/post separation", () => {
     expect(morningWellnessScore(c)).toBe(readinessScore(normalizeCheckin(c)));
   });
 
+  it("acute pain/swelling/limitation lowers the stored readiness score", () => {
+    const perfect = mkCheckin({
+      sleep_score: 10, recovery_score: 10, fatigue_score: 1,
+      muscle_soreness_score: 1, stress_score: 1, mood_score: 10,
+    });
+    expect(morningWellnessScore(perfect)).toBe(100);
+    const jointPain = mkCheckin({
+      ...perfect,
+      pain_status: "joint_tendon",
+      pain_severity: 5,
+    });
+    expect(morningWellnessScore(jointPain)).toBe(75); // 100 - 15 - 10
+    const acute = mkCheckin({
+      ...perfect,
+      pain_status: "acute_instability",
+      pain_severity: 8,
+      swelling: true,
+      movement_limitation: true,
+    });
+    expect(morningWellnessScore(acute)).toBe(40); // 100 - capped(30+16+15+15) = 100 - 60
+    const withSymptoms = mkCheckin({ ...perfect, symptoms: "насморк" });
+    expect(morningWellnessScore(withSymptoms)).toBe(90);
+    const snap = buildSnapshot(acute, null);
+    expect(snap.readiness_score).toBe(40);
+    expect(snap.readiness_score).toBeLessThan(70);
+  });
+
   it("buildSnapshot stores the morning score — post data cannot be passed in", () => {
     const c = mkCheckin({
       sleep_score: 10, recovery_score: 10, fatigue_score: 1,

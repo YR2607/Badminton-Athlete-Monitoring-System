@@ -1305,6 +1305,7 @@ const ru = {
     evidence: "Опора на данные",
     recs: "Что можно рассмотреть",
     confidence: "Уверенность",
+    data_confidence: "Полнота данных",
     limits: "Ограничения",
     updated: "обновлено",
     useful: "Полезно",

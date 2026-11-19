@@ -26,6 +26,8 @@ export interface InsightRow {
   model_version: string | null;
   prompt_version: string | null;
   generated_at: string;
+  /** Weighted data-quality confidence for the coach (survey coverage + baseline history). */
+  data_confidence_pct?: number | null;
 }
 
 type Result<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -92,6 +94,17 @@ async function staffAthlete(athleteId: string) {
   return { me, supabase };
 }
 
+/** Weighted data-confidence for an athlete (fetched context already computed it). */
+async function dataConfidenceFor(
+  supabase: Supa,
+  athleteId: string,
+  tz: string,
+  range?: AnalysisRange,
+): Promise<number | null> {
+  const ctx = await fetchAthleteContext(supabase, athleteId, tz, 14, range);
+  return ctx?.data_confidence_pct ?? null;
+}
+
 async function fetchNameMap(supabase: Supa, athleteIds: string[]): Promise<Record<string, string>> {
   if (!athleteIds.length) return {};
   const { data: athletes } = await supabase
@@ -147,7 +160,8 @@ export async function getLatestInsight(athleteId: string): Promise<Result<Insigh
   const row = (data as InsightRow | null) ?? null;
   if (!row) return { ok: true, data: null };
   const names = await fetchNameMap(ctx.supabase, [athleteId]);
-  return { ok: true, data: resolveRowNames(row, names) };
+  const pct = await dataConfidenceFor(ctx.supabase, athleteId, ctx.me.timezone ?? "UTC");
+  return { ok: true, data: { ...resolveRowNames(row, names), data_confidence_pct: pct } };
 }
 
 /**
@@ -197,7 +211,8 @@ export async function analyzeAthlete(
   const cached = await cachedInsight(ctx.supabase, kind, "athlete", athleteId, todayInTz(tz));
   if (cached) {
     const names = await fetchNameMap(ctx.supabase, [athleteId]);
-    return { ok: true, data: resolveRowNames(cached, names) };
+    const pct = await dataConfidenceFor(ctx.supabase, athleteId, tz, period);
+    return { ok: true, data: { ...resolveRowNames(cached, names), data_confidence_pct: pct } };
   }
 
   const context = await fetchAthleteContext(ctx.supabase, athleteId, tz, 14, period);
@@ -289,21 +304,24 @@ export async function analyzeAthlete(
   const names = await fetchNameMap(ctx.supabase, [athleteId]);
   return {
     ok: true,
-    data: resolveRowNames(
-      {
-        id: inserted.id,
-        generated_at: inserted.generated_at,
-        category: row.category,
-        severity: row.severity,
-        title: row.title,
-        insight: row.insight,
-        insufficient: row.insufficient,
-        reason: row.reason,
-        model_version: row.model_version,
-        prompt_version: row.prompt_version,
-      } as InsightRow,
-      names,
-    ),
+    data: {
+      ...resolveRowNames(
+        {
+          id: inserted.id,
+          generated_at: inserted.generated_at,
+          category: row.category,
+          severity: row.severity,
+          title: row.title,
+          insight: row.insight,
+          insufficient: row.insufficient,
+          reason: row.reason,
+          model_version: row.model_version,
+          prompt_version: row.prompt_version,
+        } as InsightRow,
+        names,
+      ),
+      data_confidence_pct: context.data_confidence_pct,
+    },
   };
 }
 

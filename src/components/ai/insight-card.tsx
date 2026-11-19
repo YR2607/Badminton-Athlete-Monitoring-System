@@ -218,6 +218,11 @@ export function AIInsightCard({
                 <span>
                   {d.confidence}: <b>{d[`conf_${insight.confidence}` as keyof typeof d]}</b>
                 </span>
+                {row.data_confidence_pct != null && (
+                  <span>
+                    · {d.data_confidence}: <b>{row.data_confidence_pct}%</b>
+                  </span>
+                )}
                 {insight.limitations.length > 0 && (
                   <span title={insight.limitations.join("\n")}>
                     · {d.limits}: {insight.limitations.length}

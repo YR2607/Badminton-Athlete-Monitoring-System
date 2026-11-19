@@ -130,7 +130,7 @@ export interface SnapshotBuild {
  * into the readiness baseline or the stored readiness_score.
  */
 export function buildSnapshot(
-  checkin: Parameters<typeof normalizeCheckin>[0],
+  checkin: Parameters<typeof morningWellnessScore>[0],
   norm: PersonalNorm | null,
 ): SnapshotBuild {
   const normalized = normalizeCheckin(checkin);
@@ -170,7 +170,7 @@ export function dailyReadiness(checkins: MorningCheckin[]): { date: string; scor
   return checkins
     .slice()
     .sort((a, b) => a.checkin_date.localeCompare(b.checkin_date))
-    .map((c) => ({ date: c.checkin_date, score: readinessScore(normalizeCheckin(c)) }));
+    .map((c) => ({ date: c.checkin_date, score: morningWellnessScore(c) }));
 }
 
 /**
@@ -191,14 +191,43 @@ export function postWellnessScore(
  * score unchanged.
  */
 /**
+ * Penalty (0..100 points) for acute signals reported in the morning check-in:
+ * non-"none" pain, high severity, swelling, movement limitation or illness
+ * symptoms directly lower the stored readiness score — a high subjective
+ * wellness index cannot mask an acute issue.
+ */
+export function acutePenalty(
+  checkin: Pick<
+    MorningCheckin,
+    "pain_status" | "pain_severity" | "swelling" | "movement_limitation" | "symptoms"
+  >,
+): number {
+  let p = 0;
+  if (checkin.pain_status && checkin.pain_status !== "none") {
+    p += checkin.pain_status === "acute_instability" ? 30 : 15;
+    p += Math.min(checkin.pain_severity ?? 0, 10) * 2;
+  }
+  if (checkin.swelling) p += 15;
+  if (checkin.movement_limitation) p += 15;
+  if (checkin.symptoms?.trim()) p += 10;
+  return Math.min(p, 60);
+}
+
+/**
  * Morning wellness index (0..100) — THE readiness score. It reflects only
  * the morning questionnaire and is the single value used for baselines,
  * snapshots and "today" displays. Post-training answers never enter it.
+ * Acute pain/swelling/limitation/symptoms reduce it via acutePenalty.
  */
 export function morningWellnessScore(
-  checkin: Parameters<typeof normalizeCheckin>[0],
+  checkin: Parameters<typeof normalizeCheckin>[0] &
+    Pick<
+      MorningCheckin,
+      "pain_status" | "pain_severity" | "swelling" | "movement_limitation" | "symptoms"
+    >,
 ): number {
-  return readinessScore(normalizeCheckin(checkin));
+  const score = readinessScore(normalizeCheckin(checkin)) - acutePenalty(checkin);
+  return Math.max(0, Math.min(100, Math.round(score * 100) / 100));
 }
 
 // ---- Phase 2: rolling personal norms (z-score) ----

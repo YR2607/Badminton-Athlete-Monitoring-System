@@ -1303,6 +1303,7 @@ const en: Dictionary = {
     evidence: "Supporting data",
     recs: "What to consider",
     confidence: "Confidence",
+    data_confidence: "Data coverage",
     limits: "Limitations",
     updated: "updated",
     useful: "Useful",

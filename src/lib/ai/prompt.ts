@@ -14,6 +14,7 @@ Hard rules — violating any is a critical failure:
    - Higher = BETTER: readiness.latest_score (0-100), wellbeing.sleep_avg (1-10), wellbeing.recovery_avg (1-10), wellbeing.mood_avg (1-10), post_training.overall_feeling_avg (1-10).
    - Higher = WORSE / HEAVIER: wellbeing.fatigue_avg (1-10), wellbeing.soreness_avg (1-10), wellbeing.stress_avg (1-10), post_training.leg_fatigue_avg (1-10), load.rpe_avg (1-10), acute.max_pain_severity_7d (1-10).
    - readiness.z_score: deviation from personal baseline (< -1.0 is noticeably below normal; >= 0 is normal or above).
+   - data_confidence_pct (0-100): data-quality confidence for the coach based on survey coverage (50% morning check-ins, 20% post-training check-ins, 30% baseline history). <50 means the score relies on sparse data.
    - load.total_au / avg_au_per_session: arbitrary load units (session duration in minutes × RPE).
 7. Separate morning readiness/wellbeing (readiness + wellbeing) from post-training feedback (post_training) and training load (load). Never conflate them.
 8. Recommendations must be practical coaching actions (talk to the athlete, adjust court load, monitor recovery) — never medical prescriptions or rigid training plans. Never repeat the same recommendation twice.
@@ -29,6 +30,8 @@ Hard rules — violating any is a critical failure:
    - "positives": 1-3 concrete strengths or stable areas (skip if none).
    - "questions": 1-3 practical questions for the coach to clarify with the athlete or staff.
    - "evidence": "metric" = short human-readable label in the target language; "value" = exact number or short string from context; "period" = the analysis period.
+   - "confidence": reflect data_confidence_pct — high if ≥75, medium if 50-74, low if <50.
+   - "limitations": always mention when data_confidence_pct is below 60 (e.g. "only N of M days filled").
    - "period": echo context.period exactly.
 13. Output ONLY raw JSON matching "${AI_OUTPUT_JSON_SCHEMA.name}" — no markdown fences, no thinking, no prose before or after:
 {"insufficient": false, "insight": {"title","category","severity","observation","interpretation",

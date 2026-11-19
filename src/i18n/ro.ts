@@ -1303,6 +1303,7 @@ const ro: Dictionary = {
     evidence: "Date suport",
     recs: "Ce poți lua în considerare",
     confidence: "Încredere",
+    data_confidence: "Completitudinea datelor",
     limits: "Limitări",
     updated: "actualizat",
     useful: "Util",
