@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { scopedAthleteIds } from "@/lib/coach-data";
 import { isFlagEnabled } from "@/lib/flags";
 import { fetchAthleteContext, summarizeGroup } from "@/lib/ai/context";
-import { callAI, aiModel } from "@/lib/ai/provider";
+import { callAI, aiModel, checkAIHealth, type AIHealth } from "@/lib/ai/provider";
 import { AI_OUTPUT_JSON_SCHEMA, parseAIOutput, type AIInsight } from "@/lib/ai/schema";
 import { SYSTEM_PROMPT, PROMPT_VERSION, buildUserPrompt } from "@/lib/ai/prompt";
 import { verifyEvidence } from "@/lib/ai/verify";
@@ -490,4 +490,13 @@ export async function sendInsightFeedback(insightId: string, rating: 1 | -1) {
     { onConflict: "insight_id,profile_id" },
   );
   return error ? err(error.message) : { ok: true as const, data: null };
+}
+
+/** Safe provider probe: one minimal call, no athlete data, coach/admin only. */
+export async function aiProviderHealth(): Promise<Result<AIHealth>> {
+  const me = await getCurrentProfile();
+  if (!me || (me.role !== "coach" && me.role !== "admin")) return err("forbidden");
+  if (!(await isFlagEnabled("ai", null))) return err("disabled");
+  const health = await checkAIHealth();
+  return { ok: true, data: health };
 }

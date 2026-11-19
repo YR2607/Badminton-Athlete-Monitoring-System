@@ -6,6 +6,9 @@ const PRICING: Record<string, { in: number; out: number }> = {
   "gpt-4.1-mini": { in: 0.4, out: 1.6 },
   "google/gemma-4-31b-it:free": { in: 0, out: 0 },
   "nvidia/nemotron-3-ultra-550b-a55b:free": { in: 0, out: 0 },
+  "dots-studio/dots-3-note-preview:free": { in: 0, out: 0 },
+  "baidu/ernie-5.5-flash-preview:free": { in: 0, out: 0 },
+  "openrouter/free": { in: 0, out: 0 },
 };
 
 export function modelPricing(model: string) {

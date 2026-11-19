@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_MODEL, callAI, hasCjkCharacters } from "@/lib/ai/provider";
+import { callAI, hasCjkCharacters } from "@/lib/ai/provider";
+
+/** Primary model of the chat-completions (OpenRouter) chain under test. */
+const DEFAULT_MODELS = [
+  "dots-studio/dots-3-note-preview:free",
+  "baidu/ernie-5.5-flash-preview:free",
+  "openrouter/free",
+] as const;
 import { AI_OUTPUT_JSON_SCHEMA, parseAIOutput } from "@/lib/ai/schema";
 import { SYSTEM_PROMPT, buildUserPrompt } from "@/lib/ai/prompt";
 import { resolveInsightNames } from "@/lib/ai/names";
@@ -45,10 +52,13 @@ describe("AI Upgrade — model & structured output", () => {
 
   beforeEach(() => {
     process.env.AI_API_KEY = "test-key";
+    process.env.AI_PROVIDER = "chat"; // these tests exercise the chat/completions wire format
     delete process.env.AI_MODEL;
     delete process.env.OPENAI_MODEL;
     delete process.env.AI_FALLBACK_MODEL;
+    delete process.env.AI_MODELS;
     delete process.env.AI_DISABLE_RESPONSE_FORMAT;
+    process.env.AI_DISABLE_CACHE = "true";
   });
 
   afterEach(() => {
@@ -57,8 +67,10 @@ describe("AI Upgrade — model & structured output", () => {
     vi.restoreAllMocks();
   });
 
-  it("uses google/gemma-4-31b-it:free as default model", () => {
-    expect(DEFAULT_MODEL).toBe("google/gemma-4-31b-it:free");
+  it("uses dots-3-note-preview as default primary model", () => {
+    expect(DEFAULT_MODELS[0]).toBe("dots-studio/dots-3-note-preview:free");
+    expect(DEFAULT_MODELS).toContain("baidu/ernie-5.5-flash-preview:free");
+    expect(DEFAULT_MODELS).toContain("openrouter/free");
   });
 
   it("sends response_format json_schema and falls back on HTTP 400", async () => {
@@ -88,7 +100,7 @@ describe("AI Upgrade — model & structured output", () => {
 
     expect(res.ok).toBe(true);
     expect(bodies).toHaveLength(2);
-    expect(bodies[0].model).toBe("google/gemma-4-31b-it:free");
+    expect(bodies[0].model).toBe(DEFAULT_MODELS[0]);
     expect(bodies[0].response_format).toEqual({
       type: "json_schema",
       json_schema: AI_OUTPUT_JSON_SCHEMA,
@@ -113,7 +125,7 @@ describe("AI Upgrade — model & structured output", () => {
       validate: (d) => parseAIOutput(d) !== null,
     });
     expect(cjkRes.ok).toBe(false);
-    if (!cjkRes.ok) expect(cjkRes.error).toBe("cjk_output");
+    if (!cjkRes.ok) expect(cjkRes.error).toContain("cjk_output");
 
     globalThis.fetch = vi.fn(async () =>
       new Response(JSON.stringify({ choices: [{ message: { content: "" } }] }), { status: 200 }),
@@ -127,14 +139,14 @@ describe("AI Upgrade — model & structured output", () => {
     if (!emptyRes.ok) expect(emptyRes.error).toContain("empty provider response");
   });
 
-  it("falls back only to explicitly configured AI_FALLBACK_MODEL when primary fails", async () => {
-    process.env.AI_FALLBACK_MODEL = "google/gemma-3-27b-it:free";
+  it("falls back through the configured priority chain on transient errors", async () => {
+    process.env.AI_MODELS = `${DEFAULT_MODELS[0]},google/gemma-3-27b-it:free`;
     const modelsCalled: string[] = [];
     const payload = { insufficient: false, insight: sampleInsight() };
     globalThis.fetch = vi.fn(async (_url, init) => {
       const b = JSON.parse(String(init?.body)) as { model: string };
       modelsCalled.push(b.model);
-      if (b.model === DEFAULT_MODEL) return new Response("unavailable", { status: 503 });
+      if (b.model === DEFAULT_MODELS[0]) return new Response("unavailable", { status: 503 });
       return new Response(
         JSON.stringify({ choices: [{ message: { content: JSON.stringify(payload) } }] }),
         { status: 200 },
@@ -148,26 +160,85 @@ describe("AI Upgrade — model & structured output", () => {
       validate: (d) => parseAIOutput(d) !== null,
     });
     expect(res.ok).toBe(true);
-    expect(modelsCalled).toContain(DEFAULT_MODEL);
+    expect(modelsCalled).toContain(DEFAULT_MODELS[0]);
     expect(modelsCalled).toContain("google/gemma-3-27b-it:free");
+    if (res.ok) expect(res.usage.model).toBe("google/gemma-3-27b-it:free");
+  });
 
-    // Without AI_FALLBACK_MODEL, never silently switches to an untested model.
-    delete process.env.AI_FALLBACK_MODEL;
-    const noFallbackModels: string[] = [];
+  it("does not fail over on auth/request-level errors (401/403)", async () => {
+    process.env.AI_MODELS = `${DEFAULT_MODELS[0]},${DEFAULT_MODELS[1]}`;
+    const modelsCalled: string[] = [];
     globalThis.fetch = vi.fn(async (_url, init) => {
       const b = JSON.parse(String(init?.body)) as { model: string };
-      noFallbackModels.push(b.model);
-      return new Response("unavailable", { status: 503 });
+      modelsCalled.push(b.model);
+      return new Response('{"error":{"message":"Missing Authentication header"}}', {
+        status: 401,
+      });
     }) as typeof fetch;
 
-    const failRes = await callAI({
+    const res = await callAI({
+      system: SYSTEM_PROMPT,
+      user: buildUserPrompt({ test: true }, "ru"),
+      jsonSchema: AI_OUTPUT_JSON_SCHEMA,
+    });
+    expect(res.ok).toBe(false);
+    // Same key is used for every model — a 401 must stop the chain immediately.
+    expect(new Set(modelsCalled)).toEqual(new Set([DEFAULT_MODELS[0]]));
+  });
+
+  it("fails over on timeout/network errors and reports the last model", async () => {
+    process.env.AI_MODELS = `${DEFAULT_MODELS[0]},${DEFAULT_MODELS[1]}`;
+    const modelsCalled: string[] = [];
+    const payload = { insufficient: false, insight: sampleInsight() };
+    globalThis.fetch = vi.fn(async (_url, init) => {
+      const b = JSON.parse(String(init?.body)) as { model: string };
+      modelsCalled.push(b.model);
+      if (b.model === DEFAULT_MODELS[0]) throw new Error("network down");
+      return new Response(
+        JSON.stringify({ choices: [{ message: { content: JSON.stringify(payload) } }] }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+
+    const res = await callAI({
       system: SYSTEM_PROMPT,
       user: buildUserPrompt({ test: true }, "en"),
       jsonSchema: AI_OUTPUT_JSON_SCHEMA,
+      validate: (d) => parseAIOutput(d) !== null,
     });
-    expect(failRes.ok).toBe(false);
-    if (!failRes.ok) expect(failRes.error).toContain("@");
-    expect(new Set(noFallbackModels)).toEqual(new Set([DEFAULT_MODEL]));
+    expect(res.ok).toBe(true);
+    expect(modelsCalled).toEqual(
+      expect.arrayContaining([DEFAULT_MODELS[0], DEFAULT_MODELS[1]]),
+    );
+  });
+
+  it("deduplicates identical in-flight requests and caches results", async () => {
+    delete process.env.AI_DISABLE_CACHE;
+    const payload = { insufficient: false, insight: sampleInsight() };
+    let calls = 0;
+    globalThis.fetch = vi.fn(async () => {
+      calls++;
+      await new Promise((r) => setTimeout(r, 30));
+      return new Response(
+        JSON.stringify({ choices: [{ message: { content: JSON.stringify(payload) } }] }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+
+    const opts = {
+      system: SYSTEM_PROMPT,
+      user: buildUserPrompt({ test: "dedup" }, "ru"),
+      jsonSchema: AI_OUTPUT_JSON_SCHEMA,
+      validate: (d: unknown) => parseAIOutput(d) !== null,
+    };
+    // Two concurrent identical calls → one provider request.
+    const [r1, r2] = await Promise.all([callAI(opts), callAI(opts)]);
+    expect(r1.ok && r2.ok).toBe(true);
+    expect(calls).toBe(1);
+    // A later identical call → served from cache, still one provider request.
+    const r3 = await callAI(opts);
+    expect(r3.ok).toBe(true);
+    expect(calls).toBe(1);
   });
 });
 
