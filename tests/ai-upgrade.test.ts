@@ -124,7 +124,7 @@ describe("AI Upgrade — model & structured output", () => {
       jsonSchema: AI_OUTPUT_JSON_SCHEMA,
     });
     expect(emptyRes.ok).toBe(false);
-    if (!emptyRes.ok) expect(emptyRes.error).toBe("empty provider response");
+    if (!emptyRes.ok) expect(emptyRes.error).toContain("empty provider response");
   });
 
   it("falls back only to explicitly configured AI_FALLBACK_MODEL when primary fails", async () => {
@@ -166,6 +166,7 @@ describe("AI Upgrade — model & structured output", () => {
       jsonSchema: AI_OUTPUT_JSON_SCHEMA,
     });
     expect(failRes.ok).toBe(false);
+    if (!failRes.ok) expect(failRes.error).toContain("@");
     expect(new Set(noFallbackModels)).toEqual(new Set([DEFAULT_MODEL]));
   });
 });

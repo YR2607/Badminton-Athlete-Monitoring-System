@@ -143,6 +143,7 @@ export async function callAI(opts: {
           cache: "no-store",
         });
         if (!res.ok) {
+          const bodyText = await res.text().catch(() => "");
           // Some OpenRouter free endpoints reject response_format with 400 — retry once without it.
           if (res.status === 400 && withSchema && attempt === 0) {
             withSchema = false;
@@ -154,7 +155,10 @@ export async function callAI(opts: {
             await sleep(Number.isFinite(ra) && ra > 0 ? Math.min(ra * 1000, 10_000) : 1500);
             continue;
           }
-          return { ok: false, error: `provider ${res.status}` };
+          return {
+            ok: false,
+            error: `provider ${res.status}${bodyText ? `:${bodyText.slice(0, 120)}` : ""}`,
+          };
         }
         const json = (await res.json()) as {
           choices?: { message?: { content?: string } }[];
@@ -220,6 +224,10 @@ export async function callAI(opts: {
   for (const m of models) {
     last = await run(m);
     if (last.ok) return last;
+    // Wrap provider/network failures with the exact model that failed so we can debug.
+    if (!last.ok && /timeout|provider|unreachable/.test(last.error)) {
+      last = { ...last, error: `${last.error}@${m}` };
+    }
   }
   return last;
 }
