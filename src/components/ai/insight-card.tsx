@@ -31,6 +31,16 @@ const presetRange = (days: number) => {
   return { from: iso(from), to: iso(to) };
 };
 
+/** Map raw provider/action errors to coach-friendly localized messages.
+ * Full technical detail stays in ai_analysis_runs.error for debugging. */
+function aiErrorMessage(e: string, d: Dictionary["ai"]): string {
+  if (/429|rate.?limit/i.test(e)) return d.err_rate_limited;
+  if (/401|403|API key|not configured/i.test(e)) return d.err_key;
+  if (/timeout|network/i.test(e)) return d.err_timeout;
+  if (/invalid JSON|schema_invalid|cjk_output/i.test(e)) return d.err_invalid;
+  return d.err_generic;
+}
+
 /** AI interpretation card — visually distinct (dashed border, AI badge). */
 export function AIInsightCard({
   target,
@@ -71,7 +81,7 @@ export function AIInsightCard({
         : await analyzeAthlete(target.id, range);
     setPending(false);
     if (res.ok) setRow(res.data);
-    else toast.error(res.error);
+    else toast.error(aiErrorMessage(res.error, d));
   }
 
   async function rate(r: 1 | -1) {
