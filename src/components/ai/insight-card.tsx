@@ -12,7 +12,8 @@ import {
   sendInsightFeedback,
   type InsightRow,
 } from "@/app/actions/ai-insights";
-import type { AIInsight } from "@/lib/ai/schema";
+import { AIInsight as AIInsightSchema } from "@/lib/ai/schema";
+import { replaceAthleteCodes } from "@/lib/ai/names";
 import type { Dictionary } from "@/i18n";
 
 const SEV_TONE: Record<string, "neutral" | "warn" | "danger"> = {
@@ -51,10 +52,10 @@ export function AIInsightCard({
     const p = presetRange(n);
     return p.from === range.from && p.to === range.to;
   });
-  const insight = row && !row.insufficient ? (row.insight as AIInsight) : null;
-  const codes = Object.keys(names ?? {});
-  const codeRe = codes.length ? new RegExp(`\\b(${codes.join("|")})\\b`, "g") : null;
-  const nameify = (s: string) => (codeRe ? s.replace(codeRe, (m) => names![m] ?? m) : s);
+  const parsedInsight =
+    row && !row.insufficient && row.insight ? AIInsightSchema.safeParse(row.insight) : null;
+  const insight = parsedInsight?.success ? parsedInsight.data : null;
+  const nameify = (s: string) => (names ? replaceAthleteCodes(s, names) : s);
   const areaLabel = (a: string) =>
     (d[`area_${a}` as keyof typeof d] as string | undefined) ?? a;
   const sections = insight?.sections ?? [];
@@ -192,8 +193,9 @@ export function AIInsightCard({
                   <ul className="mt-1 space-y-0.5 text-xs text-muted">
                     {insight.evidence.map((e, i) => (
                       <li key={i}>
-                        {e.metric}: <b className="text-foreground">{String(e.value)}</b> ({e.period})
-                        {e.comparison ? ` · ${e.comparison}` : ""}
+                        {nameify(e.metric)}:{" "}
+                        <b className="text-foreground">{nameify(String(e.value))}</b> ({e.period})
+                        {e.comparison ? ` · ${nameify(e.comparison)}` : ""}
                       </li>
                     ))}
                   </ul>

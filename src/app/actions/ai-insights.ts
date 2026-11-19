@@ -6,9 +6,10 @@ import { scopedAthleteIds } from "@/lib/coach-data";
 import { isFlagEnabled } from "@/lib/flags";
 import { fetchAthleteContext, summarizeGroup } from "@/lib/ai/context";
 import { callAI, aiModel } from "@/lib/ai/provider";
-import { AI_OUTPUT_JSON_SCHEMA, parseAIOutput } from "@/lib/ai/schema";
+import { AI_OUTPUT_JSON_SCHEMA, parseAIOutput, type AIInsight } from "@/lib/ai/schema";
 import { SYSTEM_PROMPT, PROMPT_VERSION, buildUserPrompt } from "@/lib/ai/prompt";
 import { verifyEvidence } from "@/lib/ai/verify";
+import { replaceAthleteCodes, resolveInsightNames } from "@/lib/ai/names";
 import { isUniqueViolation } from "@/lib/ai/guard";
 import { reserveBudget, settleBudget, rateCheck } from "@/lib/ai/budget";
 import { estimateCostUsd } from "@/lib/ai/cost";
@@ -91,6 +92,45 @@ async function staffAthlete(athleteId: string) {
   return { me, supabase };
 }
 
+async function fetchNameMap(supabase: Supa, athleteIds: string[]): Promise<Record<string, string>> {
+  if (!athleteIds.length) return {};
+  const { data: athletes } = await supabase
+    .from("athletes")
+    .select("athlete_code,profile_id")
+    .in("id", athleteIds);
+  const rows = (athletes as { athlete_code: string; profile_id: string }[] | null) ?? [];
+  const profileIds = [...new Set(rows.map((r) => r.profile_id).filter(Boolean))];
+  const { data: profiles } = profileIds.length
+    ? await supabase.from("profiles").select("id,display_name").in("id", profileIds)
+    : { data: [] };
+  const nameByProfile = new Map(
+    ((profiles as { id: string; display_name: string }[] | null) ?? []).map((p) => [
+      p.id,
+      p.display_name,
+    ]),
+  );
+  const out: Record<string, string> = {};
+  for (const r of rows) {
+    const name = nameByProfile.get(r.profile_id)?.trim();
+    if (name && r.athlete_code) out[r.athlete_code] = name;
+  }
+  return out;
+}
+
+function resolveRowNames(row: InsightRow, names: Record<string, string>): InsightRow {
+  if (!Object.keys(names).length) return row;
+  const insight =
+    row.insight && typeof row.insight === "object" && !row.insufficient
+      ? resolveInsightNames(row.insight as AIInsight, names)
+      : row.insight;
+  return {
+    ...row,
+    title: replaceAthleteCodes(row.title, names),
+    reason: row.reason ? replaceAthleteCodes(row.reason, names) : row.reason,
+    insight,
+  };
+}
+
 /** Latest stored insight for the athlete (staff-scoped). */
 export async function getLatestInsight(athleteId: string): Promise<Result<InsightRow | null>> {
   const ctx = await staffAthlete(athleteId);
@@ -104,7 +144,10 @@ export async function getLatestInsight(athleteId: string): Promise<Result<Insigh
     .order("generated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  return { ok: true, data: (data as InsightRow | null) ?? null };
+  const row = (data as InsightRow | null) ?? null;
+  if (!row) return { ok: true, data: null };
+  const names = await fetchNameMap(ctx.supabase, [athleteId]);
+  return { ok: true, data: resolveRowNames(row, names) };
 }
 
 /**
@@ -152,7 +195,10 @@ export async function analyzeAthlete(
   if (range && !period) return err("invalid_range");
   const kind = period ? `athlete_on_demand:${period.from}:${period.to}` : "athlete_on_demand";
   const cached = await cachedInsight(ctx.supabase, kind, "athlete", athleteId, todayInTz(tz));
-  if (cached) return { ok: true, data: cached };
+  if (cached) {
+    const names = await fetchNameMap(ctx.supabase, [athleteId]);
+    return { ok: true, data: resolveRowNames(cached, names) };
+  }
 
   const context = await fetchAthleteContext(ctx.supabase, athleteId, tz, 14, period);
   if (!context) return err("not_found");
@@ -240,20 +286,24 @@ export async function analyzeAthlete(
       .from("ai_analysis_runs")
       .update({ status: "ok", error: usageFailed ? "usage_log_failed" : null })
       .eq("id", runId);
+  const names = await fetchNameMap(ctx.supabase, [athleteId]);
   return {
     ok: true,
-    data: {
-      id: inserted.id,
-      generated_at: inserted.generated_at,
-      category: row.category,
-      severity: row.severity,
-      title: row.title,
-      insight: row.insight,
-      insufficient: row.insufficient,
-      reason: row.reason,
-      model_version: row.model_version,
-      prompt_version: row.prompt_version,
-    } as InsightRow,
+    data: resolveRowNames(
+      {
+        id: inserted.id,
+        generated_at: inserted.generated_at,
+        category: row.category,
+        severity: row.severity,
+        title: row.title,
+        insight: row.insight,
+        insufficient: row.insufficient,
+        reason: row.reason,
+        model_version: row.model_version,
+        prompt_version: row.prompt_version,
+      } as InsightRow,
+      names,
+    ),
   };
 }
 
@@ -271,7 +321,20 @@ export async function getLatestGroupInsight(groupId: string): Promise<Result<Ins
     .order("generated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  return { ok: true, data: (data as InsightRow | null) ?? null };
+  const row = (data as InsightRow | null) ?? null;
+  if (!row) return { ok: true, data: null };
+  const { data: members } = await supabase
+    .from("group_memberships")
+    .select("athlete_id")
+    .eq("group_id", groupId)
+    .is("left_at", null);
+  const memberIds = ((members as { athlete_id: string }[] | null) ?? []).map((m) => m.athlete_id);
+  const scoped = await scopedAthleteIds(supabase);
+  const names = await fetchNameMap(
+    supabase,
+    memberIds.filter((id) => scoped.includes(id)),
+  );
+  return { ok: true, data: resolveRowNames(row, names) };
 }
 
 /** On-demand team briefing: group context → provider → validate → persist. */
@@ -290,7 +353,17 @@ export async function analyzeGroup(
   if (range && !period) return err("invalid_range");
   const kind = period ? `group_briefing:${period.from}:${period.to}` : "group_briefing";
   const cached = await cachedInsight(supabase, kind, "group", groupId, todayInTz(tz));
-  if (cached) return { ok: true, data: cached };
+  if (cached) {
+    const { data: members } = await supabase
+      .from("group_memberships")
+      .select("athlete_id")
+      .eq("group_id", groupId)
+      .is("left_at", null);
+    const ids = ((members as { athlete_id: string }[]) ?? []).map((m) => m.athlete_id);
+    const scoped = await scopedAthleteIds(supabase);
+    const names = await fetchNameMap(supabase, ids.filter((x) => scoped.includes(x)));
+    return { ok: true, data: resolveRowNames(cached, names) };
+  }
 
   const [{ data: group }, { data: members }] = await Promise.all([
     supabase.from("groups").select("name").eq("id", groupId).maybeSingle(),
@@ -378,7 +451,14 @@ export async function analyzeGroup(
       .from("ai_analysis_runs")
       .update({ status: "ok", error: usageFailed ? "usage_log_failed" : null })
       .eq("id", runId);
-  return { ok: true, data: { id: inserted.id, generated_at: inserted.generated_at, ...row } as InsightRow };
+  const names = await fetchNameMap(supabase, ids.filter((x) => scoped.includes(x)));
+  return {
+    ok: true,
+    data: resolveRowNames(
+      { id: inserted.id, generated_at: inserted.generated_at, ...row } as InsightRow,
+      names,
+    ),
+  };
 }
 
 /** Coach thumbs feedback on an insight (upsert per profile). */

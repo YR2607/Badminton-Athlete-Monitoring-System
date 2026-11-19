@@ -43,6 +43,7 @@ export interface AthleteContext {
     checkins: number;
     coverage_pct: number | null;
     sleep_avg: number | null;
+    recovery_avg: number | null;
     fatigue_avg: number | null;
     soreness_avg: number | null;
     stress_avg: number | null;
@@ -122,6 +123,7 @@ export function summarizeAthleteData(input: {
       checkins: ck.length,
       coverage_pct: pct(ck.length, input.days),
       sleep_avg: avg(ck.map((c) => c.sleep_score)),
+      recovery_avg: avg(ck.map((c) => c.recovery_score)),
       fatigue_avg: avg(ck.map((c) => c.fatigue_score)),
       soreness_avg: avg(ck.map((c) => c.muscle_soreness_score)),
       stress_avg: avg(ck.map((c) => c.stress_score)),

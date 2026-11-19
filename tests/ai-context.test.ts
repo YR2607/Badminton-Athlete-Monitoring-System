@@ -114,9 +114,34 @@ describe("summarizeAthleteData", () => {
 
   it("empty data produces nulls, not fake zeros of condition", () => {
     const ctx = summarizeAthleteData(base);
+    expect(ctx.athlete_code).toBe("AT-07");
     expect(ctx.readiness.latest_score).toBeNull();
     expect(ctx.wellbeing.checkins).toBe(0);
+    expect(ctx.wellbeing.recovery_avg).toBeNull();
     expect(ctx.load.sessions).toBe(0);
     expect(ctx.acute.pain_reports_7d).toBe(0);
+  });
+
+  it("separates morning wellbeing/recovery from post-training feedback", () => {
+    const ctx = summarizeAthleteData({
+      ...base,
+      checkins: [ck("2026-11-08", { sleep_score: 9, recovery_score: 4, fatigue_score: 8 })],
+      posts: [
+        {
+          id: "p1",
+          athlete_id: "a1",
+          training_session_id: "s1",
+          submitted_at: "2026-11-08T18:00:00Z",
+          overall_feeling: 5,
+          leg_fatigue: 9,
+          notes: null,
+        } as PostTrainingCheckin,
+      ],
+    });
+    expect(ctx.wellbeing.sleep_avg).toBe(9);
+    expect(ctx.wellbeing.recovery_avg).toBe(4);
+    expect(ctx.wellbeing.fatigue_avg).toBe(8);
+    expect(ctx.post_training.overall_feeling_avg).toBe(5);
+    expect(ctx.post_training.leg_fatigue_avg).toBe(9);
   });
 });

@@ -16,7 +16,7 @@ export type AIResult =
   | { ok: true; data: unknown; usage: AIUsage }
   | { ok: false; error: string; usage?: AIUsage; raw?: string };
 
-export const DEFAULT_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free";
+export const DEFAULT_MODEL = "google/gemma-4-31b-it:free";
 const DEFAULT_BASE = "https://openrouter.ai/api/v1";
 const TIMEOUT_MS = 45_000;
 const RETRYABLE = new Set([429, 500, 502, 503, 504]);
@@ -84,9 +84,19 @@ function safeParse(s: string): unknown {
   }
 }
 
+const CJK_RE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/;
+
+/** Detect stray Chinese/Japanese/Korean characters that some free models leak. */
+export function hasCjkCharacters(v: unknown): boolean {
+  if (typeof v === "string") return CJK_RE.test(v);
+  if (Array.isArray(v)) return v.some(hasCjkCharacters);
+  if (v && typeof v === "object") return Object.values(v).some(hasCjkCharacters);
+  return false;
+}
+
 const REPAIR_HINT =
   "\n\nYour previous reply failed validation. Reply with ONLY the raw JSON object " +
-  'of the required shape ({"insufficient":boolean, ...}) — no prose, no markdown fences.';
+  'of the required shape ({"insufficient":boolean, ...}) — no prose, no markdown fences, and NO Chinese/CJK characters.';
 
 export async function callAI(opts: {
   system: string;
@@ -103,19 +113,22 @@ export async function callAI(opts: {
   const base = (process.env.AI_BASE_URL ?? DEFAULT_BASE).replace(/\/$/, "");
 
   const request = async (m: string, userText: string): Promise<AIResult> => {
-    const body = {
-      model: m,
-      messages: [
-        { role: "system", content: opts.system },
-        { role: "user", content: userText },
-      ],
-      // No response_format — the target free model rejects unknown params
-      // with HTTP 400. Output is validated by Zod on our side instead.
-      max_tokens: opts.maxOutputTokens ?? 4000,
-      temperature: 0.2,
-      ...extraBody(),
-    };
+    const useSchema = process.env.AI_DISABLE_RESPONSE_FORMAT !== "true";
+    let withSchema = useSchema;
     for (let attempt = 0; attempt < 2; attempt++) {
+      const body: Record<string, unknown> = {
+        model: m,
+        messages: [
+          { role: "system", content: opts.system },
+          { role: "user", content: userText },
+        ],
+        ...(withSchema
+          ? { response_format: { type: "json_schema", json_schema: opts.jsonSchema } }
+          : {}),
+        max_tokens: opts.maxOutputTokens ?? 4000,
+        temperature: 0.2,
+        ...extraBody(),
+      };
       try {
         const res = await fetch(`${base}/chat/completions`, {
           method: "POST",
@@ -130,6 +143,11 @@ export async function callAI(opts: {
           cache: "no-store",
         });
         if (!res.ok) {
+          // Some OpenRouter free endpoints reject response_format with 400 — retry once without it.
+          if (res.status === 400 && withSchema && attempt === 0) {
+            withSchema = false;
+            continue;
+          }
           if (attempt === 0 && RETRYABLE.has(res.status)) {
             // Honor Retry-After on 429; a plain short backoff otherwise.
             const ra = Number(res.headers.get("retry-after"));
@@ -173,24 +191,27 @@ export async function callAI(opts: {
     let userText = opts.user;
     let lastData: unknown = null;
     let lastUsage: AIUsage | undefined;
+    let lastError = "schema_invalid";
     for (let pass = 0; pass < passes; pass++) {
       const res = await request(m, userText);
       if (!res.ok) return res;
-      if (!opts.validate || opts.validate(res.data)) return res;
+      const cjk = hasCjkCharacters(res.data);
+      const valid = !cjk && (!opts.validate || opts.validate(res.data));
+      if (valid) return res;
       lastData = res.data;
       lastUsage = res.usage;
+      lastError = cjk ? "cjk_output" : "schema_invalid";
       userText = `${opts.user}${REPAIR_HINT}\n\nInvalid reply: ${JSON.stringify(res.data).slice(0, 300)}`;
     }
     return {
       ok: false,
-      error: "schema_invalid",
+      error: lastError,
       usage: lastUsage,
       raw: JSON.stringify(lastData).slice(0, 200),
     };
   };
 
-  // Free-tier models rotate and rate-limit — retry the whole thing on a
-  // configured fallback before giving up.
+  // Retry only on explicitly configured fallback model — never switch silently to an untested model.
   const models = [...new Set([model, process.env.AI_FALLBACK_MODEL].filter(Boolean))] as string[];
   let last: AIResult = { ok: false, error: "unreachable" };
   for (const m of models) {

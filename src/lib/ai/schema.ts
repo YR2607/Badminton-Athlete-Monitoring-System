@@ -254,7 +254,18 @@ const okEnum = <T extends string>(v: unknown, allowed: readonly T[], dflt: T): T
   typeof v === "string" && (allowed as readonly string[]).includes(v) ? (v as T) : dflt;
 
 function asStringArray(v: unknown): string[] {
-  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  if (!Array.isArray(v)) return out;
+  for (const x of v) {
+    if (typeof x !== "string") continue;
+    const trimmed = x.trim();
+    const key = trimmed.toLowerCase();
+    if (!trimmed || seen.has(key)) continue;
+    seen.add(key);
+    out.push(trimmed);
+  }
+  return out;
 }
 
 /** Coerce loose model output into a valid AIInsight candidate. */
@@ -273,19 +284,28 @@ export function sanitizeInsight(obj: Record<string, unknown>) {
       source: typeof e.source === "string" ? e.source : "context",
     }))
     .slice(0, 10);
-  const recommendations = (Array.isArray(obj.recommendations) ? obj.recommendations : [])
+  const rawRecs = (Array.isArray(obj.recommendations) ? obj.recommendations : [])
     .map((r) => {
-      if (typeof r === "string") return { action: r, rationale: "" };
+      if (typeof r === "string") return { action: r.trim(), rationale: "" };
       if (r && typeof r === "object") {
         const o = r as Record<string, unknown>;
         return {
-          action: typeof o.action === "string" ? o.action : String(o.action ?? ""),
-          rationale: typeof o.rationale === "string" ? o.rationale : String(o.rationale ?? ""),
+          action: typeof o.action === "string" ? o.action.trim() : String(o.action ?? "").trim(),
+          rationale:
+            typeof o.rationale === "string" ? o.rationale.trim() : String(o.rationale ?? "").trim(),
         };
       }
       return null;
     })
-    .filter((r): r is { action: string; rationale: string } => r !== null && r.action.length > 0)
+    .filter((r): r is { action: string; rationale: string } => r !== null && r.action.length > 0);
+  const recSeen = new Set<string>();
+  const recommendations = rawRecs
+    .filter((r) => {
+      const k = r.action.toLowerCase();
+      if (recSeen.has(k)) return false;
+      recSeen.add(k);
+      return true;
+    })
     .slice(0, 5);
   const sections = (Array.isArray(obj.sections) ? obj.sections : [])
     .map((s) => {

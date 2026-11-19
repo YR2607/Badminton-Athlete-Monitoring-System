@@ -99,3 +99,12 @@ describe("extractJson robustness", () => {
     expect(extractJson("{broken")).toBeNull();
   });
 });
+
+describe("CJK leak guard", () => {
+  it("detects Chinese/Japanese/Korean characters in nested insight objects", async () => {
+    const { hasCjkCharacters } = await import("@/lib/ai/provider");
+    expect(hasCjkCharacters({ title: "Нагрузка выросла", notes: ["Сон 8"] })).toBe(false);
+    expect(hasCjkCharacters({ title: "Нагрузка 测试", notes: [] })).toBe(true);
+    expect(hasCjkCharacters({ nested: [{ text: "日本語" }] })).toBe(true);
+  });
+});
